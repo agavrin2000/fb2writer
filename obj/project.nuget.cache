@@ -1,0 +1,18 @@
+{
+  "version": 2,
+  "dgSpecHash": "zFhabBXzg/A=",
+  "success": true,
+  "projectFilePath": "C:\\Users\\GavrinAV\\source\\repos\\fb2-editor\\HelloPhotino.React.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\GavrinAV\\.nuget\\packages\\microsoft.extensions.fileproviders.abstractions\\8.0.0\\microsoft.extensions.fileproviders.abstractions.8.0.0.nupkg.sha512",
+    "C:\\Users\\GavrinAV\\.nuget\\packages\\microsoft.extensions.fileproviders.embedded\\8.0.10\\microsoft.extensions.fileproviders.embedded.8.0.10.nupkg.sha512",
+    "C:\\Users\\GavrinAV\\.nuget\\packages\\microsoft.extensions.primitives\\8.0.0\\microsoft.extensions.primitives.8.0.0.nupkg.sha512",
+    "C:\\Users\\GavrinAV\\.nuget\\packages\\newtonsoft.json\\13.0.4\\newtonsoft.json.13.0.4.nupkg.sha512",
+    "C:\\Users\\GavrinAV\\.nuget\\packages\\photino.native\\3.2.3\\photino.native.3.2.3.nupkg.sha512",
+    "C:\\Users\\GavrinAV\\.nuget\\packages\\photino.net\\3.2.3\\photino.net.3.2.3.nupkg.sha512",
+    "C:\\Users\\GavrinAV\\.nuget\\packages\\photino.net.server\\3.0.11\\photino.net.server.3.0.11.nupkg.sha512",
+    "C:\\Users\\GavrinAV\\.nuget\\packages\\system.runtime.compilerservices.unsafe\\6.0.0\\system.runtime.compilerservices.unsafe.6.0.0.nupkg.sha512",
+    "C:\\Users\\GavrinAV\\.nuget\\packages\\system.text.encoding.codepages\\10.0.3\\system.text.encoding.codepages.10.0.3.nupkg.sha512"
+  ],
+  "logs": []
+}
