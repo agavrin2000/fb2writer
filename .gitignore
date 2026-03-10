@@ -1,0 +1,39 @@
+# === Node.js / Next.js ===
+node_modules/
+.next/
+out/
+build/
+dist/
+.pnp*
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# === .NET / C# ===
+bin/
+obj/
+publish/
+*.exe
+*.dll
+*.pdb
+*.nupkg
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Специфично для Visual Studio / Rider
+.vs/
+.idea/
+.vscode/
+*.swp
+*.lut
+*.userprefs
+
+# === OS Files ===
+.DS_Store
+Thumbs.db
+
+# === Секреты ===
+.env*.local
+appsettings.Development.json
