@@ -163,3 +163,53 @@ html, body, #__next {
     font-weight: bold;
     cursor: pointer;
 }
+
+.fb2-table {
+	border-collapse: collapse;
+	table-layout: fixed;
+	width: 100%;
+	margin: 0;
+	overflow: hidden;
+}
+
+.fb2-table td, .fb2-table th {
+    min-width: 1em;
+    border: 1px solid #ddd;
+    padding: 3px 5px;
+    vertical-align: top;
+    box-sizing: border-box;
+    position: relative;
+}
+
+/* Основной контейнер секции */
+section.fb2-section {
+    display: block;
+    position: relative;
+    border: 2px solid #e0e0e0; /* Видимая рамка */
+    border-radius: 8px;
+    margin: 20px 0;
+    padding: 20px; /* Внутренний отступ от рамки до контента */
+    background-color: #ffffff;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+/* Эффект при наведении, чтобы лучше видеть структуру */
+section.fb2-section:hover {
+    border-color: rgba(0, 0, 0, 0.3);
+}
+
+/* Стили для заголовков ВНУТРИ секции */
+section.fb2-section > h1, 
+section.fb2-section > h2 {
+    margin-top: 0; /* Чтобы заголовок не "отрывался" от верха рамки */
+    color: #2c3e50;
+    border-bottom: 1px stripe #eee;
+    padding-bottom: 10px;
+}
+
+/* Вложенные секции (лесенка) */
+section.fb2-section section.fb2-section {
+    margin-left: 25px; /* Сдвиг вправо для иерархии */
+    border-left: 4px solid #3498db; /* Синяя полоса слева для акцента */
+    background-color: #f9f9f9;
+}

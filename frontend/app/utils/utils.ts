@@ -14,5 +14,3 @@ export const buildTree = (nodes: { pos: number; text: string; level: number }[])
   });
   return root;
 };
-
-//export { buildTree };

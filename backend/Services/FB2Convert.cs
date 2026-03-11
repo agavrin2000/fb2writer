@@ -71,10 +71,23 @@ private static void ParseElement(XElement container, XNamespace ns, XNamespace x
     {
         string name = el.Name.LocalName;
 
-        if (name == "title")
+        if (name == "section")
+        {
+            // Создаем список для внутреннего контента ЭТОЙ секции
+            var sectionContent = new List<object>();
+            
+            // Рекурсивно наполняем его (заголовки, p, вложенные секции пойдут сюда)
+            ParseElement(el, ns, xlink, binaryCache, sectionContent);
+
+            // Добавляем всю секцию как единый блок в общий список
+            nodes.Add(new { 
+                type = "fb2Section", 
+                content = sectionContent.ToArray() 
+            });
+        }
+        else if (name == "title")
         {
             int depth = el.Ancestors().Count(x => x.Name.LocalName == "section");
-            // FB2 Title может содержать <p>, извлекаем чистый текст
             string titleText = string.Join(" ", el.Descendants(ns + "p").Select(p => p.Value));
             if (string.IsNullOrWhiteSpace(titleText)) titleText = el.Value;
 
@@ -86,62 +99,39 @@ private static void ParseElement(XElement container, XNamespace ns, XNamespace x
         }
         else if (name == "p")
         {
-            // НОВАЯ ЛОГИКА: Парсим содержимое параграфа по частям (текст и ссылки)
             var inlineContent = new List<object>();
-
             foreach (var node in el.Nodes())
             {
                 if (node is XText textNode)
                 {
-                    // Обычный текст
                     inlineContent.Add(new { type = "text", text = textNode.Value });
                 }
                 else if (node is XElement child && child.Name.LocalName == "a")
                 {
-                    // Ссылка-сноска
                     var hrefAttr = child.Attributes().FirstOrDefault(a => a.Name.LocalName == "href");
-                    string href = hrefAttr?.Value ?? "";
-
                     inlineContent.Add(new { 
                         type = "text", 
                         text = child.Value,
-                        marks = new[] { 
-                            new { 
-                                type = "link", 
-                                attrs = new { 
-                                    href = href,
-                                    // Добавляем класс, чтобы React узнал сноску
-                                    target = "_blank",
-                                    rel = "footnote" 
-                                } 
-                            } 
-                        }
+                        marks = new[] { new { type = "link", attrs = new { href = hrefAttr?.Value ?? "", target = "_blank", rel = "footnote" } } }
                     });
                 }
             }
-
-            // Если параграф пустой, добавляем пустой текст (важно для TipTap)
-            if (inlineContent.Count == 0) 
-                inlineContent.Add(new { type = "text", text = "" });
-
+            if (inlineContent.Count == 0) inlineContent.Add(new { type = "text", text = "" });
             nodes.Add(new { type = "paragraph", content = inlineContent });
         }
         else if (name == "image")
         {
             var hrefAttr = el.Attributes().FirstOrDefault(a => a.Name.LocalName == "href");
             string href = hrefAttr?.Value?.Replace("#", "").ToLower();
-
             if (!string.IsNullOrEmpty(href) && binaryCache.TryGetValue(href, out string base64))
             {
-                nodes.Add(new {
-                    type = "image",
-                    attrs = new { src = $"data:image/jpeg;base64,{base64}" }
-                });
+                nodes.Add(new { type = "image", attrs = new { src = $"data:image/jpeg;base64,{base64}" } });
             }
         }
-        else if (name == "section" || name == "body")
+        else if (name == "body")
         {
-                ParseElement(el, ns, xlink, binaryCache, nodes);
+            // Для body продолжаем наполнять текущий список (обычно это корень)
+            ParseElement(el, ns, xlink, binaryCache, nodes);
         }
     }
 }

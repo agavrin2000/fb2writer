@@ -8,6 +8,18 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import { Fb2Metadata, IPhotinoBridge, TocItem } from '../../types/types';
 import { photino } from '../../api/photino';
 import { buildTree } from '../../utils/utils';
+import { Fb2Table, Fb2TableRow, Fb2TableCell } from '../../editor/extensions/fb2table';
+import { Fb2Section } from '../../editor/extensions/fb2section';
+import { Fb2Title } from '../extensions/fb2title';
+import { Fb2Cite } from '../extensions/fb2cite';
+import { Fb2CustomStyle } from '../extensions/fb2customstyle';
+import { Fb2Epigraph } from '../extensions/fb2epigraph';
+import { Fb2Note } from '../extensions/fb2note';
+import { Fb2Poem } from '../extensions/fb2poem';
+import { Fb2Stanza } from '../extensions/fb2stanza';
+import { Fb2Subtitle } from '../extensions/fb2subtitle';
+import { Fb2TextAuthor } from '../extensions/fb2textauthor';
+import { Fb2V } from '../extensions/fb2v';
 
 export const useFB2Editor = () => {
     const [metadata, setMetadata] = useState<Fb2Metadata>({ Title: '', Author: '' });
@@ -57,6 +69,17 @@ export const useFB2Editor = () => {
                 HTMLAttributes: { class: 'fb2-note-link text-blue-600 underline cursor-pointer', 'data-type': 'note' },
             }),
             Image.configure({ inline: false, allowBase64: true, HTMLAttributes: { class: 'mx-auto rounded-lg shadow-md my-4' } }),
+            Fb2Section,
+            Fb2Title,
+            Fb2Cite,
+            Fb2CustomStyle,
+            Fb2Epigraph,
+            Fb2Note,
+            Fb2Poem,
+            Fb2Stanza,
+            Fb2Subtitle,
+            Fb2TextAuthor,
+            Fb2V
         ],
         editorProps: {
             handleClick: (view, pos, event) => {
@@ -177,68 +200,68 @@ export const useFB2Editor = () => {
     }, [handleIncomingMessage]);
 
 
-useEffect(() => {
-    // Обработчик для загрузки контента
-    const onFb2Content = (payload: any) => {
-        // В вашем photino.ts payload уже распарсен (если пришел JSON)
-        // Но так как внутри payload у вас еще один JSON (EditorContent и т.д.), парсим его:
-        const fb2data = typeof payload === 'string' ? JSON.parse(payload) : payload;
+    useEffect(() => {
+        // Обработчик для загрузки контента
+        const onFb2Content = (payload: any) => {
+            // В вашем photino.ts payload уже распарсен (если пришел JSON)
+            // Но так как внутри payload у вас еще один JSON (EditorContent и т.д.), парсим его:
+            const fb2data = typeof payload === 'string' ? JSON.parse(payload) : payload;
 
-        if (editor && fb2data) {
-            if (fb2data.EditorContent) {
-                editor.commands.setContent(fb2data.EditorContent);
+            if (editor && fb2data) {
+                if (fb2data.EditorContent) {
+                    editor.commands.setContent(fb2data.EditorContent);
+                }
+                setMetadata(fb2data.Metadata || {});
+
+                if (fb2data.Footnotes) {
+                    setFootnotes(fb2data.Footnotes);
+                    footnotesRef.current = fb2data.Footnotes;
+                } else {
+                    setFootnotes({});
+                }
+                setIsLoading(false);
+                setLoadingFileName('');
             }
-            setMetadata(fb2data.Metadata || {});
-            
-            if (fb2data.Footnotes) {
-                setFootnotes(fb2data.Footnotes);
-                footnotesRef.current = fb2data.Footnotes;
-            } else {
-                setFootnotes({});
-            }
+        };
+
+        // Другие мелкие обработчики
+        const onStartLoading = (payload: string) => {
+            setIsLoading(true);
+            setLoadingFileName(payload || 'Обработка...');
+        };
+
+        const onInsertImage = (url: any) => {
+            if (editor) editor.chain().focus().setImage({ src: url }).run();
+        };
+        const onSaveSuccess = (path: string) => alert(`Книга сохранена: ${path}`);
+        const onCancelLoading = () => {
             setIsLoading(false);
             setLoadingFileName('');
-        }
-    };
+        };
 
-    // Другие мелкие обработчики
-    const onStartLoading = (payload: string) => {
-        setIsLoading(true);
-        setLoadingFileName(payload || 'Обработка...');
-    };
+        const onError = (payload: any) => {
+            setIsLoading(false);
+            alert(`Ошибка: ${payload}`);
+        };
 
-    const onInsertImage = (url: any) => {
-        if (editor) editor.chain().focus().setImage({ src: url }).run();
-    };
-    const onSaveSuccess = (path: string) => alert(`Книга сохранена: ${path}`);
-    const onCancelLoading = () => {
-        setIsLoading(false);
-        setLoadingFileName('');
-    };
-    
-    const onError = (payload: any) => {
-        setIsLoading(false);
-        alert(`Ошибка: ${payload}`);
-    };
+        // Подписываемся на события из PhotinoBridge
+        photino.on('fb2-content', onFb2Content);
+        photino.on('start-loading', onStartLoading);
+        photino.on('insert-image', onInsertImage);
+        photino.on('error', onError);
+        photino.on('save-success', onSaveSuccess);
+        photino.on('cancel-loading', onCancelLoading);
 
-    // Подписываемся на события из PhotinoBridge
-    photino.on('fb2-content', onFb2Content);
-    photino.on('start-loading', onStartLoading);
-    photino.on('insert-image', onInsertImage);
-    photino.on('error', onError);
-    photino.on('save-success', onSaveSuccess);
-    photino.on('cancel-loading', onCancelLoading);
-
-    return () => {
-        // Обязательно отписываемся, чтобы не было утечек памяти
-        photino.off('fb2-content', onFb2Content);
-        photino.off('start-loading', onStartLoading);
-        photino.off('insert-image', onInsertImage);
-        photino.off('error', onError);
-    photino.off('save-success', onSaveSuccess);
-    photino.off('cancel-loading', onCancelLoading);
-    };
-}, [editor, setMetadata, setIsLoading, setFootnotes]);
+        return () => {
+            // Обязательно отписываемся, чтобы не было утечек памяти
+            photino.off('fb2-content', onFb2Content);
+            photino.off('start-loading', onStartLoading);
+            photino.off('insert-image', onInsertImage);
+            photino.off('error', onError);
+            photino.off('save-success', onSaveSuccess);
+            photino.off('cancel-loading', onCancelLoading);
+        };
+    }, [editor, setMetadata, setIsLoading, setFootnotes]);
 
 
 
