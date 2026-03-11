@@ -7,13 +7,13 @@ using System.Text;
 using Newtonsoft.Json;
 
 
-namespace Photino.HelloPhotino.React;
+namespace FB2Editor;
 
 public class Fb2Service
 {
-    private Dictionary<string, string> _binaryCache = new Dictionary<string, string>();
+    private readonly Dictionary<string, string> _binaryCache = [];
 
-    public string LoadAndConvertToJson(string filePath)
+    public static string LoadAndConvertToJson(string filePath)
     {
         Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
         var doc = XDocument.Load(filePath);
@@ -61,11 +61,11 @@ public class Fb2Service
         {
             Meta = new { Title = "Книга", Author = "Автор" }, // Упростил для примера
             EditorContent = new { type = "doc", content = contentNodes },
-             Footnotes = footnotes // Передаем словарь сносок отдельно
+            Footnotes = footnotes // Передаем словарь сносок отдельно
         });
     }
 
-private void ParseElement(XElement container, XNamespace ns, XNamespace xlink, Dictionary<string, string> binaryCache, List<object> nodes)
+private static void ParseElement(XElement container, XNamespace ns, XNamespace xlink, Dictionary<string, string> binaryCache, List<object> nodes)
 {
     foreach (var el in container.Elements())
     {
@@ -141,7 +141,7 @@ private void ParseElement(XElement container, XNamespace ns, XNamespace xlink, D
         }
         else if (name == "section" || name == "body")
         {
-            ParseElement(el, ns, xlink, binaryCache, nodes);
+                ParseElement(el, ns, xlink, binaryCache, nodes);
         }
     }
 }

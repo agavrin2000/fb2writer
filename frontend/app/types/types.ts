@@ -13,6 +13,7 @@ export interface IPhotinoBridge {
     sendMessage: (message: string) => void;
     receiveMessage: (callback: (message: string) => void) => void;
 }
+
 export interface Fb2Data {
     Meta: Fb2Metadata;
     EditorContent: any;

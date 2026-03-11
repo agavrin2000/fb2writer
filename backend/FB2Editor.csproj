@@ -12,6 +12,8 @@
 	</PropertyGroup>
 
 	<ItemGroup>
+		<PackageReference Include="Avalonia" Version="11.3.12" />
+		<PackageReference Include="Avalonia.Desktop" Version="11.3.12" />
 		<PackageReference Include="Microsoft.Extensions.FileProviders.Embedded" Version="8.0.10" />
 		<PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
 		<PackageReference Include="Photino.NET" Version="3.2.3" />
@@ -37,8 +39,6 @@
 	<ItemGroup>
 		<NextFiles Include="$(FrontendRoot)\out\**\*.*" />
 	</ItemGroup>
-	<Copy SourceFiles="@(NextFiles)" 
-			DestinationFolder="wwwroot\%(RecursiveDir)" 
-			SkipUnchangedFiles="true" />
+	<Copy SourceFiles="@(NextFiles)" DestinationFolder="wwwroot\%(RecursiveDir)" SkipUnchangedFiles="true" />
 	</Target>
 </Project>

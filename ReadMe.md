@@ -1,38 +1,59 @@
-## Getting Started with HelloPhotino.React
-This sample demonstrates how to create a basic React starter app in a Photino.NET application. It utilizes Photino.NET.Server which serves (often bundled) UI files from a local ASP.NET server. This gets around issues with serving JavaScript modules, bundles, and other resources from static files and allows the UI to make standard service calls to the .NET back end if desired.
+FB2 Editor (Photino + Next.js)
+Современный редактор электронных книг формата FB2, построенный на связке нативного контейнера .NET (Photino) и веб-интерфейса на Next.js (TipTap).
+🏗 Архитектура
+Проект представляет собой Monorepo с разделением на фронтенд и бэкенд:
 
-## Development
-### User Interface
-The entire user interface is contained in the UserInterface folder. It can be maintained independently of the .NET portion of the application. It uses standard React development paradigms. To begin development, first issue the following command from the UserInterface folder to install the necessary dependencies:
-```bash
-npm install
-```
+* /frontend: Веб-приложение на Next.js 14, React 18 и Tailwind CSS. Использует редактор TipTap (на базе ProseMirror) для WYSIWYG-правки текста.
+* /backend: Нативное приложение на .NET 8/9 с использованием библиотеки Photino.NET. Служит хостом для фронтенда и обеспечивает доступ к файловой системе ОС.
 
-During development, the user is expected to run the React development server using the following command from the UserInterface folder:
-```bash
-npm run dev
-``` 
+🚀 Быстрый старт (Разработка)
+Чтобы использовать Hot Reload (мгновенное обновление интерфейса при правке кода React):
 
-### .NET
-During development, The .NET application expects the React development server to be running (see above). The .NET application will proxy requests to the React development server. To run the .NET application, issue the following command from the UserInterface folder:
-```bash
-dotnet run
-```
-If the development server isn't running, the UI will not be able to serve the UI and you'll get a "localhost refused to connect" or similar error.
+   1. Запустите фронтенд-сервер:
+   
+   cd frontend
+   npm install
+   npm run dev
+   
+   Интерфейс будет доступен по адресу http://localhost:3000.
+   2. Запустите .NET приложение:
+   * Откройте FB2Editor.sln в Visual Studio.
+      * Убедитесь, что выбрана конфигурация Debug.
+      * Нажмите F5. Photino автоматически подключится к запущенному серверу Next.js.
+   
+📦 Сборка (Production)
+При сборке в режиме Release, проект автоматически упаковывается в единое нативное приложение:
 
-## Production
-### User Interface
-The first step in doing a production build of the UI is to issue the following command from the UserInterface folder:
-```bash
-npm run build
-```
-This will create a folder named build in the UserInterface folder. Manually copy the contents of this folder to the Resources/wwwroot folder in the .NET project. This process is not automated because it differs by operating system. Feel free to automate this step in your own environment.
+   1. В Visual Studio переключите конфигурацию на Release.
+   2. Начните сборку (Build Solution).
+   3. MSBuild автоматически:
+   * Запустит npm run build во фронтенде.
+      * Выполнит статический экспорт (output: export).
+      * Скопирует готовые файлы в папку backend/wwwroot.
+      * Скомпилирует исполняемый файл .exe.
+   
+🛠 Технологический стек
 
-### .NET
-After doing a production build of the user interface and copying the resulting output to the wwwroot folder, the .NET application can be built in release mode by using the Configuration Manager in Visual Studio or by issuing the following command from the root .NET project folder:
-```bash
-dotnet build -c Release
-```
+* UI/Editor: TipTap (ProseMirror)
+* Frontend Framework: Next.js (App Router)
+* Desktop Bridge: Photino.NET
+* Styling: Tailwind CSS
+* Language: TypeScript & C#
 
-### Photino.NET.Server
-In release mode, the UI is served from ASP.NET. Photino.NET.Server serves files from either embedded resources (built into the .NET assembly) or from the file system. In this sample, we placed the wwwroot folder in the Resources folder. All files in the Resources folder are embedded into the .NET assembly and don't need to be distributed separately. When run, the server will create a wwwroot folder structure in the output folder. Any files placed in these folders will override the embedded resources. Alternately, you may choose to move the wwwroot folder to the root of the project and set the files to be copied to the output folder. This is how many of the simpler examples are configured. Or you can use both methods. The choice is yours.
+📂 Структура проекта
+
+├── FB2Editor.sln          # Файл решения Visual Studio
+├── backend/               # C# проект (Photino хост)
+│   ├── Program.cs         # Точка входа, настройка окна
+│   └── wwwroot/           # Скомпилированный фронтенд (автогенерация)
+├── frontend/              # Next.js проект
+│   ├── app/               # Страницы и Layout
+│   ├── components/        # React компоненты (Editor, Sidebar, etc.)
+│   └── editor/            # Логика TipTap и хуки
+└── .gitignore             # Общие правила исключений для Git
+
+📝 Лицензия
+MIT
+------------------------------
+Добавить в README раздел с описанием того, как работает "мост" (Photino Bridge) между JS и C# для сохранения файлов?
+

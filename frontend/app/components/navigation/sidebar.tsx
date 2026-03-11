@@ -11,7 +11,7 @@ export const Sidebar = ({ tree, onNavigate, activePos }: { tree: TocItem[], onNa
         if (!items || items.length === 0) return null;
         return items.map((item) => (
             <div key={item.pos} className="flex flex-col">
-                <button
+                <button type="button"
                     id={`toc-item-${item.pos}`}
                     onClick={() => onNavigate(item.pos)}
                     className={`w-full text-left px-3 py-2 text-[11px] rounded transition-all truncate border-l-4 mb-0.5 ${activePos === item.pos
@@ -19,7 +19,7 @@ export const Sidebar = ({ tree, onNavigate, activePos }: { tree: TocItem[], onNa
                         : 'text-gray-600 border-transparent hover:bg-gray-100'
                         }`}
                     // Умножаем отступ на уровень, чтобы видеть иерархию
-                    style={{ paddingLeft: `${item.level * 8}px` }}
+                    style={{ paddingLeft: `${item.level * 10}px` }}
                 >
                     {item.text}
                 </button>

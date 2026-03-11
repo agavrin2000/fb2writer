@@ -1,21 +1,26 @@
 using Photino.NET;
 using Photino.NET.Server;
-using System.Drawing;
 using System.Text;
-using System.Windows.Forms;
-using Newtonsoft.Json;
-
-namespace Photino.HelloPhotino.React;
+using Avalonia;
+using Avalonia.Controls;
+using FB2Editor.Services;
+namespace FB2Editor;
 //NOTE: To hide the console window, go to the project properties and change the Output Type to Windows Application.
 // Or edit the .csproj file and change the <OutputType> tag from "WinExe" to "Exe".
 
 class Program
 {
     public static bool IsDebugMode = true;     //serve files from asp.net runtime
+    public static Window? DialogOwner { get; private set; }
+
 
     [STAThread]
     static void Main(string[] args)
     {
+        InitializeAvalonia();
+
+        var fileService = new FileService();
+
         PhotinoServer
             .CreateStaticFileServer(args, out string baseUrl)
             .RunAsync();
@@ -36,12 +41,13 @@ class Program
             // Resize to a percentage of the main monitor work area
             //.Resize(50, 50, "%")
             .SetUseOsDefaultSize(false)
-            .SetSize(new Size(800, 600))
+            .SetSize(new System.Drawing.Size(800, 600))
             // Center window in the middle of the screen
             .Center()
             // Users can resize windows by default.
             // Let's make this one fixed instead.
             .SetResizable(true)
+            .SetDevToolsEnabled(true)
             .RegisterCustomSchemeHandler("app", (object sender, string scheme, string url, out string contentType) =>
             {
                 contentType = "text/javascript";
@@ -57,99 +63,72 @@ class Program
             // PhotinoWindow was instantiated by calling a registration 
             // method like the following RegisterWebMessageReceivedHandler.
             // This could be added in the PhotinoWindowOptions if preferred.
-            .RegisterWebMessageReceivedHandler((object sender, string message) =>
+            .RegisterWebMessageReceivedHandler((sender, message) =>
             {
-                var window = (PhotinoWindow)sender;
+                if (sender is not PhotinoWindow w) return;
 
-                if (message == "open-file:selected")
-                {
-                    var thread = new Thread(() =>
-                    {
-                        using (OpenFileDialog openFileDialog = new OpenFileDialog())
-                        {
-                            if (openFileDialog.ShowDialog() == DialogResult.OK)
-                            {
-                                // Извлекаем короткое имя файла
-                                string fileName = Path.GetFileName(openFileDialog.FileName);
+                // Используем switch для чистоты обработки команд
+                // Предполагаем, что из React прилетает JSON (через ваш EventEmitter)
+                ProcessMessage(message, fileService);
+            });
+        fileService.OnMessageEmitted += (json) => window.SendWebMessage(json);
 
-                                // 1. Отправляем в React сигнал о начале загрузки вместе с именем файла
-                                var startMsg = JsonConvert.SerializeObject(new
-                                {
-                                    type = "start-loading",
-                                    fileName = fileName
-                                });
-                                window.SendWebMessage(startMsg);
+        window.Load(appUrl).WaitForClose(); // Starts the application event loop
+    }
 
-                                try
-                                {
-                                    var fb2Service = new Fb2Service();
-                                    string json = fb2Service.LoadAndConvertToJson(openFileDialog.FileName);
-                                    window.SendWebMessage(json);
-                                }
-                                catch (Exception ex)
-                                {
-                                    window.SendWebMessage($"{{\"type\":\"error\", \"msg\":\"{ex.Message}\"}}");
-                                }
-                            }
-                            else
-                            {
-                                window.SendWebMessage("{\"type\":\"cancel-loading\"}");
-                            }
-                        }
-                    });
-                    thread.SetApartmentState(ApartmentState.STA);
-                    thread.Start();
-                }
-                if (message.StartsWith("save-file:"))
-                {
-                    string json = message.Replace("save-file:", "");
+    private static void InitializeAvalonia()
+    {
+        AppBuilder.Configure<App>()
+            .UsePlatformDetect()
+            .SetupWithoutStarting();
 
-                    // В реальном приложении здесь стоит вызвать SaveFileDialog, 
-                    // но для теста сохраним в фиксированный файл или перезапишем текущий
-                    var fb2Service = new Fb2Service();
-                    fb2Service.SaveJsonToFb2("output.fb2", json);
+        DialogOwner = new Window
+        {
+            SystemDecorations = SystemDecorations.None,
+            ShowInTaskbar = false,
+            Opacity = 0,
+            WindowStartupLocation = WindowStartupLocation.Manual,
+            Position = new PixelPoint(-20000, -20000) // Уводим максимально далеко
+        };
 
-                    window.SendWebMessage("{\"status\": \"saved\"}");
-                }
-                if (message == "select-image")
-                {
-                    var thread = new Thread(() =>
-                    {
-                        using (OpenFileDialog openFileDialog = new OpenFileDialog())
-                        {
-                            openFileDialog.Filter = "Images (*.jpg;*.png)|*.jpg;*.png";
-                            if (openFileDialog.ShowDialog() == DialogResult.OK)
-                            {
-                                byte[] imageArray = File.ReadAllBytes(openFileDialog.FileName);
-                                string base64Image = Convert.ToBase64String(imageArray);
-                                string extension = Path.GetExtension(openFileDialog.FileName).Replace(".", "");
+        DialogOwner.Show();
+        DialogOwner.Hide();
+    }
 
-                                // Формируем Data URL для отображения в браузере
-                                string dataUrl = $"data:image/{extension};base64,{base64Image}";
+    private static void ProcessMessage(string message, FileService fileService)
+    {
+        if (string.IsNullOrWhiteSpace(message)) return;
 
-                                // Отправляем команду в React вставить картинку
-                                window.SendWebMessage(JsonConvert.SerializeObject(new
-                                {
-                                    type = "insert-image",
-                                    url = dataUrl
-                                }));
-                            }
-                        }
-                    });
-                    thread.SetApartmentState(ApartmentState.STA);
-                    thread.Start();
-                }
-                /*
-                // The message argument is coming in from sendMessage.
-                // "window.external.sendMessage(message: string)"
-                string response = $"Received message: \"{message}\"";
+        // Разделяем строку на две части по первому двоеточию
+        // "save-file:{"text":"..."}" -> ["save-file", "{"text":"..."}"]
+        var parts = message.Split(':', 2);
+        string command = parts[0];
+        string payload = parts.Length > 1 ? parts[1] : string.Empty;
 
-                // Send a message back the to JavaScript event handler.
-                // "window.external.receiveMessage(callback: Function)"
-                window.SendWebMessage(response);*/
-            })
-            .Load(appUrl); // Can be used with relative path strings or "new URI()" instance to load a website.
+        switch (command)
+        {
+            case "open-file":
+                _ = fileService.OpenFileAsync();
+                break;
 
-        window.WaitForClose(); // Starts the application event loop
+            case "save-file":
+                if (!string.IsNullOrEmpty(payload))
+                    _ = fileService.SaveFileAsync(payload);
+                break;
+
+            case "select-image":
+                _ = fileService.SelectImageAsync();
+                break;
+
+            default:
+                Console.WriteLine($"[C# Unknown Command]: {command}");
+                break;
+        }
+    }
+
+    // 3. Минимальный класс App для инициализации Avalonia
+    public class App : Avalonia.Application
+    {
+        public override void Initialize() => base.Initialize();
     }
 }
