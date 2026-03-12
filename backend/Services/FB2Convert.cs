@@ -127,9 +127,9 @@ public class Fb2Service
                 if (inlineContent.Count == 0) inlineContent.Add(new { type = "text", text = "" });
                 nodes.Add(new { type = "paragraph", content = inlineContent });
             }
-            else if (name == "emptyline")
+            else if (name == "empty-line")
             {
-                nodes.Add(new { type = "text", text = "" });
+                nodes.Add(new { type = "paragraph", text = "" });
             }
             else if (name == "image")
             {
