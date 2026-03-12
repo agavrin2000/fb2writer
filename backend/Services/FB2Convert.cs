@@ -1,7 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
 using System.Xml.Linq;
 using System.Text;
 using Newtonsoft.Json;
@@ -19,7 +15,7 @@ public class Fb2Service
         var doc = XDocument.Load(filePath);
 
         // ВАЖНО: Используем LocalName, чтобы игнорировать ошибки префиксов в разных файлах
-        XNamespace ns = doc.Root.GetDefaultNamespace();
+        XNamespace ns = doc.Root?.GetDefaultNamespace() ?? XNamespace.None; ;
         XNamespace xlink = "http://www.w3.org";
 
         // 1. Собираем все картинки (ID -> Base64)
@@ -65,76 +61,92 @@ public class Fb2Service
         });
     }
 
-private static void ParseElement(XElement container, XNamespace ns, XNamespace xlink, Dictionary<string, string> binaryCache, List<object> nodes)
-{
-    foreach (var el in container.Elements())
+    private static void ParseElement(XElement container, XNamespace ns, XNamespace xlink, Dictionary<string, string> binaryCache, List<object> nodes)
     {
-        string name = el.Name.LocalName;
-
-        if (name == "section")
+        foreach (var el in container.Elements())
         {
-            // Создаем список для внутреннего контента ЭТОЙ секции
-            var sectionContent = new List<object>();
-            
-            // Рекурсивно наполняем его (заголовки, p, вложенные секции пойдут сюда)
-            ParseElement(el, ns, xlink, binaryCache, sectionContent);
+            string name = el.Name.LocalName;
 
-            // Добавляем всю секцию как единый блок в общий список
-            nodes.Add(new { 
-                type = "fb2Section", 
-                content = sectionContent.ToArray() 
-            });
-        }
-        else if (name == "title")
-        {
-            int depth = el.Ancestors().Count(x => x.Name.LocalName == "section");
-            string titleText = string.Join(" ", el.Descendants(ns + "p").Select(p => p.Value));
-            if (string.IsNullOrWhiteSpace(titleText)) titleText = el.Value;
-
-            nodes.Add(new { 
-                type = "heading", 
-                attrs = new { level = Math.Clamp(depth > 0 ? depth : 1, 1, 6) }, 
-                content = new[] { new { type = "text", text = titleText.Trim() } } 
-            });
-        }
-        else if (name == "p")
-        {
-            var inlineContent = new List<object>();
-            foreach (var node in el.Nodes())
+            if (name == "section")
             {
-                if (node is XText textNode)
+                int depth = el.Ancestors().Count(x => x.Name.LocalName == "section") + 1;
+                int level = Math.Clamp(depth, 1, 6);
+
+                // Создаем список для внутреннего контента ЭТОЙ секции
+                var sectionContent = new List<object>();
+
+                // Рекурсивно наполняем его (заголовки, p, вложенные секции пойдут сюда)
+                ParseElement(el, ns, xlink, binaryCache, sectionContent);
+
+                // Добавляем всю секцию как единый блок в общий список
+                nodes.Add(new
                 {
-                    inlineContent.Add(new { type = "text", text = textNode.Value });
+                    type = "fb2Section",
+                    attrs = new { level = level },
+                    content = sectionContent.ToArray()
+                });
+            }
+            else if (name == "title")
+            {
+                // Считаем количество родительских тегов <section>
+                int depth = el.Ancestors().Count(x => x.Name.LocalName == "section");
+                // Уровень заголовка (минимум 1)
+                int level = Math.Clamp(depth, 1, 6);
+                // Формируем список объектов для поля content
+                var contentList = new List<object>();
+                // Рекурсивно наполняем его (заголовки, p, вложенные секции пойдут сюда)
+                ParseElement(el, ns, xlink, binaryCache, contentList);
+                // Добавляем всю секцию как единый блок в общий список
+                nodes.Add(new
+                {
+                    type = "fb2Title",
+                    content = contentList.ToArray(),
+                    attrs = new { level = level }
+                });
+            }
+            else if (name == "p")
+            {
+                var inlineContent = new List<object>();
+                foreach (var node in el.Nodes())
+                {
+                    if (node is XText textNode)
+                    {
+                        inlineContent.Add(new { type = "text", text = textNode.Value });
+                    }
+                    else if (node is XElement child && child.Name.LocalName == "a")
+                    {
+                        var hrefAttr = child.Attributes().FirstOrDefault(a => a.Name.LocalName == "href");
+                        inlineContent.Add(new
+                        {
+                            type = "text",
+                            text = child.Value,
+                            marks = new[] { new { type = "link", attrs = new { href = hrefAttr?.Value ?? "", target = "_blank", rel = "footnote" } } }
+                        });
+                    }
                 }
-                else if (node is XElement child && child.Name.LocalName == "a")
+                if (inlineContent.Count == 0) inlineContent.Add(new { type = "text", text = "" });
+                nodes.Add(new { type = "paragraph", content = inlineContent });
+            }
+            else if (name == "emptyline")
+            {
+                nodes.Add(new { type = "text", text = "" });
+            }
+            else if (name == "image")
+            {
+                var hrefAttr = el.Attributes().FirstOrDefault(a => a.Name.LocalName == "href");
+                string href = hrefAttr?.Value?.Replace("#", "").ToLower() ?? string.Empty;
+                if (!string.IsNullOrEmpty(href) && binaryCache.TryGetValue(href, out string? base64) && base64 != null)
                 {
-                    var hrefAttr = child.Attributes().FirstOrDefault(a => a.Name.LocalName == "href");
-                    inlineContent.Add(new { 
-                        type = "text", 
-                        text = child.Value,
-                        marks = new[] { new { type = "link", attrs = new { href = hrefAttr?.Value ?? "", target = "_blank", rel = "footnote" } } }
-                    });
+                    nodes.Add(new { type = "image", attrs = new { src = $"data:image/jpeg;base64,{base64}" } });
                 }
             }
-            if (inlineContent.Count == 0) inlineContent.Add(new { type = "text", text = "" });
-            nodes.Add(new { type = "paragraph", content = inlineContent });
-        }
-        else if (name == "image")
-        {
-            var hrefAttr = el.Attributes().FirstOrDefault(a => a.Name.LocalName == "href");
-            string href = hrefAttr?.Value?.Replace("#", "").ToLower();
-            if (!string.IsNullOrEmpty(href) && binaryCache.TryGetValue(href, out string base64))
+            else if (name == "body")
             {
-                nodes.Add(new { type = "image", attrs = new { src = $"data:image/jpeg;base64,{base64}" } });
+                // Для body продолжаем наполнять текущий список (обычно это корень)
+                ParseElement(el, ns, xlink, binaryCache, nodes);
             }
-        }
-        else if (name == "body")
-        {
-            // Для body продолжаем наполнять текущий список (обычно это корень)
-            ParseElement(el, ns, xlink, binaryCache, nodes);
         }
     }
-}
 
 
     private string ExtractAuthor(XElement titleInfo, XNamespace ns)
@@ -149,7 +161,11 @@ private static void ParseElement(XElement container, XNamespace ns, XNamespace x
     public void SaveJsonToFb2(string filePath, string jsonPayload)
     {
         // 1. Десериализуем данные из React
-        dynamic data = JsonConvert.DeserializeObject(jsonPayload);
+        dynamic? data = JsonConvert.DeserializeObject(jsonPayload);
+        if (data == null)
+        {
+            return;
+        }
 
         // Определение пространств имен (стандарт FB2)
         XNamespace ns = "http://www.gribuser.ru";

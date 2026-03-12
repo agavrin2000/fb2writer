@@ -58,18 +58,12 @@ class Program
                             }, 1000);
                         })();
                     "));
-            })
-            // Most event handlers can be registered after the
-            // PhotinoWindow was instantiated by calling a registration 
-            // method like the following RegisterWebMessageReceivedHandler.
-            // This could be added in the PhotinoWindowOptions if preferred.
-            .RegisterWebMessageReceivedHandler((sender, message) =>
+            });
+
+            window.RegisterWebMessageReceivedHandler((sender, message) =>
             {
                 if (sender is not PhotinoWindow w) return;
-
-                // Используем switch для чистоты обработки команд
-                // Предполагаем, что из React прилетает JSON (через ваш EventEmitter)
-                ProcessMessage(message, fileService);
+                ProcessMessage(message, fileService, window);
             });
         fileService.OnMessageEmitted += (json) => window.SendWebMessage(json);
 
@@ -95,7 +89,7 @@ class Program
         DialogOwner.Hide();
     }
 
-    private static void ProcessMessage(string message, FileService fileService)
+    private static void ProcessMessage(string message, FileService fileService, PhotinoWindow window)
     {
         if (string.IsNullOrWhiteSpace(message)) return;
 
@@ -118,6 +112,10 @@ class Program
 
             case "select-image":
                 _ = fileService.SelectImageAsync();
+                break;
+
+            case "close-app":
+                window.Close();
                 break;
 
             default:

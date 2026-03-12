@@ -7,13 +7,16 @@ import { EditorCanvas } from './components/editor/canvas';
 import { StatusBar } from './components/layout/statusbar';
 import { Toolbar } from './components/editor/toolbar';
 import { ImageBubbleMenu } from './components/editor/image-bubble-menu';
+import { SectionBubbleMenu } from './components/editor/section-bubble-menu';
 import { Loader } from './components/editor/loader';
 import { NotePopup } from './components/editor/note-popup';
+import { photino } from './api/photino';
+
 export default function Page() {
     const scrollRef = useRef<HTMLDivElement>(null);
     const {
         editor, tocTree, activeHeadingPos, isLoading,
-        openFile, saveFile, getPhotino, activeNote,
+        openFile, saveFile, activeNote,
         loadingFileName, footnotes, closeNotePopup, updateNoteText 
     } = useFB2Editor();
 
@@ -42,7 +45,7 @@ export default function Page() {
                     {/* Тулбар форматирования над листом */}
                     <Toolbar
                         editor={editor}
-                        onSelectImage={() => getPhotino()?.sendMessage('select-image')}
+                        onSelectImage={() => photino.send('select-image')}
                     />
 
                     {/* Лист редактора */}

@@ -1,5 +1,6 @@
 import { Editor } from '@tiptap/react';
 import React from 'react';
+import { Bold, Italic, Strikethrough, Code, Quote, Superscript, Subscript, FileImage } from 'lucide-react';
 
 interface ToolbarProps {
   editor: Editor | null;
@@ -20,35 +21,50 @@ export const Toolbar: React.FC<ToolbarProps> = ({ editor, onSelectImage }) => {
 
   return (
     <div className="bg-white border-b p-2 flex justify-center items-center gap-1 shadow-sm sticky top-0 z-20">
-      <button 
+      <button type='button' title='Bold' 
         onClick={() => editor.chain().focus().toggleBold().run()} 
         className={btnClass('bold')}
-      >B</button>
+      ><Bold size={20} /></button>
       
-      <button 
+      <button type='button' title='Italic' 
         onClick={() => editor.chain().focus().toggleItalic().run()} 
         className={btnClass('italic')}
-      >I</button>
+      ><Italic size={20} /></button>
       
+      <button type='button' title='Strike'
+        onClick={() => editor.chain().focus().toggleStrike().run()} 
+        className={btnClass('strike')}
+      ><Strikethrough size={20} /></button>
+
+      <button type='button'  title='Superscript'
+        onClick={() => editor.chain().focus().toggleSuperscript().run()} 
+        className={btnClass('superscript')}
+      ><Superscript size={20} /></button>
+
+      <button type='button' title='Subscript' 
+        onClick={() => editor.chain().focus().toggleSubscript().run()} 
+        className={btnClass('subscript')}
+      ><Subscript size={20} /></button>
+
+      <button type='button' title='Blockquote' 
+        onClick={() => editor.chain().focus().toggleBlockquote().run()} 
+        className={btnClass('blockquote')}
+      ><Quote size={20} /></button>
+
+      <button type='button' title='Code' 
+        onClick={() => editor.chain().focus().toggleCode().run()} 
+        className={btnClass('code')}
+      ><Code size={20} /></button>
+
       <div className="w-px h-6 bg-gray-200 mx-2" />
-      
-      {[1, 2, 3].map(lvl => (
-        <button 
-          key={lvl} 
-          onClick={() => editor.chain().focus().toggleHeading({ level: lvl as any }).run()} 
-          className={btnClass('heading', { level: lvl })}
-        >
-          H{lvl}
-        </button>
-      ))}
-      
-      <div className="w-px h-6 bg-gray-200 mx-2" />
-      
-      <button 
+    
+      <button onClick={() => (editor as any).chain().focus().insertSection().run()}>Добавить главу</button>
+      <button onClick={() => (editor as any).chain().focus().deleteSection().run()}>Удалить главу</button>
+
+      <button type='button' title='Image'  
         onClick={onSelectImage} 
-        className="p-1.5 px-4 border rounded text-xs font-bold text-purple-600 hover:bg-purple-50 transition-all active:scale-95"
-      >
-        📷 IMAGE
+        className={btnClass('image')}
+      ><FileImage size={20} />
       </button>
     </div>
   );

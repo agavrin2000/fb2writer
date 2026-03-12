@@ -1,19 +1,52 @@
-import { Node, mergeAttributes, Mark } from '@tiptap/core'
+import { Node, mergeAttributes } from "@tiptap/core";
+
+
+/*declare module '@tiptap/core' {
+  interface Commands<ReturnType> {
+    insertSection: () => ReturnType;
+    deleteSection: () => ReturnType;
+  }
+}*/
 
 export const Fb2Section = Node.create({
-    name: 'fb2Section',
-    group: 'block',
-    content: 'fb2Title? (block | fb2Section)+', // Секция требует заголовок (опц) и контент
-//    content: 'block+', // Секция требует заголовок (опц) и контент
-    defining: true, // Важно: сохраняет структуру при вставке
-    parseHTML() {
-        return [{ tag: 'section.fb2-section' }]
+  name: "fb2Section",
+  group: "block",
+  content: "fb2Title? (block | fb2Section)+",
+  defining: true,
+    addAttributes() {
+        return {
+            level: {
+                // Это значение будет использоваться, если в JSON нет поля level
+                default: 1,
+                // Позволяет Tiptap подхватывать level из JSON (attrs: { level: ... })
+                keepAttributes: true,
+            },
+        }
     },
-    renderHTML({ HTMLAttributes }) {
-        return [
-            'section',
-            mergeAttributes(HTMLAttributes, { class: 'fb2-section' }),
-            0
-        ]
-    },
-})
+  parseHTML: () => [{ tag: "section" }],
+  renderHTML: ({ HTMLAttributes }) => [
+    "section",
+    mergeAttributes(HTMLAttributes, { class: "fb2-section border-l-2 border-blue-100 pl-4 my-6" }),
+    0,
+  ],
+
+  addCommands(): any {
+    return {
+      insertSection: () => ({ chain }: any) => {
+        return chain()
+          .insertContent({
+            type: "fb2Section",
+            content: [
+              { type: "fb2Title", content: [{ type: "paragraph", text: "Новая глава" }] },
+              { type: "paragraph" }
+            ]
+          })
+          .focus()
+          .run();
+      },
+      deleteSection: () => ({ commands }: any) => {
+        return commands.deleteNode("fb2Section");
+      },
+    };
+  },
+});

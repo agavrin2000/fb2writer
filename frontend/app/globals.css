@@ -26,12 +26,6 @@ body {
     rgb(var(--background-start-rgb));
 }
 
-@layer utilities {
-  .text-balance {
-    text-wrap: balance;
-  }
-}
-
 /* Контейнер-обертка для имитации бумажного листа */
 .editor-paper-sheet {
     background-color: #fdfdfd; /* Слегка теплый белый (цвет бумаги) */
@@ -164,6 +158,7 @@ html, body, #__next {
     cursor: pointer;
 }
 
+
 .fb2-table {
 	border-collapse: collapse;
 	table-layout: fixed;
@@ -210,6 +205,4 @@ section.fb2-section > h2 {
 /* Вложенные секции (лесенка) */
 section.fb2-section section.fb2-section {
     margin-left: 25px; /* Сдвиг вправо для иерархии */
-    border-left: 4px solid #3498db; /* Синяя полоса слева для акцента */
-    background-color: #f9f9f9;
 }

@@ -5,7 +5,7 @@ import StarterKit from '@tiptap/starter-kit';
 import Image from '@tiptap/extension-image';
 import Link from '@tiptap/extension-link';
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { Fb2Metadata, IPhotinoBridge, TocItem } from '../../types/types';
+import { Fb2Metadata, TocItem } from '../../types/types';
 import { photino } from '../../api/photino';
 import { buildTree } from '../../utils/utils';
 import { Fb2Table, Fb2TableRow, Fb2TableCell } from '../../editor/extensions/fb2table';
@@ -20,6 +20,10 @@ import { Fb2Stanza } from '../extensions/fb2stanza';
 import { Fb2Subtitle } from '../extensions/fb2subtitle';
 import { Fb2TextAuthor } from '../extensions/fb2textauthor';
 import { Fb2V } from '../extensions/fb2v';
+import Strike from '@tiptap/extension-strike';
+import Superscript from '@tiptap/extension-superscript';
+import Subscript from '@tiptap/extension-subscript';
+
 
 export const useFB2Editor = () => {
     const [metadata, setMetadata] = useState<Fb2Metadata>({ Title: '', Author: '' });
@@ -58,12 +62,26 @@ export const useFB2Editor = () => {
         }
     };
 
-    const getPhotino = () => (typeof window !== 'undefined' ? (window as any).external as IPhotinoBridge : null);
-
-
     const editor = useEditor({
         extensions: [
-            StarterKit.configure({ heading: { levels: [1, 2, 3, 4] } }),
+            StarterKit.configure({
+                // Заголовки разных уровней
+                heading: { levels: [1, 2, 3, 4] },
+                // Настройка цитат
+                blockquote: {
+                    HTMLAttributes: {
+                        class: 'border-l-4 border-gray-300 pl-4 italic my-4',
+                    },
+                },
+                // Настройка встроенного кода
+                code: {
+                    HTMLAttributes: {
+                        class: 'bg-gray-100 rounded px-1 py-0.5 font-mono text-sm',
+                    },
+                },
+            }),
+            Superscript, // Верхний индекс <sup>
+            Subscript,   // Нижний индекс <sub>            
             Link.configure({
                 openOnClick: false,
                 HTMLAttributes: { class: 'fb2-note-link text-blue-600 underline cursor-pointer', 'data-type': 'note' },
@@ -105,8 +123,28 @@ export const useFB2Editor = () => {
         onUpdate: ({ editor }) => {
             const flatNodes: { pos: number, text: string, level: number }[] = [];
             editor.state.doc.descendants((node, pos) => {
-                if (node.type.name === 'heading') {
-                    flatNodes.push({ pos, text: node.textContent || 'Глава без названия', level: node.attrs.level });
+                // Работаем только с секциями
+                if (node.type.name === 'fb2Section') {
+                    let sectionTitle = 'Глава без названия';
+                    let titleFound = false;
+
+                    // Ищем внутри текущей секции ПЕРВЫЙ узел fb2Title
+                    node.content.forEach((child) => {
+                        if (!titleFound && child.type.name === 'fb2Title') {
+                            sectionTitle = child.textContent.trim() || sectionTitle;
+                            titleFound = true; // Чтобы не брать вложенные подзаголовки, если они есть
+                        }
+                    });
+
+                    flatNodes.push({
+                        pos: pos, // Позиция самой секции в документе
+                        text: sectionTitle,
+                        level: node.attrs.level || 1
+                    });
+
+                    // Возвращаем true, чтобы Tiptap продолжил обход ВНУТРИ секции 
+                    // (это позволит найти вложенные секции и добавить их в flatNodes)
+                    return true;
                 }
             });
             setTocTree(buildTree(flatNodes));
@@ -119,6 +157,7 @@ export const useFB2Editor = () => {
     });
 
     // Photino messages
+    /*
     const handleIncomingMessage = useCallback((message: string) => {
         try {
             const data = JSON.parse(message);
@@ -173,6 +212,7 @@ export const useFB2Editor = () => {
             console.error("Ошибка парсинга сообщения от .NET:", e);
         }
     }, [editor, setMetadata, setIsLoading]);
+    
     useEffect(() => {
         // 1. Создаем функцию в глобальном пространстве (window)
         // Именно её будет вызывать Photino при выполнении SendMessage в C#
@@ -199,7 +239,7 @@ export const useFB2Editor = () => {
         };
     }, [handleIncomingMessage]);
 
-
+*/
     useEffect(() => {
         // Обработчик для загрузки контента
         const onFb2Content = (payload: any) => {
@@ -313,6 +353,5 @@ export const useFB2Editor = () => {
         footnotesRef, // Передаем реф для использования в editorProps
         openFile,
         saveFile,
-        getPhotino
     };
 };
