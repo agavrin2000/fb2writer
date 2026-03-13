@@ -1,3 +1,4 @@
+/* postcss-custom-properties */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -205,4 +206,59 @@ section.fb2-section > h2 {
 /* Вложенные секции (лесенка) */
 section.fb2-section section.fb2-section {
     margin-left: 25px; /* Сдвиг вправо для иерархии */
+}
+
+/* Базовое состояние (невидимое) */
+.fb2-title {
+  position: relative;
+  transition: all 0.2s ease-in-out;
+  border-radius: 4px;
+  outline: 2px solid transparent;
+  outline-offset: 4px;
+}
+
+/* Эффект при наведении */
+.fb2-title:hover {
+  outline-color: #6366f1; /* Indigo-500 */
+}
+
+/* Этикетка справа-вверху */
+.fb2-title:hover::before {
+  content: 'Заголовок раздела';
+  @apply absolute -top-7 right-0 bg-indigo-400 text-white text-[10px] px-2 py-1 rounded font-sans not-italic;
+/*  position: absolute;
+  top: -12px;
+  right: 0;
+  background-color: #6366f1;
+  color: white;
+  font-size: 10px;
+  font-weight: bold;
+  padding: 2px 8px;
+  border-radius: 4px;
+  text-transform: none;
+  letter-spacing: normal;
+  pointer-events: none;
+  z-index: 10;*/
+}
+
+/* Базовое состояние (невидимое) */
+.fb2-epigraph {
+  @apply ml-auto mb-6 max-w-[50%] italic text-gray-700 border-indigo-100 pl-4 py-1;
+  transition: all 0.2s ease-in-out;
+  position: relative;
+}
+
+/* Рамка и этикетка при наведении (аналогично заголовку) */
+.fb2-epigraph:hover {
+  @apply outline-none ring-2 ring-indigo-400 ring-offset-4 rounded;
+}
+
+.fb2-epigraph:hover::before {
+  content: 'Эпиграф';
+  @apply absolute -top-7 right-0 bg-indigo-400 text-white text-[10px] px-2 py-1 rounded font-sans not-italic;
+}
+
+/* Если внутри эпиграфа есть подпись (text-author) */
+.fb2-epigraph .fb2-text-author {
+  @apply block text-right mt-2 font-bold not-italic text-sm;
 }

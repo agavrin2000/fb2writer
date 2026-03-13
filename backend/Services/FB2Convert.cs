@@ -104,6 +104,65 @@ public class Fb2Service
                     attrs = new { level = level }
                 });
             }
+            else if (name == "epigraph")
+            {
+                // Формируем список объектов для поля content
+                var contentList = new List<object>();
+                // Рекурсивно наполняем его (заголовки, p, вложенные секции пойдут сюда)
+                ParseElement(el, ns, xlink, binaryCache, contentList);
+                // Добавляем всю секцию как единый блок в общий список
+                nodes.Add(new
+                {
+                    type = "fb2Epigraph",
+                    content = contentList.ToArray()
+                });
+            }
+            else if (name == "text-author")
+            {
+                var inlineContent = new List<object>();
+                foreach (var node in el.Nodes())
+                {
+                    if (node is XText textNode)
+                    {
+                        inlineContent.Add(new { type = "text", text = textNode.Value });
+                    }
+                    else if (node is XElement child && child.Name.LocalName == "a")
+                    {
+                        var hrefAttr = child.Attributes().FirstOrDefault(a => a.Name.LocalName == "href");
+                        inlineContent.Add(new
+                        {
+                            type = "text",
+                            text = child.Value,
+                            marks = new[] { new { type = "link", attrs = new { href = hrefAttr?.Value ?? "", target = "_blank", rel = "footnote" } } }
+                        });
+                    }
+                }
+                if (inlineContent.Count == 0) inlineContent.Add(new { type = "text", text = "" });
+                nodes.Add(new { type = "fb2TextAuthor", content = inlineContent });
+            }
+                        else if (name == "subtitle")
+            {
+                var inlineContent = new List<object>();
+                foreach (var node in el.Nodes())
+                {
+                    if (node is XText textNode)
+                    {
+                        inlineContent.Add(new { type = "text", text = textNode.Value });
+                    }
+                    else if (node is XElement child && child.Name.LocalName == "a")
+                    {
+                        var hrefAttr = child.Attributes().FirstOrDefault(a => a.Name.LocalName == "href");
+                        inlineContent.Add(new
+                        {
+                            type = "text",
+                            text = child.Value,
+                            marks = new[] { new { type = "link", attrs = new { href = hrefAttr?.Value ?? "", target = "_blank", rel = "footnote" } } }
+                        });
+                    }
+                }
+                if (inlineContent.Count == 0) inlineContent.Add(new { type = "text", text = "" });
+                nodes.Add(new { type = "fb2Subtitle", content = inlineContent });
+            }
             else if (name == "p")
             {
                 var inlineContent = new List<object>();

@@ -48,6 +48,7 @@ class Program
             // Let's make this one fixed instead.
             .SetResizable(true)
             .SetDevToolsEnabled(true)
+            .SetContextMenuEnabled(true)
             .RegisterCustomSchemeHandler("app", (object sender, string scheme, string url, out string contentType) =>
             {
                 contentType = "text/javascript";

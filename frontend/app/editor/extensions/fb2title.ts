@@ -1,6 +1,5 @@
 import { Node, mergeAttributes } from "@tiptap/core";
 import { CommandProps } from '@tiptap/core'
-import { text } from "stream/consumers";
 
 export const Fb2Title = Node.create({
   name: "fb2Title",
@@ -15,7 +14,7 @@ export const Fb2Title = Node.create({
     mergeAttributes(HTMLAttributes, {
       // text-center — по центру, font-bold — жирный, mb-4 — отступ снизу
       class:
-        "fb2-title text-center font-bold mb-4 my-6 uppercase tracking-wide",
+        "fb2-title text-center font-bold mb-4 my-6 tracking-wide",
     }),
     0,
   ],
