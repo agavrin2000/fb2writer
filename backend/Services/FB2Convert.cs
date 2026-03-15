@@ -1,7 +1,7 @@
 using System.Xml.Linq;
 using System.Text;
 using Newtonsoft.Json;
-
+using System.IO.Compression;
 
 namespace FB2Editor;
 
@@ -9,11 +9,25 @@ public class Fb2Service
 {
     private readonly Dictionary<string, string> _binaryCache = [];
 
-    public static string LoadAndConvertToJson(string filePath)
+    public static string LoadAndConvertToJson(Stream fileStream, string fileName)
     {
+        // Обязательно для поддержки русских кодировок (windows-1251) в FB2
         Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
-        var doc = XDocument.Load(filePath);
 
+        XDocument doc;
+
+        if (fileName.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
+        {
+            // Используем LeaveOpen: true, чтобы не закрыть основной поток раньше времени
+            using var archive = new ZipArchive(fileStream, ZipArchiveMode.Read, leaveOpen: true);
+            var entry = archive.Entries.FirstOrDefault(e => e.FullName.EndsWith(".fb2", StringComparison.OrdinalIgnoreCase)) ?? throw new Exception("Файл .fb2 не найден внутри архива.");
+            using var entryStream = entry.Open();
+            doc = XDocument.Load(entryStream);
+        }
+        else
+        {
+            doc = XDocument.Load(fileStream);
+        }
         // ВАЖНО: Используем LocalName, чтобы игнорировать ошибки префиксов в разных файлах
         XNamespace ns = doc.Root?.GetDefaultNamespace() ?? XNamespace.None; ;
         XNamespace xlink = "http://www.w3.org";
@@ -216,7 +230,7 @@ public class Fb2Service
                             case "sup":
                                 newMarks.Add(new { type = "superscript" });
                                 break;
-                            case "code": 
+                            case "code":
                                 newMarks.Add(new { type = "code" });
                                 break;
                             case "a":
@@ -240,7 +254,7 @@ public class Fb2Service
                 foreach (var node in el.Nodes()) ProcessInline(node, new List<object>());
 
                 if (inlineContent.Count == 0) inlineContent.Add(new { type = "text", text = "" });
-                
+
                 nodes.Add(new { type = "paragraph", content = inlineContent });
             }
             else if (name == "empty-line")

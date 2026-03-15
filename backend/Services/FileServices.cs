@@ -28,8 +28,13 @@ public class FileService
 
         var files = await topLevel.StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
         {
-            Title = "Открыть книгу FB2",
-            FileTypeFilter = [new FilePickerFileType("FB2") { Patterns = ["*.fb2", "*.fb2.zip"] }]
+            Title = "Открыть книгу",
+            FileTypeFilter = new[]
+            {
+                new FilePickerFileType("Книги FB2") { Patterns = new[] { "*.fb2", "*.fb2.zip" } },
+                new FilePickerFileType("Архивы ZIP") { Patterns = new[] { "*.zip" } }
+            },
+            AllowMultiple = false
         });
 
         if (files.Count == 0)
@@ -40,19 +45,21 @@ public class FileService
 
         using var file = files[0];
 
-        string? localPath = file.TryGetLocalPath();
-        if (string.IsNullOrEmpty(localPath)) return;
-
         Emit("start-loading", file.Name);
 
         try
         {
-            string json = Fb2Service.LoadAndConvertToJson(file.Path.LocalPath);
+            // Открываем поток асинхронно
+            using var stream = await file.OpenReadAsync();
+
+            // Передаем поток и имя файла для проверки расширения
+            string json = Fb2Service.LoadAndConvertToJson(stream, file.Name);
+
             Emit("fb2-content", json);
         }
         catch (Exception ex)
         {
-            Emit("error", ex.Message);
+            Emit("error", $"Ошибка при чтении: {ex.Message}");
         }
     }
 
@@ -87,8 +94,8 @@ public class FileService
 
             // Формируем Data URL для отображения в браузере
             string dataUrl = $"data:image/{extension};base64,{base64Image}";
-
-            string json = Fb2Service.LoadAndConvertToJson(file.Path.LocalPath);
+            using var stream = await file.OpenReadAsync();
+            string json = Fb2Service.LoadAndConvertToJson(stream, file.Name);
             Emit("insert-image", dataUrl);
         }
         catch (Exception ex)
