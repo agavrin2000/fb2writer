@@ -50,8 +50,7 @@ export const Fb2Subtitle = Node.create({
               type: "fb2Subtitle",
               content: [
                 {
-                  type: "paragraph", // или "text", если subtitle — это inline
-                  content: [{ type: "text", text: "Новый подзаголовок" }],
+                  type: "text", text: "Новый подзаголовок" 
                 },
               ],
             })

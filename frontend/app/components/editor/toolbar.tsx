@@ -1,6 +1,6 @@
 import { Editor } from '@tiptap/react';
 import React from 'react';
-import { BookPlus, Bold, Italic, Strikethrough, Code, Quote, Superscript, Subscript, FileImage } from 'lucide-react';
+import { BookPlus, Bold, Italic, Strikethrough, Code, Quote, Superscript, Subscript, FileImage, Baseline } from 'lucide-react';
 import { ALargeSmall, Heading1, TextQuote, Signature, PenTool } from 'lucide-react'
 import { useEditorState } from '@tiptap/react'
 import { Fb2ActionIcon } from '../ui/fb2action-icon'
@@ -161,7 +161,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({ editor, onSelectImage }) => {
           //className="p-2 text-red-500 hover:bg-red-50 rounded"
           title="Удалить автора текста"
         >
-          <Fb2ActionIcon icon={Signature} mode="remove" />
+          <Fb2ActionIcon icon={Baseline} mode="remove" />
         </button>
         :
         <button type='button'
@@ -170,7 +170,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({ editor, onSelectImage }) => {
           className={btnClass('fb2Subtitle')}
           title="Добавить автора текста"
         >
-          <Fb2ActionIcon icon={Signature} mode="add" />
+          <Fb2ActionIcon icon={Baseline} mode="add" />
         </button>
       }
 

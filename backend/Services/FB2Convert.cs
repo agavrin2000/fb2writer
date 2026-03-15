@@ -117,6 +117,19 @@ public class Fb2Service
                     content = contentList.ToArray()
                 });
             }
+            else if (name == "cite")
+            {
+                // Формируем список объектов для поля content
+                var contentList = new List<object>();
+                // Рекурсивно наполняем его (заголовки, p, вложенные секции пойдут сюда)
+                ParseElement(el, ns, xlink, binaryCache, contentList);
+                // Добавляем всю секцию как единый блок в общий список
+                nodes.Add(new
+                {
+                    type = "fb2Cite",
+                    content = contentList.ToArray()
+                });
+            }
             else if (name == "text-author")
             {
                 var inlineContent = new List<object>();
@@ -140,7 +153,7 @@ public class Fb2Service
                 if (inlineContent.Count == 0) inlineContent.Add(new { type = "text", text = "" });
                 nodes.Add(new { type = "fb2TextAuthor", content = inlineContent });
             }
-                        else if (name == "subtitle")
+            else if (name == "subtitle")
             {
                 var inlineContent = new List<object>();
                 foreach (var node in el.Nodes())
@@ -166,24 +179,68 @@ public class Fb2Service
             else if (name == "p")
             {
                 var inlineContent = new List<object>();
-                foreach (var node in el.Nodes())
+
+                // Рекурсивная функция для сбора текста и накопления стилей (marks)
+                void ProcessInline(XNode node, List<object> activeMarks)
                 {
                     if (node is XText textNode)
                     {
-                        inlineContent.Add(new { type = "text", text = textNode.Value });
-                    }
-                    else if (node is XElement child && child.Name.LocalName == "a")
-                    {
-                        var hrefAttr = child.Attributes().FirstOrDefault(a => a.Name.LocalName == "href");
-                        inlineContent.Add(new
+                        // Добавляем текстовый узел только если есть текст
+                        if (!string.IsNullOrEmpty(textNode.Value))
                         {
-                            type = "text",
-                            text = child.Value,
-                            marks = new[] { new { type = "link", attrs = new { href = hrefAttr?.Value ?? "", target = "_blank", rel = "footnote" } } }
-                        });
+                            inlineContent.Add(new
+                            {
+                                type = "text",
+                                text = textNode.Value,
+                                marks = activeMarks.Count > 0 ? activeMarks.ToArray() : null
+                            });
+                        }
+                    }
+                    else if (node is XElement element)
+                    {
+                        var newMarks = new List<object>(activeMarks);
+                        var localName = element.Name.LocalName.ToLower();
+
+                        // Маппинг тегов XML на типы марок в TipTap/ProseMirror
+                        switch (localName)
+                        {
+                            case "emphasis":
+                                newMarks.Add(new { type = "italic" });
+                                break;
+                            case "strong":
+                                newMarks.Add(new { type = "bold" });
+                                break;
+                            case "sub":
+                                newMarks.Add(new { type = "subscript" });
+                                break;
+                            case "sup":
+                                newMarks.Add(new { type = "superscript" });
+                                break;
+                            case "code": 
+                                newMarks.Add(new { type = "code" });
+                                break;
+                            case "a":
+                                var href = element.Attribute("href")?.Value ?? "";
+                                newMarks.Add(new
+                                {
+                                    type = "link",
+                                    attrs = new { href, target = "_blank", rel = "footnote" }
+                                });
+                                break;
+                        }
+
+                        // Идем глубже по дереву
+                        foreach (var childNode in element.Nodes())
+                        {
+                            ProcessInline(childNode, newMarks);
+                        }
                     }
                 }
+
+                foreach (var node in el.Nodes()) ProcessInline(node, new List<object>());
+
                 if (inlineContent.Count == 0) inlineContent.Add(new { type = "text", text = "" });
+                
                 nodes.Add(new { type = "paragraph", content = inlineContent });
             }
             else if (name == "empty-line")

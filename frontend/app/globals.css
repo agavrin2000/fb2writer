@@ -159,6 +159,17 @@ html, body, #__next {
     cursor: pointer;
 }
 
+.editor-wrapper {
+  border: 1px solid #d1d5db;
+  border-radius: 0.5rem;
+  background: white;
+  transition: border 0.2s;
+}
+
+.editor-wrapper:focus-within {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+}
 
 .fb2-table {
 	border-collapse: collapse;
@@ -215,6 +226,7 @@ section.fb2-section section.fb2-section {
   border-radius: 4px;
   outline: 2px solid transparent;
   outline-offset: 4px;
+  font-size: x-large;
 }
 
 /* Эффект при наведении */
@@ -261,4 +273,56 @@ section.fb2-section section.fb2-section {
 /* Если внутри эпиграфа есть подпись (text-author) */
 .fb2-epigraph .fb2-text-author {
   @apply block text-right mt-2 font-bold not-italic text-sm;
+}
+
+/* Базовое состояние (невидимое) */
+.fb2-subtitle {
+  position: relative;
+  transition: all 0.2s ease-in-out;
+  border-radius: 4px;
+  outline: 2px solid transparent;
+  outline-offset: 4px;
+  text-align: center !important; 
+  font-weight: bold;
+}
+
+/* Эффект при наведении */
+.fb2-subtitle:hover {
+  outline-color: #6366f1; /* Indigo-500 */
+}
+
+/* Этикетка справа-вверху */
+.fb2-subtitle:hover::before {
+  content: 'Подзаголовок';
+  @apply absolute -top-7 right-0 bg-indigo-400 text-white text-[10px] px-2 py-1 rounded font-sans not-italic;
+/*  position: absolute;
+  top: -12px;
+  right: 0;
+  background-color: #6366f1;
+  color: white;
+  font-size: 10px;
+  font-weight: bold;
+  padding: 2px 8px;
+  border-radius: 4px;
+  text-transform: none;
+  letter-spacing: normal;
+  pointer-events: none;
+  z-index: 10;*/
+}
+
+.fb2-cite {
+  /* Смена шрифта на контрастный */
+  font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
+  
+  /* Геометрия цитаты */
+  display: block;
+  margin: 1.5rem 0 1.5rem 10%; /* Большой отступ слева для акцента */
+  padding: 0.5rem 0 0.5rem 1rem;
+  border-left: 2px solid #ddd;
+  
+  /* Текст */
+  font-size: 0.95em; /* Чуть меньше основного текста */
+  line-height: 1.5;
+  color: #444;
+  font-style: normal; /* Сбрасываем курсив браузера, чтобы работал вложенный */
 }

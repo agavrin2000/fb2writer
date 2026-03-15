@@ -25,7 +25,6 @@ publish/
 # Специфично для Visual Studio / Rider
 .vs/
 .idea/
-.vscode/
 *.swp
 *.lut
 *.userprefs
