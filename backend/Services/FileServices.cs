@@ -24,42 +24,45 @@ public class FileService
     public async Task OpenFileAsync()
     {
         var topLevel = GetTopLevel();
-        if (topLevel == null) return;
+        if (topLevel?.StorageProvider == null) return;
 
-        var files = await topLevel.StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+        var result = await topLevel.StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
         {
-            Title = "Открыть книгу",
-            FileTypeFilter = new[]
-            {
-                new FilePickerFileType("Книги FB2") { Patterns = new[] { "*.fb2", "*.fb2.zip" } },
-                new FilePickerFileType("Архивы ZIP") { Patterns = new[] { "*.zip" } }
-            },
+            Title = "Открыть книгу FB2",
+            FileTypeFilter =
+            [
+                new FilePickerFileType("Книги FB2") { Patterns = ["*.fb2", "*.fb2.zip"] },
+                new FilePickerFileType("Архивы FB2.ZIP") { Patterns = ["*.fb2.zip"] }
+            ],
             AllowMultiple = false
         });
 
-        if (files.Count == 0)
+        // Используем FirstOrDefault, так как это безопаснее для списков
+        var file = (result != null && result.Count > 0) ? result[0] : null;
+
+        if (file == null)
         {
-            Emit("cancel-loading", "");
+            Emit("cancel-loading", string.Empty);
             return;
         }
-
-        using var file = files[0];
 
         Emit("start-loading", file.Name);
 
         try
         {
-            // Открываем поток асинхронно
-            using var stream = await file.OpenReadAsync();
+            // Используем await using для асинхронных потоков (рекомендуется в .NET)
+            await using var stream = await file.OpenReadAsync();
 
-            // Передаем поток и имя файла для проверки расширения
-            string json = Fb2Service.LoadAndConvertToJson(stream, file.Name);
+            // Если файл большой, парсинг может занять время — выполняем в Task.Run, 
+            // чтобы не блокировать UI-поток Avalonia
+            string json = await Task.Run(() => Fb2Service.LoadAndConvertToJson(stream, file.Name));
 
             Emit("fb2-content", json);
         }
         catch (Exception ex)
         {
-            Emit("error", $"Ошибка при чтении: {ex.Message}");
+            // Логируем или выводим более детальную ошибку
+            Emit("error", $"Ошибка при чтении {file.Name}: {ex.Message}");
         }
     }
 
@@ -71,36 +74,47 @@ public class FileService
     public async Task SelectImageAsync()
     {
         var topLevel = GetTopLevel();
-        if (topLevel == null) return;
+        if (topLevel?.StorageProvider == null) return;
 
-        var files = await topLevel.StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+        var result = await topLevel.StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
         {
-            Title = "Открыть картинку",
-            FileTypeFilter = [new FilePickerFileType("FB2") { Patterns = ["*.jpg", "*.png"] }]
+            Title = "Выберите изображение",
+            FileTypeFilter =
+            [
+                new FilePickerFileType("Изображения") { Patterns = ["*.jpg", "*.jpeg", "*.png", "*.gif"] }
+            ],
+            AllowMultiple = false
         });
 
-        if (files.Count == 0)
-        {
-            return;
-        }
-
-        using var file = files[0];
+        if (result == null || result.Count == 0) return;
+        var file = result[0];
 
         try
         {
-            byte[] imageArray = File.ReadAllBytes(file.Name);
-            string base64Image = Convert.ToBase64String(imageArray);
-            string extension = Path.GetExtension(file.Name).Replace(".", "");
+            // Читаем данные напрямую из потока файла (работает везде, включая мобильные ОС и песочницы)
+            await using var stream = await file.OpenReadAsync();
 
-            // Формируем Data URL для отображения в браузере
-            string dataUrl = $"data:image/{extension};base64,{base64Image}";
-            using var stream = await file.OpenReadAsync();
-            string json = Fb2Service.LoadAndConvertToJson(stream, file.Name);
+            // Используем MemoryStream для эффективного чтения в байты
+            using var ms = new MemoryStream();
+            await stream.CopyToAsync(ms);
+            byte[] imageBytes = ms.ToArray();
+
+            string base64Image = Convert.ToBase64String(imageBytes);
+
+            // Получаем расширение и нормализуем его (jpeg -> jpg для mime-type)
+            string ext = Path.GetExtension(file.Name).ToLower().TrimStart('.');
+            if (ext == "jpeg") ext = "jpg";
+
+            string dataUrl = $"data:image/{ext};base64,{base64Image}";
+
+            // Генерируем уникальный ID для бинарного объекта FB2 (опционально, если нужно для XML)
+            // string binaryId = $"{Guid.NewGuid()}.{ext}";
+
             Emit("insert-image", dataUrl);
         }
         catch (Exception ex)
         {
-            Emit("error", ex.Message);
+            Emit("error", $"Не удалось загрузить изображение: {ex.Message}");
         }
     }
 
@@ -112,27 +126,39 @@ public class FileService
     public async Task SaveFileAsync(string jsonContent)
     {
         var topLevel = GetTopLevel();
-        if (topLevel == null) return;
+        if (topLevel?.StorageProvider == null) return;
 
         var file = await topLevel.StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
         {
-            Title = "Сохранить FB2",
-            DefaultExtension = "fb2"
+            Title = "Сохранить книгу",
+            // Позволяем пользователю выбрать формат сохранения
+            FileTypeChoices = new[]
+            {
+            new FilePickerFileType("Книга FB2") { Patterns = ["*.fb2"] },
+            new FilePickerFileType("Архив FB2.ZIP") { Patterns = ["*.fb2.zip"] }
+        },
+            DefaultExtension = "fb2",
+            SuggestedFileName = "book"
         });
 
-        if (file != null)
+        if (file == null) return;
+
+        try
         {
-            try
-            {
-                _fb2Converter.SaveJsonToFb2(file.Path.LocalPath, jsonContent);
-                Emit("save-success", file.Name);
-            }
-            catch (Exception ex)
-            {
-                Emit("error", ex.Message);
-            }
+            // Открываем поток на запись асинхронно
+            await using var stream = await file.OpenWriteAsync();
+
+            // Выполняем тяжелую конвертацию и запись в фоновом потоке
+            await Task.Run(() => _fb2Converter.SaveJsonToFb2(stream, file.Name, jsonContent));
+
+            Emit("save-success", file.Name);
+        }
+        catch (Exception ex)
+        {
+            Emit("error", $"Ошибка при сохранении: {ex.Message}");
         }
     }
+
 
     // Вспомогательный метод для упаковки в JSON и генерации события
     private void Emit(string type, string payload)

@@ -11,9 +11,11 @@ public class Fb2Service
 
     public static string LoadAndConvertToJson(Stream fileStream, string fileName)
     {
+
         // Обязательно для поддержки русских кодировок (windows-1251) в FB2
         Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
 
+        // Получаем xml-документ либо из zip-архива, либо напрямую
         XDocument doc;
 
         if (fileName.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
@@ -31,6 +33,78 @@ public class Fb2Service
         // ВАЖНО: Используем LocalName, чтобы игнорировать ошибки префиксов в разных файлах
         XNamespace ns = doc.Root?.GetDefaultNamespace() ?? XNamespace.None; ;
         XNamespace xlink = "http://www.w3.org";
+
+        var parseAuthor = new Func<XElement, object>(a =>
+        {
+            var first = a.Element(ns + "first-name")?.Value ?? "";
+            var middle = a.Element(ns + "middle-name")?.Value ?? "";
+            var last = a.Element(ns + "last-name")?.Value ?? "";
+            var nickname = a.Element(ns + "nickname")?.Value ?? "";
+            var email = a.Element(ns + "email")?.Value ?? "";
+
+            // Формируем полное имя для отображения
+            string fullName = $"{first} {middle} {last}".Replace("  ", " ").Trim();
+
+            // Если ФИО пустое, используем никнейм
+            if (string.IsNullOrEmpty(fullName)) fullName = nickname;
+
+            return new
+            {
+                FullName = fullName,
+                FirstName = first,
+                LastName = last,
+                MiddleName = middle,
+                Nickname = nickname,
+                Email = email
+            };
+        });
+        // --- ПАРСИНГ МЕТАИНФОРМАЦИИ ---
+        var description = doc.Descendants().FirstOrDefault(x => x.Name.LocalName == "description");
+        var titleInfo = description?.Elements().FirstOrDefault(x => x.Name.LocalName == "title-info");
+
+        var genres = titleInfo?.Elements().Where(x => x.Name.LocalName == "genre").Select(x => x.Value).ToList() ?? new List<string>();
+        var bookTitle = titleInfo?.Element(ns + "book-title")?.Value ?? "Без названия";
+        var date = titleInfo?.Element(ns + "date")?.Value ?? "";
+        // 1. Языки (из title-info)
+        var lang = titleInfo?.Element(ns + "lang")?.Value ?? "ru";
+        var srcLang = titleInfo?.Element(ns + "src-lang")?.Value ?? "";
+
+        // 2. История создания (history из description)
+        var historyNodes = new List<object>();
+        var historyElem = description?.Elements().FirstOrDefault(x => x.Name.LocalName == "history");
+        if (historyElem != null)
+        {
+            // Прогоняем через ваш парсер, так как в истории часто бывают <p>
+            ParseElement(historyElem, ns, xlink, new Dictionary<string, string>(), historyNodes);
+        }
+        // Собираем авторов
+        var authors = titleInfo?.Elements().Where(x => x.Name.LocalName == "author").Select(a =>
+        {
+            var first = a.Element(ns + "first-name")?.Value ?? "";
+            var middle = a.Element(ns + "middle-name")?.Value ?? "";
+            var last = a.Element(ns + "last-name")?.Value ?? "";
+            return $"{first} {middle} {last}".Replace("  ", " ").Trim();
+        }).ToList() ?? [];
+
+        // Извлекаем аннотацию (если есть)
+        var annotationNodes = new List<object>();
+        var annotationElem = titleInfo?.Element(ns + "annotation");
+        if (annotationElem != null)
+        {
+            // Используем ваш существующий метод парсинга для аннотации, чтобы сохранить форматирование
+            ParseElement(annotationElem, ns, xlink, new Dictionary<string, string>(), annotationNodes);
+        }
+        // 2. Document Info (кто сделал этот fb2)
+        var docInfo = description?.Elements().FirstOrDefault(x => x.Name.LocalName == "document-info");
+        var docAuthor = docInfo?.Elements().Where(x => x.Name.LocalName == "author").Select(a =>
+        {
+            var f = a.Element(ns + "first-name")?.Value ?? "";
+            var l = a.Element(ns + "last-name")?.Value ?? "";
+            return $"{f} {l}".Trim();
+        }).ToList() ?? new List<string>();
+
+        // 3. Publish Info (издательство, ISBN и т.д.)
+        var pubInfo = description?.Elements().FirstOrDefault(x => x.Name.LocalName == "publish-info");
 
         // 1. Собираем все картинки (ID -> Base64)
         // Очищаем Base64 от переносов строк, иначе браузер их не поймет
@@ -69,7 +143,42 @@ public class Fb2Service
 
         return JsonConvert.SerializeObject(new
         {
-            Meta = new { Title = "Книга", Author = "Автор" }, // Упростил для примера
+            Meta = new
+            {
+
+                Title = titleInfo?.Element(ns + "book-title")?.Value ?? "Без названия",
+
+                // Авторы книги
+                Authors = titleInfo?.Elements().Where(x => x.Name.LocalName == "author").Select(parseAuthor).ToList(),
+
+                Lang = titleInfo?.Element(ns + "lang")?.Value ?? "ru",
+                SrcLang = titleInfo?.Element(ns + "src-lang")?.Value ?? "",
+
+                History = historyNodes,
+                Genres = titleInfo?.Elements().Where(x => x.Name.LocalName == "genre").Select(x => x.Value).ToList(),
+
+                Date = date,
+                Annotation = annotationNodes, // Аннотация возвращается в формате TipTap JSON
+                                              // Данные о документе
+                Document = new
+                {
+                    Authors = docInfo?.Elements().Where(x => x.Name.LocalName == "author").Select(parseAuthor).ToList(),
+                    Program = docInfo?.Element(ns + "program-used")?.Value ?? "",
+                    Date = docInfo?.Element(ns + "date")?.Value ?? "",
+                    Id = docInfo?.Element(ns + "id")?.Value ?? "",
+                    Version = docInfo?.Element(ns + "version")?.Value ?? "1.0"
+                },
+
+                // Данные об издательстве
+                Publish = new
+                {
+                    BookName = pubInfo?.Element(ns + "book-name")?.Value ?? "",
+                    Publisher = pubInfo?.Element(ns + "publisher")?.Value ?? "",
+                    City = pubInfo?.Element(ns + "city")?.Value ?? "",
+                    Year = pubInfo?.Element(ns + "year")?.Value ?? "",
+                    ISBN = pubInfo?.Element(ns + "isbn")?.Value ?? ""
+                }
+            },
             EditorContent = new { type = "doc", content = contentNodes },
             Footnotes = footnotes // Передаем словарь сносок отдельно
         });
@@ -288,7 +397,7 @@ public class Fb2Service
         return $"{first} {last}".Trim();
     }
 
-    public void SaveJsonToFb2(string filePath, string jsonPayload)
+    public void SaveJsonToFb2(Stream outputStream, string fileName, string jsonPayload)
     {
         // 1. Десериализуем данные из React
         dynamic? data = JsonConvert.DeserializeObject(jsonPayload);
@@ -365,7 +474,22 @@ public class Fb2Service
             )
         );
 
-        // 4. Сохраняем на диск
-        doc.Save(filePath);
+        if (fileName.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
+        {
+            using var archive = new ZipArchive(outputStream, ZipArchiveMode.Create, leaveOpen: true);
+            // Берем имя, которое ввел пользователь (например, "WarAndPeace.zip")
+            // и меняем его на "WarAndPeace.fb2" для файла ВНУТРИ архива
+            string internalFileName = Path.GetFileNameWithoutExtension(fileName) + ".fb2";
+
+            var entry = archive.CreateEntry(internalFileName, CompressionLevel.Optimal);
+
+            using var entryStream = entry.Open();
+            doc.Save(entryStream);
+        }
+        else
+        {
+            // Обычное сохранение в .fb2
+            doc.Save(outputStream);
+        }
     }
 }
