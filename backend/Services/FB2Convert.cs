@@ -11,7 +11,6 @@ public class Fb2Service
 
     public static string LoadAndConvertToJson(Stream fileStream, string fileName)
     {
-
         // Обязательно для поддержки русских кодировок (windows-1251) в FB2
         Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
 
@@ -30,7 +29,7 @@ public class Fb2Service
         {
             doc = XDocument.Load(fileStream);
         }
-        // ВАЖНО: Используем LocalName, чтобы игнорировать ошибки префиксов в разных файлах
+
         XNamespace ns = doc.Root?.GetDefaultNamespace() ?? XNamespace.None; ;
         XNamespace xlink = "http://www.w3.org";
 
@@ -58,66 +57,33 @@ public class Fb2Service
                 Email = email
             };
         });
+
         // --- ПАРСИНГ МЕТАИНФОРМАЦИИ ---
         var description = doc.Descendants().FirstOrDefault(x => x.Name.LocalName == "description");
+
+        // 2. Title Info (информация о произведении)
         var titleInfo = description?.Elements().FirstOrDefault(x => x.Name.LocalName == "title-info");
-
-        var genres = titleInfo?.Elements().Where(x => x.Name.LocalName == "genre").Select(x => x.Value).ToList() ?? new List<string>();
-        var bookTitle = titleInfo?.Element(ns + "book-title")?.Value ?? "Без названия";
-        var date = titleInfo?.Element(ns + "date")?.Value ?? "";
-        // 1. Языки (из title-info)
-        var lang = titleInfo?.Element(ns + "lang")?.Value ?? "ru";
-        var srcLang = titleInfo?.Element(ns + "src-lang")?.Value ?? "";
-
-        // 2. История создания (history из description)
-        var historyNodes = new List<object>();
-        var historyElem = description?.Elements().FirstOrDefault(x => x.Name.LocalName == "history");
-        if (historyElem != null)
-        {
-            // Прогоняем через ваш парсер, так как в истории часто бывают <p>
-            ParseElement(historyElem, ns, xlink, new Dictionary<string, string>(), historyNodes);
-        }
-        // Собираем авторов
-        var authors = titleInfo?.Elements().Where(x => x.Name.LocalName == "author").Select(a =>
-        {
-            var first = a.Element(ns + "first-name")?.Value ?? "";
-            var middle = a.Element(ns + "middle-name")?.Value ?? "";
-            var last = a.Element(ns + "last-name")?.Value ?? "";
-            return $"{first} {middle} {last}".Replace("  ", " ").Trim();
-        }).ToList() ?? [];
+        var srcTitleInfo = description?.Elements().FirstOrDefault(x => x.Name.LocalName == "src-title-info");
+        var docInfo = description?.Elements().FirstOrDefault(x => x.Name.LocalName == "document-info");
+        var pubInfo = description?.Elements().FirstOrDefault(x => x.Name.LocalName == "publish-info");
 
         // Извлекаем аннотацию (если есть)
         var annotationNodes = new List<object>();
         var annotationElem = titleInfo?.Element(ns + "annotation");
         if (annotationElem != null)
         {
-            // Используем ваш существующий метод парсинга для аннотации, чтобы сохранить форматирование
-            ParseElement(annotationElem, ns, xlink, new Dictionary<string, string>(), annotationNodes);
+            ParseElement(annotationElem, ns, xlink, [], annotationNodes);
         }
-        // 2. Document Info (кто сделал этот fb2)
-        var docInfo = description?.Elements().FirstOrDefault(x => x.Name.LocalName == "document-info");
-        var docAuthor = docInfo?.Elements().Where(x => x.Name.LocalName == "author").Select(a =>
+
+        // История создания (history из description)
+        var historyNodes = new List<object>();
+        var historyElem = docInfo?.Elements().FirstOrDefault(x => x.Name.LocalName == "history");
+        if (historyElem != null)
         {
-            var f = a.Element(ns + "first-name")?.Value ?? "";
-            var l = a.Element(ns + "last-name")?.Value ?? "";
-            return $"{f} {l}".Trim();
-        }).ToList() ?? new List<string>();
+            ParseElement(historyElem, ns, xlink, [], historyNodes);
+        }
 
-        // 3. Publish Info (издательство, ISBN и т.д.)
-        var pubInfo = description?.Elements().FirstOrDefault(x => x.Name.LocalName == "publish-info");
-
-        // 1. Собираем все картинки (ID -> Base64)
-        // Очищаем Base64 от переносов строк, иначе браузер их не поймет
-        var binaryCache = doc.Descendants()
-            .Where(x => x.Name.LocalName == "binary")
-            .ToDictionary(
-                x => x.Attribute("id")?.Value?.ToLower() ?? "",
-                x => x.Value.Trim().Replace("\n", "").Replace("\r", ""),
-                StringComparer.OrdinalIgnoreCase
-            );
-
-        // 2. Извлекаем примечания (второй body)
-        // В FB2 сноски лежат в секциях внутри второго body
+        // --- ПАРСИНГ ПРИМЕЧАНИЙ ---
         var notesBody = doc.Descendants().Where(x => x.Name.LocalName == "body").Skip(1).FirstOrDefault();
         var footnotes = new Dictionary<string, string>();
 
@@ -132,6 +98,18 @@ public class Fb2Service
             }
         }
 
+        // --- ПАРСИНГ КОНТЕНТА И КАРТИНОК ---
+        // Собираем все картинки (ID -> Base64)
+        // Очищаем Base64 от переносов строк, иначе браузер их не поймет
+        var binaryCache = doc.Descendants()
+            .Where(x => x.Name.LocalName == "binary")
+            .ToDictionary(
+                x => x.Attribute("id")?.Value?.ToLower() ?? "",
+                x => x.Value.Trim().Replace("\n", "").Replace("\r", ""),
+                StringComparer.OrdinalIgnoreCase
+            );
+
+        // Извлекаем контент
         var contentNodes = new List<object>();
         var body = doc.Descendants().FirstOrDefault(x => x.Name.LocalName == "body");
 
@@ -145,41 +123,72 @@ public class Fb2Service
         {
             Meta = new
             {
-
-                Title = titleInfo?.Element(ns + "book-title")?.Value ?? "Без названия",
-
-                // Авторы книги
-                Authors = titleInfo?.Elements().Where(x => x.Name.LocalName == "author").Select(parseAuthor).ToList(),
-
-                Lang = titleInfo?.Element(ns + "lang")?.Value ?? "ru",
-                SrcLang = titleInfo?.Element(ns + "src-lang")?.Value ?? "",
-
-                History = historyNodes,
-                Genres = titleInfo?.Elements().Where(x => x.Name.LocalName == "genre").Select(x => x.Value).ToList(),
-
-                Date = date,
-                Annotation = annotationNodes, // Аннотация возвращается в формате TipTap JSON
-                                              // Данные о документе
-                Document = new
+                TitleInfo = new // Данные о произведении
+                {
+                    Genres = titleInfo?.Elements().Where(x => x.Name.LocalName == "genre").Select(x => x.Value).ToList(),
+                    Authors = titleInfo?.Elements().Where(x => x.Name.LocalName == "author").Select(parseAuthor).ToList(),
+                    Title = titleInfo?.Element(ns + "book-title")?.Value ?? "Без названия",
+                    Annotation = annotationNodes, // Аннотация возвращается в формате TipTap JSON
+                    Keywords = titleInfo?.Element(ns + "keywords")?.Value ?? "",
+                    Date = titleInfo?.Element(ns + "date")?.Value ?? "",
+                    DateValue = titleInfo?.Element(ns + "date")?.Attribute("value")?.Value ?? "",
+                    SourcePage = titleInfo?.Element(ns + "coverpage")?.Element("image")?.Attribute(xlink + "href")?.Value?.TrimStart('#').ToLower() ?? "",
+                    Lang = titleInfo?.Element(ns + "lang")?.Value ?? "ru",
+                    SrcLang = titleInfo?.Element(ns + "src-lang")?.Value ?? "",
+                    Translators = titleInfo?.Elements().Where(x => x.Name.LocalName == "translator").Select(parseAuthor).ToList(),
+                    Sequence = pubInfo?.Elements().Where(x => x.Name.LocalName == "sequence").Select(x => new
+                    {
+                        name = x.Attribute("name")?.Value ?? "",
+                        number = (int?)x.Attribute("number") ?? 0
+                    }).ToList()
+                },
+                SrcTitleInfo = new // Данные о произведении на языке оригинала
+                {
+                    Genres = titleInfo?.Elements().Where(x => x.Name.LocalName == "genre").Select(x => x.Value).ToList(),
+                    Authors = titleInfo?.Elements().Where(x => x.Name.LocalName == "author").Select(parseAuthor).ToList(),
+                    Title = titleInfo?.Element(ns + "book-title")?.Value ?? "Без названия",
+                    Annotation = annotationNodes, // Аннотация возвращается в формате TipTap JSON
+                    Keywords = titleInfo?.Element(ns + "keywords")?.Value ?? "",
+                    Date = titleInfo?.Element(ns + "date")?.Value ?? "",
+                    DateValue = titleInfo?.Element(ns + "date")?.Attribute("value")?.Value ?? "",
+                    SourcePage = titleInfo?.Element(ns + "coverpage")?.Element("image")?.Attribute(xlink + "href")?.Value?.TrimStart('#').ToLower() ?? "",
+                    Lang = titleInfo?.Element(ns + "lang")?.Value ?? "ru",
+                    SrcLang = titleInfo?.Element(ns + "src-lang")?.Value ?? "",
+                    Translators = titleInfo?.Elements().Where(x => x.Name.LocalName == "translator").Select(parseAuthor).ToList(),
+                    Sequence = pubInfo?.Elements().Where(x => x.Name.LocalName == "sequence").Select(x => new
+                    {
+                        name = x.Attribute("name")?.Value ?? "",
+                        number = (int?)x.Attribute("number") ?? 0
+                    }).ToList()
+                },
+                DocumentInfo = new // Данные о документе
                 {
                     Authors = docInfo?.Elements().Where(x => x.Name.LocalName == "author").Select(parseAuthor).ToList(),
                     Program = docInfo?.Element(ns + "program-used")?.Value ?? "",
                     Date = docInfo?.Element(ns + "date")?.Value ?? "",
+                    DateValue = docInfo?.Element(ns + "date")?.Attribute("value")?.Value ?? "",
                     Id = docInfo?.Element(ns + "id")?.Value ?? "",
-                    Version = docInfo?.Element(ns + "version")?.Value ?? "1.0"
+                    SrcUrl = docInfo?.Element(ns + "src-url")?.Value ?? "",
+                    SrcOcr = docInfo?.Element(ns + "src-ocr")?.Value ?? "",
+                    Version = docInfo?.Element(ns + "version")?.Value ?? "1.0",
+                    History = historyNodes,
+                    Publishers = docInfo?.Elements().Where(x => x.Name.LocalName == "publisher").Select(parseAuthor).ToList(),
                 },
-
-                // Данные об издательстве
-                Publish = new
+                PublishInfo = new // Данные об издательстве
                 {
                     BookName = pubInfo?.Element(ns + "book-name")?.Value ?? "",
                     Publisher = pubInfo?.Element(ns + "publisher")?.Value ?? "",
                     City = pubInfo?.Element(ns + "city")?.Value ?? "",
                     Year = pubInfo?.Element(ns + "year")?.Value ?? "",
-                    ISBN = pubInfo?.Element(ns + "isbn")?.Value ?? ""
+                    ISBN = pubInfo?.Element(ns + "isbn")?.Value ?? "",
+                    Sequence = pubInfo?.Elements().Where(x => x.Name.LocalName == "sequence").Select(x => new
+                    {
+                        name = x.Attribute("name")?.Value ?? "",
+                        number = (int?)x.Attribute("number") ?? 0
+                    }).ToList(),
                 }
             },
-            EditorContent = new { type = "doc", content = contentNodes },
+            EditorContent = new { type = "doc", content = contentNodes }, // Контент, включая картинки
             Footnotes = footnotes // Передаем словарь сносок отдельно
         });
     }
@@ -211,10 +220,6 @@ public class Fb2Service
             }
             else if (name == "title")
             {
-                // Считаем количество родительских тегов <section>
-                int depth = el.Ancestors().Count(x => x.Name.LocalName == "section");
-                // Уровень заголовка (минимум 1)
-                int level = Math.Clamp(depth, 1, 6);
                 // Формируем список объектов для поля content
                 var contentList = new List<object>();
                 // Рекурсивно наполняем его (заголовки, p, вложенные секции пойдут сюда)
@@ -223,8 +228,7 @@ public class Fb2Service
                 nodes.Add(new
                 {
                     type = "fb2Title",
-                    content = contentList.ToArray(),
-                    attrs = new { level = level }
+                    content = contentList.ToArray()
                 });
             }
             else if (name == "epigraph")
@@ -343,12 +347,15 @@ public class Fb2Service
                                 newMarks.Add(new { type = "code" });
                                 break;
                             case "a":
-                                var href = element.Attribute("href")?.Value ?? "";
-                                newMarks.Add(new
+                                if (element.Attribute("type")?.Value == "note") // ignore links except notes links
                                 {
-                                    type = "link",
-                                    attrs = new { href, target = "_blank", rel = "footnote" }
-                                });
+                                    var href = element.Attribute("href")?.Value ?? "";
+                                    newMarks.Add(new
+                                    {
+                                        type = "link",
+                                        attrs = new { href, target = "_blank", rel = "footnote" }
+                                    });
+                                }
                                 break;
                         }
 
@@ -385,16 +392,6 @@ public class Fb2Service
                 ParseElement(el, ns, xlink, binaryCache, nodes);
             }
         }
-    }
-
-
-    private string ExtractAuthor(XElement titleInfo, XNamespace ns)
-    {
-        var auth = titleInfo?.Element(ns + "author");
-        if (auth == null) return "Неизвестен";
-        string first = auth.Element(ns + "first-name")?.Value ?? "";
-        string last = auth.Element(ns + "last-name")?.Value ?? "";
-        return $"{first} {last}".Trim();
     }
 
     public void SaveJsonToFb2(Stream outputStream, string fileName, string jsonPayload)

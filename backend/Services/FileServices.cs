@@ -42,26 +42,27 @@ public class FileService
 
         if (file == null)
         {
+            // Cancel OpenFile dialog
             Emit("cancel-loading", string.Empty);
             return;
         }
 
+        // Start of loading
         Emit("start-loading", file.Name);
 
         try
         {
-            // Используем await using для асинхронных потоков (рекомендуется в .NET)
             await using var stream = await file.OpenReadAsync();
 
             // Если файл большой, парсинг может занять время — выполняем в Task.Run, 
             // чтобы не блокировать UI-поток Avalonia
             string json = await Task.Run(() => Fb2Service.LoadAndConvertToJson(stream, file.Name));
 
+            // End of loading
             Emit("fb2-content", json);
         }
         catch (Exception ex)
         {
-            // Логируем или выводим более детальную ошибку
             Emit("error", $"Ошибка при чтении {file.Name}: {ex.Message}");
         }
     }
@@ -91,17 +92,15 @@ public class FileService
 
         try
         {
-            // Читаем данные напрямую из потока файла (работает везде, включая мобильные ОС и песочницы)
+            // Build base64 image
             await using var stream = await file.OpenReadAsync();
 
-            // Используем MemoryStream для эффективного чтения в байты
             using var ms = new MemoryStream();
             await stream.CopyToAsync(ms);
             byte[] imageBytes = ms.ToArray();
 
             string base64Image = Convert.ToBase64String(imageBytes);
 
-            // Получаем расширение и нормализуем его (jpeg -> jpg для mime-type)
             string ext = Path.GetExtension(file.Name).ToLower().TrimStart('.');
             if (ext == "jpeg") ext = "jpg";
 
@@ -121,7 +120,7 @@ public class FileService
     /// <summary>
     /// Save fb2-file
     /// </summary>
-    /// <param name="jsonContent"></param>
+    /// <param name="jsonContent">JSON-content to save</param>
     /// <returns></returns>
     public async Task SaveFileAsync(string jsonContent)
     {
@@ -132,11 +131,11 @@ public class FileService
         {
             Title = "Сохранить книгу",
             // Позволяем пользователю выбрать формат сохранения
-            FileTypeChoices = new[]
-            {
-            new FilePickerFileType("Книга FB2") { Patterns = ["*.fb2"] },
-            new FilePickerFileType("Архив FB2.ZIP") { Patterns = ["*.fb2.zip"] }
-        },
+            FileTypeChoices =
+            [
+                new FilePickerFileType("Книга FB2") { Patterns = ["*.fb2"] },
+                new FilePickerFileType("Архив FB2.ZIP") { Patterns = ["*.fb2.zip"] }
+            ],
             DefaultExtension = "fb2",
             SuggestedFileName = "book"
         });
@@ -145,7 +144,6 @@ public class FileService
 
         try
         {
-            // Открываем поток на запись асинхронно
             await using var stream = await file.OpenWriteAsync();
 
             // Выполняем тяжелую конвертацию и запись в фоновом потоке
@@ -160,7 +158,11 @@ public class FileService
     }
 
 
-    // Вспомогательный метод для упаковки в JSON и генерации события
+    /// <summary>
+    /// Helper to pack to json and invoke message
+    /// </summary>
+    /// <param name="type">Message type</param>
+    /// <param name="payload">Payload string</param>
     private void Emit(string type, string payload)
     {
         var message = JsonConvert.SerializeObject(new { type, payload });
