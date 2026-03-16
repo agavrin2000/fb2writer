@@ -156,103 +156,19 @@ export const useFB2Editor = () => {
         },
     });
 
-    // Photino messages
-    /*
-    const handleIncomingMessage = useCallback((message: string) => {
-        try {
-            const data = JSON.parse(message);
-
-            switch (data.type) {
-                case 'start-loading':
-                    setIsLoading(true);
-                    setLoadingFileName(data.payload || 'Обработка...');
-                    break;
-
-                case 'fb2-content':
-                    if (editor && data.payload) {
-                        const fb2data = JSON.parse(data.payload);
-                        if (fb2data.EditorContent) {
-                            editor.commands.setContent(fb2data.EditorContent);
-                        }
-                        setMetadata(fb2data.Metadata || {});
-                        // загружаем сноски
-                        if (fb2data.Footnotes) {
-                            setFootnotes(fb2data.Footnotes);
-                            footnotesRef.current = fb2data.Footnotes;
-                        }
-                        else {
-                            setFootnotes({}); // Очищаем, если в книге нет сносок
-                        }
-                        setIsLoading(false);
-                        setLoadingFileName('');
-                    }
-                    break;
-
-                case 'insert-image':
-                    if (editor && data.url) {
-                        editor.chain().focus().setImage({ src: data.url }).run();
-                    }
-                    break;
-
-                case 'save-success':
-                    alert(`Книга успешно сохранена: ${data.path}`);
-                    break;
-
-                case 'error':
-                    setIsLoading(false);
-                    alert(`Ошибка: ${data.msg}`);
-                    break;
-
-                case 'cancel-loading':
-                    setIsLoading(false);
-                    setLoadingFileName('');
-                    break;
-            }
-        } catch (e) {
-            console.error("Ошибка парсинга сообщения от .NET:", e);
-        }
-    }, [editor, setMetadata, setIsLoading]);
-    
-    useEffect(() => {
-        // 1. Создаем функцию в глобальном пространстве (window)
-        // Именно её будет вызывать Photino при выполнении SendMessage в C#
-        (window as any).receiveMessageFromCSharp = (message: string) => {
-            console.log("📩 Сообщение получено из C#:", message);
-            handleIncomingMessage(message);
-        };
-
-        const photino = (window as any).external;
-
-        if (photino && typeof photino.receiveMessage === 'function') {
-            try {
-                // 2. Регистрируем нашу ГЛОБАЛЬНУЮ функцию в Photino
-                // Передаем ссылку на функцию, а не вызываем её!
-                photino.receiveMessage((window as any).receiveMessageFromCSharp);
-                console.log("✅ Подписка Photino установлена");
-            } catch (e) {
-                console.error("❌ Ошибка при регистрации в Photino:", e);
-            }
-        }
-        return () => {
-            // Очистка при размонтировании
-            delete (window as any).receiveMessageFromCSharp;
-        };
-    }, [handleIncomingMessage]);
-
-*/
     useEffect(() => {
         // Обработчик для загрузки контента
         const onFb2Content = (payload: any) => {
             // В вашем photino.ts payload уже распарсен (если пришел JSON)
             // Но так как внутри payload у вас еще один JSON (EditorContent и т.д.), парсим его:
             const fb2data = typeof payload === 'string' ? JSON.parse(payload) : payload;
+            console.log(fb2data);
 
             if (editor && fb2data) {
                 if (fb2data.EditorContent) {
                     editor.commands.setContent(fb2data.EditorContent);
                 }
-                setMetadata(fb2data.Metadata || {});
-
+                setMetadata(fb2data.Meta || {});
                 if (fb2data.Footnotes) {
                     setFootnotes(fb2data.Footnotes);
                     footnotesRef.current = fb2data.Footnotes;
@@ -303,22 +219,6 @@ export const useFB2Editor = () => {
         };
     }, [editor, setMetadata, setIsLoading, setFootnotes]);
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
     // Функции-обертки для отправки команд в C#
     const openFile = useCallback(() => {
         // Добавляем проверку, чтобы не открывать окно выбора файла дважды
@@ -353,5 +253,6 @@ export const useFB2Editor = () => {
         footnotesRef, // Передаем реф для использования в editorProps
         openFile,
         saveFile,
+        meta:metadata
     };
 };

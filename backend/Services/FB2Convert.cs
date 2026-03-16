@@ -2,6 +2,7 @@ using System.Xml.Linq;
 using System.Text;
 using Newtonsoft.Json;
 using System.IO.Compression;
+using System.Xml.Schema;
 
 namespace FB2Editor;
 
@@ -30,6 +31,7 @@ public class Fb2Service
             doc = XDocument.Load(fileStream);
         }
 
+        //ValidateFb2(doc);
         XNamespace ns = doc.Root?.GetDefaultNamespace() ?? XNamespace.None; ;
         XNamespace xlink = "http://www.w3.org";
 
@@ -66,6 +68,7 @@ public class Fb2Service
         var srcTitleInfo = description?.Elements().FirstOrDefault(x => x.Name.LocalName == "src-title-info");
         var docInfo = description?.Elements().FirstOrDefault(x => x.Name.LocalName == "document-info");
         var pubInfo = description?.Elements().FirstOrDefault(x => x.Name.LocalName == "publish-info");
+        var customInfo = description?.Elements().FirstOrDefault(x => x.Name.LocalName == "custom-info");
 
         // Извлекаем аннотацию (если есть)
         var annotationNodes = new List<object>();
@@ -73,6 +76,13 @@ public class Fb2Service
         if (annotationElem != null)
         {
             ParseElement(annotationElem, ns, xlink, [], annotationNodes);
+        }
+
+        var srcTitleInfoAnnotationNodes = new List<object>();
+        var srcTitleInfoAnnotationElem = srcTitleInfo?.Element(ns + "annotation");
+        if (srcTitleInfoAnnotationElem != null)
+        {
+            ParseElement(srcTitleInfoAnnotationElem, ns, xlink, [], srcTitleInfoAnnotationNodes);
         }
 
         // История создания (history из description)
@@ -132,7 +142,7 @@ public class Fb2Service
                     Keywords = titleInfo?.Element(ns + "keywords")?.Value ?? "",
                     Date = titleInfo?.Element(ns + "date")?.Value ?? "",
                     DateValue = titleInfo?.Element(ns + "date")?.Attribute("value")?.Value ?? "",
-                    SourcePage = titleInfo?.Element(ns + "coverpage")?.Element("image")?.Attribute(xlink + "href")?.Value?.TrimStart('#').ToLower() ?? "",
+                    CoverPage = titleInfo?.Element(ns + "coverpage")?.Element("image")?.Attribute(xlink + "href")?.Value?.TrimStart('#').ToLower() ?? "",
                     Lang = titleInfo?.Element(ns + "lang")?.Value ?? "ru",
                     SrcLang = titleInfo?.Element(ns + "src-lang")?.Value ?? "",
                     Translators = titleInfo?.Elements().Where(x => x.Name.LocalName == "translator").Select(parseAuthor).ToList(),
@@ -144,18 +154,18 @@ public class Fb2Service
                 },
                 SrcTitleInfo = new // Данные о произведении на языке оригинала
                 {
-                    Genres = titleInfo?.Elements().Where(x => x.Name.LocalName == "genre").Select(x => x.Value).ToList(),
-                    Authors = titleInfo?.Elements().Where(x => x.Name.LocalName == "author").Select(parseAuthor).ToList(),
-                    Title = titleInfo?.Element(ns + "book-title")?.Value ?? "Без названия",
-                    Annotation = annotationNodes, // Аннотация возвращается в формате TipTap JSON
-                    Keywords = titleInfo?.Element(ns + "keywords")?.Value ?? "",
-                    Date = titleInfo?.Element(ns + "date")?.Value ?? "",
-                    DateValue = titleInfo?.Element(ns + "date")?.Attribute("value")?.Value ?? "",
-                    SourcePage = titleInfo?.Element(ns + "coverpage")?.Element("image")?.Attribute(xlink + "href")?.Value?.TrimStart('#').ToLower() ?? "",
-                    Lang = titleInfo?.Element(ns + "lang")?.Value ?? "ru",
-                    SrcLang = titleInfo?.Element(ns + "src-lang")?.Value ?? "",
-                    Translators = titleInfo?.Elements().Where(x => x.Name.LocalName == "translator").Select(parseAuthor).ToList(),
-                    Sequence = pubInfo?.Elements().Where(x => x.Name.LocalName == "sequence").Select(x => new
+                    Genres = srcTitleInfo?.Elements().Where(x => x.Name.LocalName == "genre").Select(x => x.Value).ToList(),
+                    Authors = srcTitleInfo?.Elements().Where(x => x.Name.LocalName == "author").Select(parseAuthor).ToList(),
+                    Title = srcTitleInfo?.Element(ns + "book-title")?.Value ?? "Без названия",
+                    Annotation = srcTitleInfoAnnotationNodes, // Аннотация возвращается в формате TipTap JSON
+                    Keywords = srcTitleInfo?.Element(ns + "keywords")?.Value ?? "",
+                    Date = srcTitleInfo?.Element(ns + "date")?.Value ?? "",
+                    DateValue = srcTitleInfo?.Element(ns + "date")?.Attribute("value")?.Value ?? "",
+                    SourcePage = srcTitleInfo?.Element(ns + "coverpage")?.Element("image")?.Attribute(xlink + "href")?.Value?.TrimStart('#').ToLower() ?? "",
+                    Lang = srcTitleInfo?.Element(ns + "lang")?.Value ?? "ru",
+                    SrcLang = srcTitleInfo?.Element(ns + "src-lang")?.Value ?? "",
+                    Translators = srcTitleInfo?.Elements().Where(x => x.Name.LocalName == "translator").Select(parseAuthor).ToList(),
+                    Sequence = srcTitleInfo?.Elements().Where(x => x.Name.LocalName == "sequence").Select(x => new
                     {
                         name = x.Attribute("name")?.Value ?? "",
                         number = (int?)x.Attribute("number") ?? 0
@@ -172,7 +182,6 @@ public class Fb2Service
                     SrcOcr = docInfo?.Element(ns + "src-ocr")?.Value ?? "",
                     Version = docInfo?.Element(ns + "version")?.Value ?? "1.0",
                     History = historyNodes,
-                    Publishers = docInfo?.Elements().Where(x => x.Name.LocalName == "publisher").Select(parseAuthor).ToList(),
                 },
                 PublishInfo = new // Данные об издательстве
                 {
@@ -186,13 +195,64 @@ public class Fb2Service
                         name = x.Attribute("name")?.Value ?? "",
                         number = (int?)x.Attribute("number") ?? 0
                     }).ToList(),
-                }
+                },
+                // Произвольная информация
+                CustomInfo = description?.Elements().Where(x => x.Name.LocalName == "custom-info").Select(x => new
+                    {
+                        InfoType= x.Attribute("info-type")?.Value ?? "",
+                        Value = x.Value
+                    }).ToList(),
             },
             EditorContent = new { type = "doc", content = contentNodes }, // Контент, включая картинки
             Footnotes = footnotes // Передаем словарь сносок отдельно
         });
     }
 
+
+    private static readonly Lazy<XmlSchemaSet> _schemaCache = new Lazy<XmlSchemaSet>(() =>
+        {
+            var schemas = new XmlSchemaSet();
+            try
+            {
+                // Пути к файлам в папке приложения (убедитесь, что файлы копируются в Output Directory)
+                string schemaPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Schemas");
+
+                // 1. Добавляем XLink (обязателен для валидации атрибутов изображений)
+                schemas.Add("http://www.w3.org/1999/xlink", Path.Combine(schemaPath, "xlink.xsd"));
+
+                // 2. Добавляем обе версии FB2. Валидатор сам выберет нужную по xmlns в файле.
+                schemas.Add("http://www.gribuser.ru/xml/fictionbook/2.0", Path.Combine(schemaPath, "FictionBook2.0.xsd"));
+                schemas.Add("http://www.gribuser.ru/xml/fictionbook/2.1", Path.Combine(schemaPath, "FictionBook2.1.xsd"));
+
+                schemas.Compile();
+                return schemas;
+            }
+            catch (Exception ex)
+            {
+                throw new Exception("Критическая ошибка при загрузке XSD схем из папки Schemas.", ex);
+            }
+        });
+
+    private static void ValidateFb2(XDocument doc)
+    {
+        var errors = new List<string>();
+
+        // Валидация через кэшированный набор схем
+        doc.Validate(_schemaCache.Value, (o, e) =>
+        {
+            if (e.Severity == XmlSeverityType.Error)
+            {
+                errors.Add($"Строка {e.Exception.LineNumber}: {e.Message}");
+            }
+        });
+
+        if (errors.Any())
+        {
+            var summary = string.Join(Environment.NewLine, errors.Take(10)); // Берем первые 10 ошибок
+            if (errors.Count > 10) summary += "\n... и другие ошибки.";
+            throw new Exception($"FB2 не валиден:\n{summary}");
+        }
+    }
     private static void ParseElement(XElement container, XNamespace ns, XNamespace xlink, Dictionary<string, string> binaryCache, List<object> nodes)
     {
         foreach (var el in container.Elements())

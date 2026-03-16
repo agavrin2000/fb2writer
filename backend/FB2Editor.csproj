@@ -10,6 +10,12 @@
 		<GenerateEmbeddedFilesManifest>true</GenerateEmbeddedFilesManifest>
 	</PropertyGroup>
 
+	<PropertyGroup>
+	<DebugType>portable</DebugType>
+	<DebugSymbols>true</DebugSymbols>
+	<Optimize>false</Optimize>
+	</PropertyGroup>
+	
 	<ItemGroup>
 		<PackageReference Include="Avalonia" Version="12.0.0-preview2" />
 		<PackageReference Include="Avalonia.Desktop" Version="12.0.0-preview2" />
@@ -23,6 +29,13 @@
 		<EmbeddedResource Include="Resources\**" />
 	</ItemGroup>
 
+	<ItemGroup>
+	<!-- Маска **/*.xsd подхватит все файлы схем в папке Schemas и её подпапках -->
+	<None Update="Schemas\*.xsd">
+		<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	</None>
+	</ItemGroup>
+	
 	<PropertyGroup>
 		<FrontendRoot>..\frontend</FrontendRoot>
 	</PropertyGroup>

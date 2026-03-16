@@ -3,6 +3,7 @@ import { useRef } from 'react';
 import { useFB2Editor } from './editor/hooks/useFB2Editor';
 import { Header } from './components/layout/header';
 import { Sidebar } from './components/navigation/sidebar';
+import { MetadataSidebar } from './components/navigation/metadata-sidebar';
 import { EditorCanvas } from './components/editor/canvas';
 import { StatusBar } from './components/layout/statusbar';
 import { Toolbar } from './components/editor/toolbar';
@@ -15,7 +16,7 @@ import { photino } from './api/photino';
 export default function Page() {
     const scrollRef = useRef<HTMLDivElement>(null);
     const {
-        editor, tocTree, activeHeadingPos, isLoading,
+        editor, tocTree, activeHeadingPos, isLoading, meta,
         openFile, saveFile, activeNote,
         loadingFileName, footnotes, closeNotePopup, updateNoteText 
     } = useFB2Editor();
@@ -54,6 +55,11 @@ export default function Page() {
                         ref={scrollRef}
                     />
                 </main>
+                                {/* Правая панель: Метаданные */}
+                <MetadataSidebar 
+                    meta={meta} 
+                    // Здесь в будущем пробросите данные о книге
+                />
             </div>
             {/* Всплывающее меню для картинок */}
             <ImageBubbleMenu editor={editor} />
