@@ -79,7 +79,7 @@ class Program
 
         DialogOwner = new Window
         {
-            SystemDecorations = SystemDecorations.None,
+            WindowDecorations = WindowDecorations.None,
             ShowInTaskbar = false,
             Opacity = 0,
             WindowStartupLocation = WindowStartupLocation.Manual,
