@@ -17,7 +17,7 @@ export default function Page() {
     const scrollRef = useRef<HTMLDivElement>(null);
     const {
         editor, tocTree, activeHeadingPos, isLoading, meta,
-        openFile, saveFile, activeNote,
+        openFile, saveFile, activeNote, setMetadata,
         loadingFileName, footnotes, closeNotePopup, updateNoteText 
     } = useFB2Editor();
 
@@ -55,10 +55,10 @@ export default function Page() {
                         ref={scrollRef}
                     />
                 </main>
-                                {/* Правая панель: Метаданные */}
+                {/* Правая панель: Метаданные */}
                 <MetadataSidebar 
-                    meta={meta} 
-                    // Здесь в будущем пробросите данные о книге
+                    meta={meta}
+                    onMetaChange={setMetadata}
                 />
             </div>
             {/* Всплывающее меню для картинок */}

@@ -24,9 +24,8 @@ import Strike from '@tiptap/extension-strike';
 import Superscript from '@tiptap/extension-superscript';
 import Subscript from '@tiptap/extension-subscript';
 
-
 export const useFB2Editor = () => {
-    const [metadata, setMetadata] = useState<Fb2Metadata>({ Title: '', Author: '' });
+    const [metadata, setMetadata] = useState<Fb2Metadata | null>(null);
     const [tocTree, setTocTree] = useState<TocItem[]>([]);
     const [activeHeadingPos, setActiveHeadingPos] = useState<number | null>(null);
     const [isLoading, setIsLoading] = useState(false);
@@ -234,7 +233,6 @@ export const useFB2Editor = () => {
         photino.send('save-file', content);
     }, [editor, isLoading]);
 
-
     return {
         editor,
         metadata,
@@ -253,6 +251,6 @@ export const useFB2Editor = () => {
         footnotesRef, // Передаем реф для использования в editorProps
         openFile,
         saveFile,
-        meta:metadata
+        meta:metadata,
     };
 };

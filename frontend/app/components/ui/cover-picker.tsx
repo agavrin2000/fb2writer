@@ -1,0 +1,66 @@
+import React from 'react';
+import { Image as ImageIcon, X, Upload } from 'lucide-react';
+
+interface CoverPickerProps {
+    value?: string; // Строка base64
+    onUpdate: (base64: string) => void;
+}
+
+export const CoverPicker = ({ value, onUpdate }: CoverPickerProps) => {
+    
+    // Функция для обработки загрузки локального файла
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                onUpdate(reader.result as string); // Сохраняем как DataURL (base64)
+            };
+            reader.readAsDataURL(file);
+        }
+    };
+
+    // Проверяем, есть ли уже префикс data:image, если нет — добавляем (для чистого base64 из FB2)
+    const imageSrc = value?.startsWith('data:image') 
+        ? value 
+        : (value ? `data:image/jpeg;base64,${value}` : null);
+
+    return (
+        <div className="mb-6">
+            <label className="block text-[9px] font-bold text-gray-400 uppercase mb-2 ml-0.5 tracking-wider">
+                Обложка книги
+            </label>
+            
+            <div className="relative group aspect-3/4 w-40 mx-auto bg-gray-50 rounded-lg border-2 border-dashed border-gray-200 overflow-hidden flex flex-col items-center justify-center transition-all hover:border-blue-300 shadow-inner">
+                {imageSrc ? (
+                    <>
+                        <img 
+                            src={imageSrc} 
+                            alt="Обложка" 
+                            className="w-full h-full object-cover"
+                        />
+                        {/* Кнопки управления при наведении */}
+                        <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                            <label className="p-2 bg-white rounded-full text-blue-600 hover:bg-blue-50 shadow-lg cursor-pointer transition-transform hover:scale-110">
+                                <Upload size={16} />
+                                <input type="file" className="hidden" accept="image/*" onChange={handleFileChange} />
+                            </label>
+                            <button type="button" title="Удалить"
+                                onClick={() => onUpdate('')}
+                                className="p-2 bg-white rounded-full text-red-500 hover:bg-red-50 shadow-lg transition-transform hover:scale-110"
+                            >
+                                <X size={16} />
+                            </button>
+                        </div>
+                    </>
+                ) : (
+                    <label className="flex flex-col items-center text-gray-400 gap-2 cursor-pointer hover:text-blue-500 transition-colors">
+                        <ImageIcon size={32} strokeWidth={1} />
+                        <span className="text-[10px] font-bold uppercase tracking-tighter">Загрузить</span>
+                        <input type="file" className="hidden" accept="image/*" onChange={handleFileChange} />
+                    </label>
+                )}
+            </div>
+        </div>
+    );
+};

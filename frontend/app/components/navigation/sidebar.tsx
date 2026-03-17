@@ -39,7 +39,7 @@ export const Sidebar = ({ tree, onNavigate, activePos }: { tree: TocItem[], onNa
                         
                         {/* "Заглушка", чтобы линия не тянулась ниже последнего элемента в ветке */}
                         {index === items.length - 1 && level > 0 && (
-                             <div className="absolute left-[-1px] top-4 bottom-0 w-1 bg-white" />
+                             <div className="absolute -left-px top-4 bottom-0 w-1 bg-white" />
                         )}
                     </div>
                 ))}
@@ -77,7 +77,7 @@ export const Sidebar = ({ tree, onNavigate, activePos }: { tree: TocItem[], onNa
                 </div>
                 
                 {/* Контент (дерево) */}
-                <div className="flex-grow overflow-y-auto p-4 custom-scrollbar min-w-[288px]">
+                <div className="grow overflow-y-auto p-4 custom-scrollbar min-w-[288px]">
                     { renderTocBranch(tree) }
                 </div>
             </aside>

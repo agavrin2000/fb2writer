@@ -323,3 +323,25 @@ section.fb2-section section.fb2-section {
   color: #444;
   font-style: normal; /* Сбрасываем курсив браузера, чтобы работал вложенный */
 }
+
+/* Изолированные стили для аннотации в сайдбаре */
+.annotation-editor.tiptap {
+    line-height: 1.4;
+    font-family: ui-sans-serif, system-ui, sans-serif; /* Отличаем от книжного шрифта */
+    font-size: small;
+}
+
+.annotation-editor.tiptap p {
+    margin-bottom: 0.5rem;
+}
+
+.annotation-editor.tiptap strong {
+    color: #1d4ed8; /* Синий акцент для жирного текста в сайдбаре */
+}
+
+/* Скрываем элементы, которые не нужны в мини-редакторе */
+.annotation-editor.tiptap h1, 
+.annotation-editor.tiptap h2 {
+    font-size: 1.1rem;
+    margin-top: 0.5rem;
+}
