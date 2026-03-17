@@ -83,6 +83,13 @@ export interface IPhotinoBridge {
     receiveMessage: (callback: (message: string) => void) => void;
 }
 
+export interface Fb2Note {
+    Title: string,
+    Content: string
+}
+
+export type Fb2NotesMap = Record<string, Fb2Note>;
+
 export interface TocItem {
     pos: number;
     text: string;

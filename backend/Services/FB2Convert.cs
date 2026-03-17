@@ -6,6 +6,16 @@ using System.Xml.Schema;
 
 namespace FB2Editor;
 
+public class FootnoteDto
+{
+    // ID сноски
+    public string Id { get; set; } = "";
+    // Заголовок сноски
+    public string Title { get; set; } = "";
+    // Содержимое сноски
+    public List<object> Content { get; set; } = [];
+}
+
 public class Fb2Service
 {
     private readonly Dictionary<string, string> _binaryCache = [];
@@ -95,18 +105,29 @@ public class Fb2Service
         }
 
         // --- ПАРСИНГ ПРИМЕЧАНИЙ ---
-        var notesBody = doc.Descendants().Where(x => x.Name.LocalName == "body").Skip(1).FirstOrDefault();
-        var footnotes = new Dictionary<string, string>();
+        var notesBody = doc.Descendants()
+            .FirstOrDefault(x => x.Name.LocalName == "body" && x.Attribute("name")?.Value.ToLower() == "notes");
 
-        if (notesBody != null)
+        var footnotesList = new List<FootnoteDto>();
+        foreach (var section in notesBody?.Elements().Where(e => e.Name.LocalName == "section") ?? [])
         {
-            foreach (var section in notesBody.Elements().Where(e => e.Name.LocalName == "section"))
+            var id = section.Attribute("id")?.Value;
+            if (string.IsNullOrEmpty(id)) continue;
+
+            var footnote = new FootnoteDto
             {
-                string id = section.Attribute("id")?.Value ?? "";
-                // Текст сноски обычно в первом <p> или <title>
-                string text = section.Descendants().FirstOrDefault(e => e.Name.LocalName == "p")?.Value ?? "";
-                if (!string.IsNullOrEmpty(id)) footnotes[id] = text;
-            }
+                Id = id,
+                Title = section.Elements().FirstOrDefault(e => e.Name.LocalName == "title")?.Value?.Trim() ?? ""
+            };
+
+            // Создаем временный элемент-обертку, чтобы не дублировать title в Content и 
+            // добавляем в обертку всё, кроме <title>
+            var contentWrapper = new XElement("wrapper");
+            contentWrapper.Add(section.Elements().Where(e => e.Name.LocalName != "title"));
+
+            ParseElement(contentWrapper, ns, xlink, [], footnote.Content);
+
+            footnotesList.Add(footnote);
         }
 
         // --- ПАРСИНГ КОНТЕНТА И КАРТИНОК ---
@@ -123,10 +144,10 @@ public class Fb2Service
         string GetCoverImage(string? href)
         {
             if (!string.IsNullOrEmpty(href) && binaryCache.TryGetValue(href, out string? base64) && base64 != null)
-                {
-                    return $"data:image/jpeg;base64,{base64}";
-                }
-                return "";
+            {
+                return $"data:image/jpeg;base64,{base64}";
+            }
+            return "";
         }
 
         // Извлекаем контент
@@ -171,7 +192,7 @@ public class Fb2Service
                     Keywords = srcTitleInfo?.Element(ns + "keywords")?.Value ?? "",
                     Date = srcTitleInfo?.Element(ns + "date")?.Value ?? "",
                     DateValue = srcTitleInfo?.Element(ns + "date")?.Attribute("value")?.Value ?? "",
-                    CoverPage =  GetCoverImage(srcTitleInfo?.Element(ns + "coverpage")?.Descendants(ns + "image").FirstOrDefault()?.Attribute(xlink + "href")?.Value?.TrimStart('#').ToLower()),
+                    CoverPage = GetCoverImage(srcTitleInfo?.Element(ns + "coverpage")?.Descendants(ns + "image").FirstOrDefault()?.Attribute(xlink + "href")?.Value?.TrimStart('#').ToLower()),
                     Lang = srcTitleInfo?.Element(ns + "lang")?.Value ?? "ru",
                     SrcLang = srcTitleInfo?.Element(ns + "src-lang")?.Value ?? "",
                     Translators = srcTitleInfo?.Elements().Where(x => x.Name.LocalName == "translator").Select(parseAuthor).ToList() ?? [],
@@ -207,16 +228,17 @@ public class Fb2Service
                     }).ToList() ?? [],
                 },
                 // Произвольная информация
-                CustomInfo = new {
-                    customItems= description?.Elements().Where(x => x.Name.LocalName == "custom-info").Select(x => new
+                CustomInfo = new
+                {
+                    customItems = description?.Elements().Where(x => x.Name.LocalName == "custom-info").Select(x => new
                     {
-                        infoType= x.Attribute("info-type")?.Value ?? "",
+                        infoType = x.Attribute("info-type")?.Value ?? "",
                         value = x.Value
                     }).ToList() ?? [],
                 }
             },
             EditorContent = new { type = "doc", content = contentNodes }, // Контент, включая картинки
-            Footnotes = footnotes // Передаем словарь сносок отдельно
+            Footnotes = footnotesList // Передаем список сносок отдельно
         });
     }
 
@@ -419,15 +441,19 @@ public class Fb2Service
                                 newMarks.Add(new { type = "code" });
                                 break;
                             case "a":
-                                if (element.Attribute("type")?.Value == "note") // ignore links except notes links
+                                var href = element.Attribute(xlink + "href")?.Value ?? "";
+                                var type = element.Attribute("type")?.Value;
+                                newMarks.Add(new
                                 {
-                                    var href = element.Attribute("href")?.Value ?? "";
-                                    newMarks.Add(new
+                                    type = "link",
+                                    attrs = new
                                     {
-                                        type = "link",
-                                        attrs = new { href, target = "_blank", rel = "footnote" }
-                                    });
-                                }
+                                        href,
+                                        target = "_blank",
+                                        // Если это примечание, оставляем footnote, иначе — обычная ссылка
+                                        rel = (type == "note") ? "footnote" : "noreferrer noopener"
+                                    }
+                                });
                                 break;
                         }
 

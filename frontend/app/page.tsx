@@ -71,7 +71,7 @@ export default function Page() {
             {activeNote && (
                 <NotePopup 
                     note={activeNote} 
-                    content={footnotes[activeNote.id] || ''}
+                    content={footnotes[activeNote.id].Content || ''}
                     onUpdate={updateNoteText} 
                     onClose={closeNotePopup} 
                 />

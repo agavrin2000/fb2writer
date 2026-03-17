@@ -14,15 +14,21 @@ import { Fb2Title } from '../extensions/fb2title';
 import { Fb2Cite } from '../extensions/fb2cite';
 import { Fb2CustomStyle } from '../extensions/fb2customstyle';
 import { Fb2Epigraph } from '../extensions/fb2epigraph';
-import { Fb2Note } from '../extensions/fb2note';
+//import { Fb2Note } from '../extensions/fb2note';
 import { Fb2Poem } from '../extensions/fb2poem';
 import { Fb2Stanza } from '../extensions/fb2stanza';
 import { Fb2Subtitle } from '../extensions/fb2subtitle';
 import { Fb2TextAuthor } from '../extensions/fb2textauthor';
 import { Fb2V } from '../extensions/fb2v';
-import Strike from '@tiptap/extension-strike';
 import Superscript from '@tiptap/extension-superscript';
 import Subscript from '@tiptap/extension-subscript';
+import { type Fb2NotesMap } from '../../types/types';
+
+interface RawFb2Note {
+    Id: string;
+    Title: string;
+    Content: string | string[];
+}
 
 export const useFB2Editor = () => {
     const [metadata, setMetadata] = useState<Fb2Metadata | null>(null);
@@ -31,8 +37,8 @@ export const useFB2Editor = () => {
     const [isLoading, setIsLoading] = useState(false);
     const [loadingFileName, setLoadingFileName] = useState('');
     const [activeNote, setActiveNote] = useState<{ id: string; text: string; x: number; y: number } | null>(null);
-    const [footnotes, setFootnotes] = useState<Record<string, string>>({});
-    const footnotesRef = useRef<Record<string, string>>({});
+    const [footnotes, setFootnotes] = useState<Fb2NotesMap>({});
+    const footnotesRef = useRef<Fb2NotesMap>({});
 
     // Функция для закрытия попапа
     const closeNotePopup = useCallback(() => {
@@ -41,10 +47,19 @@ export const useFB2Editor = () => {
 
     // 2. Обновление текста конкретной сноски
     const updateNoteText = useCallback((newText: string) => {
-        if (activeNote) {
-            const updated = { ...footnotes, [activeNote.id]: newText };
-            setFootnotes(updated);
-            footnotesRef.current = updated;
+        if (activeNote && footnotes[activeNote.id]) {
+            const updatedNote = {
+                ...footnotes[activeNote.id],
+                Content: newText
+            };
+            // Обновляем весь словарь
+            const updatedMap = {
+                ...footnotes,
+                [activeNote.id]: updatedNote
+            };
+
+            setFootnotes(updatedMap);
+            footnotesRef.current = updatedMap;;
         }
     }, [activeNote, footnotes]);
 
@@ -78,12 +93,13 @@ export const useFB2Editor = () => {
                         class: 'bg-gray-100 rounded px-1 py-0.5 font-mono text-sm',
                     },
                 },
+                link: false,
             }),
             Superscript, // Верхний индекс <sup>
             Subscript,   // Нижний индекс <sub>            
             Link.configure({
                 openOnClick: false,
-                HTMLAttributes: { class: 'fb2-note-link text-blue-600 underline cursor-pointer', 'data-type': 'note' },
+                HTMLAttributes: { class: 'text-blue-600 underline cursor-pointer' },
             }),
             Image.configure({ inline: false, allowBase64: true, HTMLAttributes: { class: 'mx-auto rounded-lg shadow-md my-4' } }),
             Fb2Section,
@@ -91,7 +107,6 @@ export const useFB2Editor = () => {
             Fb2Cite,
             Fb2CustomStyle,
             Fb2Epigraph,
-            Fb2Note,
             Fb2Poem,
             Fb2Stanza,
             Fb2Subtitle,
@@ -103,14 +118,21 @@ export const useFB2Editor = () => {
                 const { schema } = view.state;
                 const node = view.state.doc.nodeAt(pos);
                 const mark = node?.marks.find(m => m.type === schema.marks.link);
+                const href = mark?.attrs.href || "";
+
+                // Проверяем, является ли ссылка внутренней (начинается с #)
                 if (mark) {
-                    // Очищаем ID от решетки (#note1 -> note1)
-                    const noteId = mark.attrs.href.replace('#', '');
-                    // Берем текст из нашего словаря в стейте
-                    const noteContent = footnotesRef.current[noteId];
-                    if (noteContent !== undefined) {
-                        setActiveNote({ id: noteId, text: noteContent, x: event.clientX, y: event.clientY });
-                        return true; // Останавливаем стандартное событие
+                    if (href.startsWith('#')) {
+                        // Очищаем ID от решетки (#note1 -> note1)
+                        const noteId = mark.attrs.href.replace('#', '');
+                        // Берем текст из нашего словаря в стейте
+                        const note = footnotesRef.current[noteId];
+                        if (note !== undefined) {
+                        console.log("Нашли:",  footnotesRef.current[noteId]);
+                            event.preventDefault();
+                            setActiveNote({ id: noteId, text: note.Content, x: event.clientX, y: event.clientY });
+                            return true; // Останавливаем стандартное событие
+                        }
                     }
                 }
                 setActiveNote(null);
@@ -169,8 +191,20 @@ export const useFB2Editor = () => {
                 }
                 setMetadata(fb2data.Meta || {});
                 if (fb2data.Footnotes) {
-                    setFootnotes(fb2data.Footnotes);
-                    footnotesRef.current = fb2data.Footnotes;
+                    // Превращаем массив в словарь (Record)
+                    const notesMap: Fb2NotesMap = fb2data.Footnotes.reduce((acc: Fb2NotesMap, note: RawFb2Note) => {
+                        // ВАЖНО: Ключом ставим именно Id сноски
+                        acc[note.Id] = {
+                            Title: note.Title,
+                            Content: note.Title // Array.isArray(note.Content) ? note.Content.join('\n') : note.Content
+                        };
+                        return acc;
+                    }, {} as Fb2NotesMap);
+                    console.log("Пришло",  fb2data.Footnotes)
+                    console.log("notesmap", notesMap)
+                    // Сохраняем уже словарь
+                    setFootnotes(notesMap);
+                    footnotesRef.current = notesMap;
                 } else {
                     setFootnotes({});
                 }
@@ -251,6 +285,6 @@ export const useFB2Editor = () => {
         footnotesRef, // Передаем реф для использования в editorProps
         openFile,
         saveFile,
-        meta:metadata,
+        meta: metadata,
     };
 };
