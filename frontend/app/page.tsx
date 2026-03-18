@@ -18,7 +18,7 @@ export default function Page() {
     const {
         editor, tocTree, activeHeadingPos, isLoading, meta,
         openFile, saveFile, activeNote, setMetadata,
-        loadingFileName, footnotes, closeNotePopup, updateNoteText 
+        loadingFileName, footnotes, closeNotePopup, updateNoteText, addFootnote, deleteFootnote
     } = useFB2Editor();
 
     const scrollToHeading = (pos: number) => {
@@ -47,6 +47,7 @@ export default function Page() {
                     <Toolbar
                         editor={editor}
                         onSelectImage={() => photino.send('select-image')}
+                        onAddFootnote={addFootnote}
                     />
 
                     {/* Лист редактора */}
@@ -71,9 +72,11 @@ export default function Page() {
             {activeNote && (
                 <NotePopup 
                     note={activeNote} 
-                    content={footnotes[activeNote.id].Content || ''}
+                    content={footnotes[activeNote.id] || ''}
+                    existingIds={Object.keys(footnotes)}
                     onUpdate={updateNoteText} 
                     onClose={closeNotePopup} 
+                    onDelete={deleteFootnote} 
                 />
             )}
             <StatusBar fileName="book.fb2" loading={isLoading} />

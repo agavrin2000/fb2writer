@@ -15,6 +15,8 @@ const config: Config = {
       },
     },
   },
-  plugins: [],
+  plugins: [
+    require("tailwindcss-animate"), // <-- Добавьте эту строку
+  ],
 };
 export default config;

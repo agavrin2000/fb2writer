@@ -1,6 +1,6 @@
 import { Editor } from '@tiptap/react';
 import React from 'react';
-import { BookPlus, Bold, Italic, Strikethrough, Code, Quote, Superscript, Subscript, FileImage, Baseline } from 'lucide-react';
+import { BookPlus, Bold, Italic, Strikethrough, Code, Quote, Superscript, Subscript, FileImage, Baseline, Asterisk } from 'lucide-react';
 import { ALargeSmall, Heading1, TextQuote, Signature, PenTool } from 'lucide-react'
 import { useEditorState } from '@tiptap/react'
 import { Fb2ActionIcon } from '../ui/fb2action-icon'
@@ -8,9 +8,10 @@ import { Fb2ActionIcon } from '../ui/fb2action-icon'
 interface ToolbarProps {
   editor: Editor | null;
   onSelectImage: () => void;
+  onAddFootnote: () => void;
 }
 
-export const Toolbar: React.FC<ToolbarProps> = ({ editor, onSelectImage }) => {
+export const Toolbar: React.FC<ToolbarProps> = ({ editor, onSelectImage, onAddFootnote }) => {
 
   const editorState = useEditorState({
     editor: editor as Editor, // Принудительное приведение типа для TS
@@ -33,7 +34,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({ editor, onSelectImage }) => {
   });
 
   if (!editor) return null;
-  const { canInsertTitle, canRemoveTitle, canInsertEpigraph, canRemoveEpigraph, canInsertTextAuthor, canRemoveTextAuthor,canInsertSubtitle, canRemoveSubtitle } = editorState as {
+  const { canInsertTitle, canRemoveTitle, canInsertEpigraph, canRemoveEpigraph, canInsertTextAuthor, canRemoveTextAuthor, canInsertSubtitle, canRemoveSubtitle } = editorState as {
     canInsertTitle: boolean;
     canRemoveTitle: boolean;
     canInsertEpigraph: boolean;
@@ -51,6 +52,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({ editor, onSelectImage }) => {
       : 'text-gray-600 hover:bg-gray-100 border border-transparent hover:border-gray-200'
       }`;
   };
+  const isInsideParagraph = editor.isActive('paragraph');
 
   return (
     <div className="bg-white border-b p-2 flex justify-center items-center gap-1 shadow-sm sticky top-0 z-20">
@@ -113,7 +115,6 @@ export const Toolbar: React.FC<ToolbarProps> = ({ editor, onSelectImage }) => {
         </button>
       }
 
-
       {canRemoveEpigraph ?
         <button type='button'
           onClick={() => (editor as any).chain().focus().removeFb2Epigraph().run()}
@@ -158,8 +159,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({ editor, onSelectImage }) => {
         <button type='button'
           onClick={() => (editor as any).chain().focus().removeFb2Subtitle().run()}
           className={btnClass('fb2Subtitle')}
-          //className="p-2 text-red-500 hover:bg-red-50 rounded"
-          title="Удалить автора текста"
+          title="Удалить подзаголовок"
         >
           <Fb2ActionIcon icon={Baseline} mode="remove" />
         </button>
@@ -168,11 +168,22 @@ export const Toolbar: React.FC<ToolbarProps> = ({ editor, onSelectImage }) => {
           onClick={() => (editor as any).chain().focus().insertFb2Subtitle().run()}
           disabled={!canInsertSubtitle}
           className={btnClass('fb2Subtitle')}
-          title="Добавить автора текста"
+          title="Добавить подзаголовок"
         >
           <Fb2ActionIcon icon={Baseline} mode="add" />
         </button>
       }
+
+      <button type='button' title='Вставить сноску'
+        onClick={onAddFootnote}
+        disabled={!isInsideParagraph} // Блокируем кнопку
+        className={`${btnClass('footnote')} ${isInsideParagraph
+            ? 'text-blue-600 hover:bg-blue-50 border-blue-100 opacity-100'
+            : 'text-gray-300 bg-gray-50 border-gray-100 cursor-not-allowed opacity-50'
+          } border shadow-sm`}
+      >
+        <Asterisk size={20} />
+      </button>
 
       <button type='button' title='Вставить изображение'
         onClick={onSelectImage}

@@ -14,7 +14,6 @@ import { Fb2Title } from '../extensions/fb2title';
 import { Fb2Cite } from '../extensions/fb2cite';
 import { Fb2CustomStyle } from '../extensions/fb2customstyle';
 import { Fb2Epigraph } from '../extensions/fb2epigraph';
-//import { Fb2Note } from '../extensions/fb2note';
 import { Fb2Poem } from '../extensions/fb2poem';
 import { Fb2Stanza } from '../extensions/fb2stanza';
 import { Fb2Subtitle } from '../extensions/fb2subtitle';
@@ -22,13 +21,6 @@ import { Fb2TextAuthor } from '../extensions/fb2textauthor';
 import { Fb2V } from '../extensions/fb2v';
 import Superscript from '@tiptap/extension-superscript';
 import Subscript from '@tiptap/extension-subscript';
-import { type Fb2NotesMap } from '../../types/types';
-
-interface RawFb2Note {
-    Id: string;
-    Title: string;
-    Content: string | string[];
-}
 
 export const useFB2Editor = () => {
     const [metadata, setMetadata] = useState<Fb2Metadata | null>(null);
@@ -36,46 +28,15 @@ export const useFB2Editor = () => {
     const [activeHeadingPos, setActiveHeadingPos] = useState<number | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [loadingFileName, setLoadingFileName] = useState('');
-    const [activeNote, setActiveNote] = useState<{ id: string; text: string; x: number; y: number } | null>(null);
-    const [footnotes, setFootnotes] = useState<Fb2NotesMap>({});
-    const footnotesRef = useRef<Fb2NotesMap>({});
+    const [activeNote, setActiveNote] = useState<{
+        id: string; x: number; y: number;
+        isNew?: boolean;
+        pos?: number;
+    } | null>(null);
+    const [footnotes, setFootnotes] = useState<Record<string, any>>({});
+    const footnotesRef = useRef<Record<string, any>>({});
 
-    // Функция для закрытия попапа
-    const closeNotePopup = useCallback(() => {
-        setActiveNote(null);
-    }, []);
-
-    // 2. Обновление текста конкретной сноски
-    const updateNoteText = useCallback((newText: string) => {
-        if (activeNote && footnotes[activeNote.id]) {
-            const updatedNote = {
-                ...footnotes[activeNote.id],
-                Content: newText
-            };
-            // Обновляем весь словарь
-            const updatedMap = {
-                ...footnotes,
-                [activeNote.id]: updatedNote
-            };
-
-            setFootnotes(updatedMap);
-            footnotesRef.current = updatedMap;;
-        }
-    }, [activeNote, footnotes]);
-
-    const addFootnote = () => {
-        const noteId = prompt("Введите ID примечания (например: note1):");
-        const noteText = prompt("Введите текст примечания:");
-
-        if (noteId && noteText) {
-            // 1. Создаем ссылку в тексте
-            editor?.chain().focus().setLink({ href: `#${noteId}` }).run();
-
-            // 2. Отправляем текст сноски в C#, чтобы он сохранил его в отдельный список
-            photino.send('add-note', JSON.stringify({ id: noteId, text: noteText }));
-        }
-    };
-
+   // MAIN Editor
     const editor = useEditor({
         extensions: [
             StarterKit.configure({
@@ -99,7 +60,11 @@ export const useFB2Editor = () => {
             Subscript,   // Нижний индекс <sub>            
             Link.configure({
                 openOnClick: false,
-                HTMLAttributes: { class: 'text-blue-600 underline cursor-pointer' },
+                HTMLAttributes: {
+                    rel: 'noopener noreferrer', // дефолт
+                },
+                // Позволяем динамически менять rel для сносок
+                validate: href => /^https?:\/\/|^\#/.test(href), // разрешаем ссылки на #id
             }),
             Image.configure({ inline: false, allowBase64: true, HTMLAttributes: { class: 'mx-auto rounded-lg shadow-md my-4' } }),
             Fb2Section,
@@ -120,17 +85,15 @@ export const useFB2Editor = () => {
                 const mark = node?.marks.find(m => m.type === schema.marks.link);
                 const href = mark?.attrs.href || "";
 
-                // Проверяем, является ли ссылка внутренней (начинается с #)
                 if (mark) {
                     if (href.startsWith('#')) {
                         // Очищаем ID от решетки (#note1 -> note1)
                         const noteId = mark.attrs.href.replace('#', '');
                         // Берем текст из нашего словаря в стейте
-                        const note = footnotesRef.current[noteId];
-                        if (note !== undefined) {
-                        console.log("Нашли:",  footnotesRef.current[noteId]);
+                        const noteContent = footnotesRef.current[noteId];
+                        if (noteContent !== undefined) {
                             event.preventDefault();
-                            setActiveNote({ id: noteId, text: note.Content, x: event.clientX, y: event.clientY });
+                            setActiveNote({ id: noteId, x: event.clientX, y: event.clientY });
                             return true; // Останавливаем стандартное событие
                         }
                     }
@@ -191,23 +154,13 @@ export const useFB2Editor = () => {
                 }
                 setMetadata(fb2data.Meta || {});
                 if (fb2data.Footnotes) {
-                    // Превращаем массив в словарь (Record)
-                    const notesMap: Fb2NotesMap = fb2data.Footnotes.reduce((acc: Fb2NotesMap, note: RawFb2Note) => {
-                        // ВАЖНО: Ключом ставим именно Id сноски
-                        acc[note.Id] = {
-                            Title: note.Title,
-                            Content: note.Title // Array.isArray(note.Content) ? note.Content.join('\n') : note.Content
-                        };
-                        return acc;
-                    }, {} as Fb2NotesMap);
-                    console.log("Пришло",  fb2data.Footnotes)
-                    console.log("notesmap", notesMap)
-                    // Сохраняем уже словарь
-                    setFootnotes(notesMap);
-                    footnotesRef.current = notesMap;
+                    setFootnotes(fb2data.Footnotes);
+                    footnotesRef.current = fb2data.Footnotes;
                 } else {
                     setFootnotes({});
                 }
+                console.log("Пришло", fb2data.Footnotes)
+                console.log("Footnotes", footnotesRef)
                 setIsLoading(false);
                 setLoadingFileName('');
             }
@@ -252,6 +205,177 @@ export const useFB2Editor = () => {
         };
     }, [editor, setMetadata, setIsLoading, setFootnotes]);
 
+
+    // Функция для закрытия попапа
+    const closeNotePopup = useCallback(() => {
+        setActiveNote(null);
+    }, []);
+
+
+    const updateNoteContent = useCallback((newContent: any, newId?: string) => {
+        if (!activeNote || !editor) return;
+
+        const oldId = activeNote.id;
+        const finalId = newId?.trim() || oldId;
+
+        // 1. Проверка на дубликаты
+        if (finalId !== oldId && footnotes.hasOwnProperty(finalId)) {
+            alert(`Ошибка: Сноска с ID "${finalId}" уже существует!`);
+            return;
+        }
+
+        // 2. РАБОТА С ТЕКСТОМ КНИГИ (EDITOR)
+        if (activeNote.isNew && activeNote.pos !== undefined) {
+            // Сноска НОВАЯ: вставляем текст ссылки [ID]
+            const linkText = `[${finalId.substring(2)}]`;
+            editor.chain()
+                .focus()
+                .insertContentAt(activeNote.pos, [
+                    {
+                        type: 'text',
+                        text: linkText,
+                        marks: [{ type: 'link', attrs: { href: `#${finalId}`, rel: 'footnote' } }]
+                    },
+                    { type: 'text', text: ' ' }
+                ])
+                .run();
+        }
+        else if (finalId !== oldId) {
+            // Сноска СТАРАЯ: обновляем ТОЛЬКО href ссылки в тексте, не трогая её текст
+            const oldHref = `#${oldId}`;
+            const newHref = `#${finalId}`;
+
+            editor.state.doc.descendants((node, pos) => {
+                const link = node.marks.find(m => m.type.name === 'link' && m.attrs.href === oldHref);
+                if (link) {
+                    editor.chain()
+                        .setTextSelection({ from: pos, to: pos + node.nodeSize })
+                        .extendMarkRange('link')
+                        .setMark('link', { ...link.attrs, href: newHref })
+                        .run();
+                    return false;
+                }
+                return true;
+            });
+        }
+
+        // 3. ОБНОВЛЕНИЕ ХРАНИЛИЩА ССЫЛОК (Без принудительной смены текста в fb2Title)
+        setFootnotes(prev => {
+            const updated = { ...prev };
+            if (finalId !== oldId) {
+                delete updated[oldId];
+            }
+            // Сохраняем newContent "как есть", без модификации fb2Title
+            updated[finalId] = newContent;
+
+            footnotesRef.current = updated;
+            return updated;
+        });
+
+        setActiveNote(null);
+    }, [activeNote, editor, footnotes]);
+
+
+    // Добавить ссылку
+    const addFootnote = () => {
+        if (!editor || !editor.isActive('paragraph')) return;
+
+        const { from } = editor.state.selection;
+        const coords = editor.view.coordsAtPos(from);
+
+        // Генерируем ID
+        const newNoteId = `n_${Date.now().toString(36).slice(-4)}`;
+
+        // Формируем шаблон с текущим ID
+        const initialContent = [
+            {
+                type: "fb2Title",
+                content: [{ type: "paragraph", content: [{ type: "text", "text": `${newNoteId.substring(2)}` }] }]
+            },
+            {
+                type: "paragraph", content: [{ type: "text", "text": "Новая сноска" }]
+            }
+        ];
+
+
+        // Сохраняем в стейт под временным ID
+        setFootnotes(prev => ({ ...prev, [newNoteId]: initialContent }));
+
+        setActiveNote({
+            id: newNoteId,
+            x: coords.left,
+            y: coords.top,
+            isNew: true,
+            pos: from
+        });
+    };
+
+    // уДАЛИТЬ ССЫЛКУ
+    const deleteFootnote = useCallback((id: string) => {
+        if (!editor) return;
+
+        // 1. Находим и удаляем все ссылки на этот ID в тексте книги
+        const targetHref = `#${id}`;
+        editor.state.doc.descendants((node, pos) => {
+            const linkMark = node.marks.find(m => m.type.name === 'link' && m.attrs.href === targetHref);
+            if (linkMark) {
+                // Удаляем текст ссылки (например, "[n123]")
+                editor.commands.deleteRange({ from: pos, to: pos + node.nodeSize });
+            }
+            return true;
+        });
+
+        // 2. Удаляем контент сноски из хранилища
+        setFootnotes(prev => {
+            const updated = { ...prev };
+            delete updated[id];
+            footnotesRef.current = updated;
+            return updated;
+        });
+
+        // 3. Закрываем окно
+        setActiveNote(null);
+    }, [editor]);
+
+    // Удалить ссылки без упоминаний в тексте
+    const cleanupOrphanNotes = useCallback(() => {
+        if (!editor) return footnotes;
+
+        // 1. Собираем все уникальные ID сносок, на которые есть ссылки в тексте
+        const usedIds = new Set<string>();
+
+        editor.state.doc.descendants((node) => {
+            const linkMark = node.marks.find(m => m.type.name === 'link' && m.attrs.rel === 'footnote');
+            if (linkMark) {
+                // Убираем решетку из href (#n123 -> n123)
+                const id = linkMark.attrs.href?.replace('#', '');
+                if (id) usedIds.add(id);
+            }
+            return true;
+        });
+
+        // 2. Создаем новый объект только с теми сносками, которые используются
+        const cleanedFootnotes: Record<string, any> = {};
+        let removedCount = 0;
+
+        Object.keys(footnotes).forEach(id => {
+            if (usedIds.has(id)) {
+                cleanedFootnotes[id] = footnotes[id];
+            } else {
+                removedCount++;
+                console.log(`Удалена неиспользуемая сноска: ${id}`);
+            }
+        });
+
+        if (removedCount > 0) {
+            setFootnotes(cleanedFootnotes);
+            footnotesRef.current = cleanedFootnotes;
+            // Можно вывести уведомление: toast.success(`Очищено сносок: ${removedCount}`);
+        }
+
+        return cleanedFootnotes;
+    }, [editor, footnotes]);
+
     // Функции-обертки для отправки команд в C#
     const openFile = useCallback(() => {
         // Добавляем проверку, чтобы не открывать окно выбора файла дважды
@@ -259,12 +383,18 @@ export const useFB2Editor = () => {
 
         photino.send('open-file', { action: 'select_new' });
     }, [isLoading]);
-
+    
+    // Save fb2
     const saveFile = useCallback(() => {
         if (!editor || isLoading) return;
         if (!editor) return;
-        const content = JSON.stringify(editor.getJSON());
-        photino.send('save-file', content);
+        const actualFootnotes = cleanupOrphanNotes();
+        const fb2Data = {
+            content: editor?.getJSON(),
+            footnotes: actualFootnotes,
+            metadata: metadata
+        };
+        photino.send('save-file', fb2Data);
     }, [editor, isLoading]);
 
     return {
@@ -281,10 +411,12 @@ export const useFB2Editor = () => {
         setActiveNote, // Понадобится TipTap для открытия окна
         footnotes,
         closeNotePopup,
-        updateNoteText,
+        updateNoteText: updateNoteContent,
         footnotesRef, // Передаем реф для использования в editorProps
         openFile,
         saveFile,
+        addFootnote,
+        deleteFootnote,
         meta: metadata,
     };
 };

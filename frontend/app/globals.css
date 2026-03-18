@@ -345,3 +345,19 @@ section.fb2-section section.fb2-section {
     font-size: 1.1rem;
     margin-top: 0.5rem;
 }
+
+/* Изолированные стили для редактора сносок */
+.note-popup-editor.tiptap {
+    line-height: 1.4;
+    font-family: ui-sans-serif, system-ui, sans-serif; /* Отличаем от книжного шрифта */
+    font-size: small;
+}
+
+.note-popup-editor.tiptap p {
+    margin-bottom: 0.5rem;
+}
+
+/* Скрываем элементы, которые не нужны в мини-редакторе */
+.note-popup-editor.tiptap .fb2-title {
+    font-size: large;
+}

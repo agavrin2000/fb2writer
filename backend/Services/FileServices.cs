@@ -56,7 +56,7 @@ public class FileService
 
             // Если файл большой, парсинг может занять время — выполняем в Task.Run, 
             // чтобы не блокировать UI-поток Avalonia
-            string json = await Task.Run(() => Fb2Service.LoadAndConvertToJson(stream, file.Name));
+            string json = await Task.Run(() => _fb2Converter.LoadAndConvertToJson(stream, file.Name));
 
             // End of loading
             Emit("fb2-content", json);
@@ -66,7 +66,6 @@ public class FileService
             Emit("error", $"Ошибка при чтении {file.Name}: {ex.Message}");
         }
     }
-
 
     /// <summary>
     /// Open image file

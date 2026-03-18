@@ -4,23 +4,55 @@ using Newtonsoft.Json;
 using System.IO.Compression;
 using System.Xml.Schema;
 
-namespace FB2Editor;
-
-public class FootnoteDto
-{
-    // ID сноски
-    public string Id { get; set; } = "";
-    // Заголовок сноски
-    public string Title { get; set; } = "";
-    // Содержимое сноски
-    public List<object> Content { get; set; } = [];
-}
+namespace FB2Editor.Services;
 
 public class Fb2Service
 {
     private readonly Dictionary<string, string> _binaryCache = [];
+    private XNamespace ns = "http://www.gribuser.ru/xml/fictionbook/2.0";
+    private readonly XNamespace xlink = "http://www.w3.org/1999/xlink";
 
-    public static string LoadAndConvertToJson(Stream fileStream, string fileName)
+    // Метод для заполнения кеша (вызовите его при инициализации документа)
+    // Собираем все картинки (ID -> Base64)
+    // Очищаем Base64 от переносов строк, иначе браузер их не поймет
+    private void FillBinaryCache(XDocument doc)
+    {
+        var binaries = doc.Descendants()
+            .Where(x => x.Name.LocalName == "binary");
+
+        foreach (var bin in binaries)
+        {
+            var id = bin.Attribute("id")?.Value?.TrimStart('#').ToLower();
+            if (string.IsNullOrEmpty(id)) continue;
+
+            var mime = bin.Attribute("content-type")?.Value ?? "image/jpeg";
+            // Чистим base64 от всех пробельных символов и переносов
+            var base64 = string.Concat(bin.Value.Where(c => !char.IsWhiteSpace(c)));
+
+            _binaryCache[id] = $"data:{mime};base64,{base64}";
+        }
+    }
+
+    // Получение контента изображения по ссылке
+    private string GetImage(string? href)
+    {
+        if (string.IsNullOrWhiteSpace(href))
+            return string.Empty;
+
+        var key = href.TrimStart('#').ToLower();
+
+        return _binaryCache.TryGetValue(key, out var base64Data)
+            ? base64Data
+            : string.Empty;
+    }
+    /// <summary>
+    /// загрузка книги и конвертация для передачи во frontend
+    /// </summary>
+    /// <param name="fileStream"></param>
+    /// <param name="fileName"></param>
+    /// <returns></returns>
+    /// <exception cref="Exception"></exception>
+    public string LoadAndConvertToJson(Stream fileStream, string fileName)
     {
         // Обязательно для поддержки русских кодировок (windows-1251) в FB2
         Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
@@ -42,26 +74,21 @@ public class Fb2Service
         }
 
         //ValidateFb2(doc);
-        XNamespace ns = doc.Root?.GetDefaultNamespace() ?? XNamespace.None; ;
+        ns = doc.Root?.GetDefaultNamespace() ?? XNamespace.None; ;
         XNamespace xlink = "http://www.w3.org/1999/xlink";
 
+        // Локальная функция для парсинга авторов, переводчиков
         var parseAuthor = new Func<XElement, object>(a =>
         {
             var first = a.Element(ns + "first-name")?.Value ?? "";
             var middle = a.Element(ns + "middle-name")?.Value ?? "";
             var last = a.Element(ns + "last-name")?.Value ?? "";
             var nickname = a.Element(ns + "nickname")?.Value ?? "";
-            var emails = a.Elements().Where(x => x.Name.LocalName == "email").Select(x => x.Value).ToList();
-            var homePages = a.Elements().Where(x => x.Name.LocalName == "home-page").Select(x => x.Value).ToList();
-            // Формируем полное имя для отображения
-            string fullName = $"{first} {middle} {last}".Replace("  ", " ").Trim();
-
-            // Если ФИО пустое, используем никнейм
-            if (string.IsNullOrEmpty(fullName)) fullName = nickname;
+            var emails = a.Elements(ns + "email").Select(x => x.Value).ToList();
+            var homePages = a.Elements(ns + "home-page").Select(x => x.Value).ToList();
 
             return new
             {
-                FullName = fullName,
                 FirstName = first,
                 LastName = last,
                 MiddleName = middle,
@@ -70,6 +97,18 @@ public class Fb2Service
                 HomePages = homePages,
             };
         });
+
+        // Локальная функция для парсинга структуры узлов
+        List<object> ParseNodes(XElement? parent, XName name)
+        {
+            var nodes = new List<object>();
+            var target = parent?.Element(name);
+            if (target != null)
+            {
+                ParseElement(target, ns, xlink, [], nodes);
+            }
+            return nodes;
+        }
 
         // --- ПАРСИНГ МЕТАИНФОРМАЦИИ ---
         var description = doc.Descendants().FirstOrDefault(x => x.Name.LocalName == "description");
@@ -81,74 +120,49 @@ public class Fb2Service
         var pubInfo = description?.Elements().FirstOrDefault(x => x.Name.LocalName == "publish-info");
         var customInfo = description?.Elements().FirstOrDefault(x => x.Name.LocalName == "custom-info");
 
-        // Извлекаем аннотацию (если есть)
-        var annotationNodes = new List<object>();
-        var annotationElem = titleInfo?.Element(ns + "annotation");
-        if (annotationElem != null)
-        {
-            ParseElement(annotationElem, ns, xlink, [], annotationNodes);
-        }
 
-        var srcTitleInfoAnnotationNodes = new List<object>();
-        var srcTitleInfoAnnotationElem = srcTitleInfo?.Element(ns + "annotation");
-        if (srcTitleInfoAnnotationElem != null)
-        {
-            ParseElement(srcTitleInfoAnnotationElem, ns, xlink, [], srcTitleInfoAnnotationNodes);
-        }
-
-        // История создания (history из description)
-        var historyNodes = new List<object>();
-        var historyElem = docInfo?.Elements().FirstOrDefault(x => x.Name.LocalName == "history");
-        if (historyElem != null)
-        {
-            ParseElement(historyElem, ns, xlink, [], historyNodes);
-        }
+        // --- ПАРСИНГ АННОТАЦИЙ И ИСТОРИИ СОЗДАНИЯ ---
+        var annotationNodes = ParseNodes(titleInfo, ns + "annotation");
+        var srcTitleInfoAnnotationNodes = ParseNodes(srcTitleInfo, ns + "annotation");
+        var historyNodes = ParseNodes(docInfo, ns + "history");
 
         // --- ПАРСИНГ ПРИМЕЧАНИЙ ---
         var notesBody = doc.Descendants()
             .FirstOrDefault(x => x.Name.LocalName == "body" && x.Attribute("name")?.Value.ToLower() == "notes");
 
-        var footnotesList = new List<FootnoteDto>();
-        foreach (var section in notesBody?.Elements().Where(e => e.Name.LocalName == "section") ?? [])
+        var footnotesList = new Dictionary<string, List<object>>();
+        var sections = notesBody?.Elements().Where(e => e.Name.LocalName == "section") ?? [];
+
+        foreach (var section in sections)
         {
             var id = section.Attribute("id")?.Value;
             if (string.IsNullOrEmpty(id)) continue;
 
-            var footnote = new FootnoteDto
-            {
-                Id = id,
-                Title = section.Elements().FirstOrDefault(e => e.Name.LocalName == "title")?.Value?.Trim() ?? ""
-            };
+            var notesNodes = new List<object>();
+            ParseElement(section, ns, xlink, [], notesNodes);
 
-            // Создаем временный элемент-обертку, чтобы не дублировать title в Content и 
-            // добавляем в обертку всё, кроме <title>
-            var contentWrapper = new XElement("wrapper");
-            contentWrapper.Add(section.Elements().Where(e => e.Name.LocalName != "title"));
-
-            ParseElement(contentWrapper, ns, xlink, [], footnote.Content);
-
-            footnotesList.Add(footnote);
+            // Безопасное добавление (на случай дублей id в XML)
+            footnotesList[id] = notesNodes;
         }
 
         // --- ПАРСИНГ КОНТЕНТА И КАРТИНОК ---
-        // Собираем все картинки (ID -> Base64)
-        // Очищаем Base64 от переносов строк, иначе браузер их не поймет
+        FillBinaryCache(doc);
+
         var binaryCache = doc.Descendants()
             .Where(x => x.Name.LocalName == "binary")
+            .Select(x => new
+            {
+                Id = x.Attribute("id")?.Value?.ToLower() ?? "",
+                Mime = x.Attribute("content-type")?.Value ?? "image/jpeg",
+                // Эффективная очистка от всех пробельных символов
+                Data = string.Concat(x.Value.Where(c => !char.IsWhiteSpace(c)))
+            })
+            .Where(x => !string.IsNullOrEmpty(x.Id))
             .ToDictionary(
-                x => x.Attribute("id")?.Value?.ToLower() ?? "",
-                x => x.Value.Trim().Replace("\n", "").Replace("\r", ""),
+                x => x.Id,
+                x => $"data:{x.Mime};base64,{x.Data}",
                 StringComparer.OrdinalIgnoreCase
             );
-
-        string GetCoverImage(string? href)
-        {
-            if (!string.IsNullOrEmpty(href) && binaryCache.TryGetValue(href, out string? base64) && base64 != null)
-            {
-                return $"data:image/jpeg;base64,{base64}";
-            }
-            return "";
-        }
 
         // Извлекаем контент
         var contentNodes = new List<object>();
@@ -173,7 +187,7 @@ public class Fb2Service
                     Keywords = titleInfo?.Element(ns + "keywords")?.Value ?? "",
                     Date = titleInfo?.Element(ns + "date")?.Value ?? "",
                     DateValue = titleInfo?.Element(ns + "date")?.Attribute("value")?.Value ?? "",
-                    CoverPage = GetCoverImage(titleInfo?.Element(ns + "coverpage")?.Descendants(ns + "image").FirstOrDefault()?.Attribute(xlink + "href")?.Value?.TrimStart('#').ToLower()),
+                    CoverPage = GetImage(titleInfo?.Element(ns + "coverpage")?.Descendants(ns + "image").FirstOrDefault()?.Attribute(xlink + "href")?.Value),
                     Lang = titleInfo?.Element(ns + "lang")?.Value ?? "ru",
                     SrcLang = titleInfo?.Element(ns + "src-lang")?.Value ?? "",
                     Translators = titleInfo?.Elements().Where(x => x.Name.LocalName == "translator").Select(parseAuthor).ToList() ?? [],
@@ -192,7 +206,7 @@ public class Fb2Service
                     Keywords = srcTitleInfo?.Element(ns + "keywords")?.Value ?? "",
                     Date = srcTitleInfo?.Element(ns + "date")?.Value ?? "",
                     DateValue = srcTitleInfo?.Element(ns + "date")?.Attribute("value")?.Value ?? "",
-                    CoverPage = GetCoverImage(srcTitleInfo?.Element(ns + "coverpage")?.Descendants(ns + "image").FirstOrDefault()?.Attribute(xlink + "href")?.Value?.TrimStart('#').ToLower()),
+                    CoverPage = GetImage(srcTitleInfo?.Element(ns + "coverpage")?.Descendants(ns + "image").FirstOrDefault()?.Attribute(xlink + "href")?.Value),
                     Lang = srcTitleInfo?.Element(ns + "lang")?.Value ?? "ru",
                     SrcLang = srcTitleInfo?.Element(ns + "src-lang")?.Value ?? "",
                     Translators = srcTitleInfo?.Elements().Where(x => x.Name.LocalName == "translator").Select(parseAuthor).ToList() ?? [],
@@ -242,7 +256,6 @@ public class Fb2Service
         });
     }
 
-
     private static readonly Lazy<XmlSchemaSet> _schemaCache = new Lazy<XmlSchemaSet>(() =>
         {
             var schemas = new XmlSchemaSet();
@@ -266,7 +279,11 @@ public class Fb2Service
                 throw new Exception("Критическая ошибка при загрузке XSD схем из папки Schemas.", ex);
             }
         });
-
+    /// <summary>
+    /// Валидация fb2 документа на основе xsd-схем
+    /// </summary>
+    /// <param name="doc"></param>
+    /// <exception cref="Exception"></exception>
     private static void ValidateFb2(XDocument doc)
     {
         var errors = new List<string>();
@@ -287,7 +304,9 @@ public class Fb2Service
             throw new Exception($"FB2 не валиден:\n{summary}");
         }
     }
-    private static void ParseElement(XElement container, XNamespace ns, XNamespace xlink, Dictionary<string, string> binaryCache, List<object> nodes)
+
+    // Парсинг fb2-элементов
+    private void ParseElement(XElement container, XNamespace ns, XNamespace xlink, Dictionary<string, string> binaryCache, List<object> nodes)
     {
         foreach (var el in container.Elements())
         {
@@ -295,6 +314,10 @@ public class Fb2Service
 
             if (name == "section")
             {
+                if (!el.Elements().Any())
+                {
+                    continue; // Пропускаем пустую секцию
+                }
                 int depth = el.Ancestors().Count(x => x.Name.LocalName == "section") + 1;
                 int level = Math.Clamp(depth, 1, 6);
 
@@ -309,185 +332,110 @@ public class Fb2Service
                 {
                     type = "fb2Section",
                     attrs = new { level = level },
-                    content = sectionContent.ToArray()
+                    content = sectionContent
                 });
             }
-            else if (name == "title")
+            else if (name is "title" or "epigraph" or "cite")
             {
-                // Формируем список объектов для поля content
                 var contentList = new List<object>();
-                // Рекурсивно наполняем его (заголовки, p, вложенные секции пойдут сюда)
                 ParseElement(el, ns, xlink, binaryCache, contentList);
-                // Добавляем всю секцию как единый блок в общий список
-                nodes.Add(new
+                // Сопоставляем имя тега с типом в TipTap
+                string type = name switch
                 {
-                    type = "fb2Title",
-                    content = contentList.ToArray()
-                });
+                    "title" => "fb2Title",
+                    "epigraph" => "fb2Epigraph",
+                    "cite" => "fb2Cite",
+                    _ => "fb2Title"
+                };
+
+                nodes.Add(new { type, content = contentList });
             }
-            else if (name == "epigraph")
-            {
-                // Формируем список объектов для поля content
-                var contentList = new List<object>();
-                // Рекурсивно наполняем его (заголовки, p, вложенные секции пойдут сюда)
-                ParseElement(el, ns, xlink, binaryCache, contentList);
-                // Добавляем всю секцию как единый блок в общий список
-                nodes.Add(new
-                {
-                    type = "fb2Epigraph",
-                    content = contentList.ToArray()
-                });
-            }
-            else if (name == "cite")
-            {
-                // Формируем список объектов для поля content
-                var contentList = new List<object>();
-                // Рекурсивно наполняем его (заголовки, p, вложенные секции пойдут сюда)
-                ParseElement(el, ns, xlink, binaryCache, contentList);
-                // Добавляем всю секцию как единый блок в общий список
-                nodes.Add(new
-                {
-                    type = "fb2Cite",
-                    content = contentList.ToArray()
-                });
-            }
-            else if (name == "text-author")
+            else if (name is "text-author" or "subtitle" or "p")
             {
                 var inlineContent = new List<object>();
                 foreach (var node in el.Nodes())
                 {
-                    if (node is XText textNode)
-                    {
-                        inlineContent.Add(new { type = "text", text = textNode.Value });
-                    }
-                    else if (node is XElement child && child.Name.LocalName == "a")
-                    {
-                        var hrefAttr = child.Attributes().FirstOrDefault(a => a.Name.LocalName == "href");
-                        inlineContent.Add(new
-                        {
-                            type = "text",
-                            text = child.Value,
-                            marks = new[] { new { type = "link", attrs = new { href = hrefAttr?.Value ?? "", target = "_blank", rel = "footnote" } } }
-                        });
-                    }
+                    ProcessInline(node, inlineContent, []);
                 }
-                if (inlineContent.Count == 0) inlineContent.Add(new { type = "text", text = "" });
-                nodes.Add(new { type = "fb2TextAuthor", content = inlineContent });
-            }
-            else if (name == "subtitle")
-            {
-                var inlineContent = new List<object>();
-                foreach (var node in el.Nodes())
+                // Сопоставляем имя тега с типом в TipTap
+                string type = name switch
                 {
-                    if (node is XText textNode)
-                    {
-                        inlineContent.Add(new { type = "text", text = textNode.Value });
-                    }
-                    else if (node is XElement child && child.Name.LocalName == "a")
-                    {
-                        var hrefAttr = child.Attributes().FirstOrDefault(a => a.Name.LocalName == "href");
-                        inlineContent.Add(new
-                        {
-                            type = "text",
-                            text = child.Value,
-                            marks = new[] { new { type = "link", attrs = new { href = hrefAttr?.Value ?? "", target = "_blank", rel = "footnote" } } }
-                        });
-                    }
-                }
-                if (inlineContent.Count == 0) inlineContent.Add(new { type = "text", text = "" });
-                nodes.Add(new { type = "fb2Subtitle", content = inlineContent });
-            }
-            else if (name == "p")
-            {
-                var inlineContent = new List<object>();
+                    "p" => "paragraph",
+                    "text-author" => "fb2TextAuthor",
+                    "subtitle" => "fb2Subtitle",
+                    _ => "paragraph"
+                };
 
-                // Рекурсивная функция для сбора текста и накопления стилей (marks)
-                void ProcessInline(XNode node, List<object> activeMarks)
-                {
-                    if (node is XText textNode)
-                    {
-                        // Добавляем текстовый узел только если есть текст
-                        if (!string.IsNullOrEmpty(textNode.Value))
-                        {
-                            inlineContent.Add(new
-                            {
-                                type = "text",
-                                text = textNode.Value,
-                                marks = activeMarks.Count > 0 ? activeMarks.ToArray() : null
-                            });
-                        }
-                    }
-                    else if (node is XElement element)
-                    {
-                        var newMarks = new List<object>(activeMarks);
-                        var localName = element.Name.LocalName.ToLower();
-
-                        // Маппинг тегов XML на типы марок в TipTap/ProseMirror
-                        switch (localName)
-                        {
-                            case "emphasis":
-                                newMarks.Add(new { type = "italic" });
-                                break;
-                            case "strong":
-                                newMarks.Add(new { type = "bold" });
-                                break;
-                            case "sub":
-                                newMarks.Add(new { type = "subscript" });
-                                break;
-                            case "sup":
-                                newMarks.Add(new { type = "superscript" });
-                                break;
-                            case "code":
-                                newMarks.Add(new { type = "code" });
-                                break;
-                            case "a":
-                                var href = element.Attribute(xlink + "href")?.Value ?? "";
-                                var type = element.Attribute("type")?.Value;
-                                newMarks.Add(new
-                                {
-                                    type = "link",
-                                    attrs = new
-                                    {
-                                        href,
-                                        target = "_blank",
-                                        // Если это примечание, оставляем footnote, иначе — обычная ссылка
-                                        rel = (type == "note") ? "footnote" : "noreferrer noopener"
-                                    }
-                                });
-                                break;
-                        }
-
-                        // Идем глубже по дереву
-                        foreach (var childNode in element.Nodes())
-                        {
-                            ProcessInline(childNode, newMarks);
-                        }
-                    }
-                }
-
-                foreach (var node in el.Nodes()) ProcessInline(node, new List<object>());
-
-                if (inlineContent.Count == 0) inlineContent.Add(new { type = "text", text = "" });
-
-                nodes.Add(new { type = "paragraph", content = inlineContent });
+                nodes.Add(new { type, content = inlineContent });
             }
             else if (name == "empty-line")
             {
-                nodes.Add(new { type = "paragraph", text = "" });
+                nodes.Add(new { type = "paragraph", text = new List<object>() });
             }
             else if (name == "image")
             {
-                var hrefAttr = el.Attributes().FirstOrDefault(a => a.Name.LocalName == "href");
-                string href = hrefAttr?.Value?.Replace("#", "").ToLower() ?? string.Empty;
-                if (!string.IsNullOrEmpty(href) && binaryCache.TryGetValue(href, out string? base64) && base64 != null)
+                var hrefAttr = el.Attribute(xlink + "href");
+                if (hrefAttr != null)
                 {
-                    nodes.Add(new { type = "image", attrs = new { src = $"data:image/jpeg;base64,{base64}" } });
+                    string base64 = GetImage(hrefAttr.Value);
+                    if (!string.IsNullOrEmpty(base64))
+                    {
+                        nodes.Add(new { type = "image", attrs = new { src = base64 } });
+                    }
                 }
             }
             else if (name == "body")
             {
                 // Для body продолжаем наполнять текущий список (обычно это корень)
                 ParseElement(el, ns, xlink, binaryCache, nodes);
+            }
+        }
+    }
+
+    // Рекурсивная функция для сбора текста и накопления стилей (marks)
+    private void ProcessInline(XNode node, List<object> container, List<object> activeMarks)
+    {
+
+        if (node is XText textNode)
+        {
+            string val = textNode.Value;
+            if (!string.IsNullOrEmpty(val))
+            {
+                container.Add(new
+                {
+                    type = "text",
+                    text = val,
+                    marks = activeMarks.Count > 0 ? activeMarks.ToArray() : null
+                });
+            }
+        }
+        else if (node is XElement el)
+        {
+            // Маппинг тегов XML на типы марок в TipTap/ProseMirror
+            object? mark = el.Name.LocalName.ToLower() switch
+            {
+                "emphasis" => new { type = "italic" },
+                "strong" => new { type = "bold" },
+                "sub" => new { type = "subscript" },
+                "sup" => new { type = "superscript" },
+                "code" => new { type = "code" },
+                "a" => new
+                {
+                    type = "link",
+                    attrs = new
+                    {
+                        href = el.Attribute(xlink + "href")?.Value ?? "",
+                        rel = (el.Attribute("type")?.Value == "note") ? "footnote" : "noreferrer" // Если это примечание, оставляем footnote, иначе — обычная ссылка
+                    }
+                },
+                _ => null
+            };
+            var nextMarks = mark != null ? activeMarks.Concat(new[] { mark }).ToList() : activeMarks;
+
+            // Идем глубже по дереву
+            foreach (var child in el.Nodes())
+            {
+                ProcessInline(child, container, nextMarks);
             }
         }
     }
