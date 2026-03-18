@@ -324,6 +324,56 @@ section.fb2-section section.fb2-section {
   font-style: normal; /* Сбрасываем курсив браузера, чтобы работал вложенный */
 }
 
+
+.fb2-poem {
+  position: relative;
+  transition: all 0.2s ease-in-out;
+  border-radius: 4px;
+  text-align: center !important; 
+  margin: 2rem 0; /* Увеличил отступ, чтобы этикеткам было место */
+  font-style: italic;
+  padding: 1rem 0;
+}
+
+/* Этикетка ПОЭМЫ — слева */
+.fb2-poem:hover {
+  outline: 2px solid #6366f1;
+}
+.fb2-poem:hover::before {
+  content: 'Поэма';
+  /* Смещаем влево, чтобы не мешать строфе */
+  @apply absolute -top-7 left-0 bg-indigo-600 text-white text-[10px] px-2 py-0.5 rounded font-sans not-italic uppercase tracking-wider z-10;
+}
+
+.fb2-stanza {
+  position: relative;
+  transition: all 0.2s ease-in-out;
+  border-radius: 4px;
+  margin: 0.5rem 0;
+  padding: 10px 0;
+}
+
+/* Этикетка СТРОФЫ — справа */
+.fb2-stanza:hover {
+  outline: 1px dashed #818cf8; /* Сделал линию строфы пунктирной, чтобы не сливалась с поэмой */
+}
+.fb2-stanza:hover::before {
+  content: 'Строфа';
+  /* Оставляем справа */
+  @apply absolute -top-6 right-0 bg-indigo-400 text-white text-[9px] px-2 py-0.5 rounded font-sans not-italic uppercase z-20;
+}
+
+/* Чтобы при наведении на строфу этикетка поэмы не мешала, 
+   можно чуть приглушить её яркость, если наведена именно строфа */
+.fb2-poem:has(.fb2-stanza:hover)::before {
+  opacity: 0.5;
+}
+
+
+.fb2-v {
+  white-space: pre-wrap; /* Сохраняет множественные пробелы в начале строк */
+}
+
 /* Изолированные стили для аннотации в сайдбаре */
 .annotation-editor.tiptap {
     line-height: 1.4;

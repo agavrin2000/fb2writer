@@ -1,6 +1,6 @@
 import { Editor } from '@tiptap/react';
 import React from 'react';
-import { BookPlus, Bold, Italic, Strikethrough, Code, Quote, Superscript, Subscript, FileImage, Baseline, Asterisk } from 'lucide-react';
+import { BookPlus, Bold, Italic, Strikethrough, Code, Quote, Superscript, Subscript, FileImage, Baseline, Asterisk, Feather, AlignLeft } from 'lucide-react';
 import { ALargeSmall, Heading1, TextQuote, Signature, PenTool } from 'lucide-react'
 import { useEditorState } from '@tiptap/react'
 import { Fb2ActionIcon } from '../ui/fb2action-icon'
@@ -18,8 +18,21 @@ export const Toolbar: React.FC<ToolbarProps> = ({ editor, onSelectImage, onAddFo
     selector: (ctx) => {
       // Проверяем наличие редактора внутри селектора
       if (!ctx.editor) {
-        return { canInsertTitle: false, canRemoveTitle: false };
-      }
+        return {
+          canInsertTitle: false,
+          canRemoveTitle: false,
+          canInsertEpigraph: false,
+          canRemoveEpigraph: false,
+          canInsertTextAuthor: false,
+          canRemoveTextAuthor: false,
+          canInsertSubtitle: false,
+          canRemoveSubtitle: false,
+          canInsertPoem: false,
+          canRemovePoem: false,
+          canInsertStanza: false,
+          canRemoveStanza: false,
+        }
+      };
       return {
         canInsertTitle: (ctx.editor as any).can().insertFb2Title(),
         canRemoveTitle: (ctx.editor as any).can().removeFb2Title(),
@@ -29,12 +42,19 @@ export const Toolbar: React.FC<ToolbarProps> = ({ editor, onSelectImage, onAddFo
         canRemoveTextAuthor: (ctx.editor as any).can().removeFb2TextAuthor(),
         canInsertSubtitle: (ctx.editor as any).can().insertFb2Subtitle(),
         canRemoveSubtitle: (ctx.editor as any).can().removeFb2Subtitle(),
+        canInsertPoem: (ctx.editor as any).can().insertFb2Poem(),
+        canRemovePoem: (ctx.editor as any).can().removeFb2Poem(),
+        canInsertStanza: (ctx.editor as any).can().insertFb2Stanza(),
+        canRemoveStanza: (ctx.editor as any).can().removeFb2Stanza(),
       };
     },
   });
 
   if (!editor) return null;
-  const { canInsertTitle, canRemoveTitle, canInsertEpigraph, canRemoveEpigraph, canInsertTextAuthor, canRemoveTextAuthor, canInsertSubtitle, canRemoveSubtitle } = editorState as {
+  const { canInsertTitle, canRemoveTitle, canInsertEpigraph, canRemoveEpigraph,
+    canInsertTextAuthor, canRemoveTextAuthor, canInsertSubtitle, canRemoveSubtitle,
+    canInsertPoem, canRemovePoem, canInsertStanza, canRemoveStanza
+  } = editorState as {
     canInsertTitle: boolean;
     canRemoveTitle: boolean;
     canInsertEpigraph: boolean;
@@ -43,6 +63,10 @@ export const Toolbar: React.FC<ToolbarProps> = ({ editor, onSelectImage, onAddFo
     canRemoveTextAuthor: boolean;
     canInsertSubtitle: boolean;
     canRemoveSubtitle: boolean;
+    canInsertPoem: boolean;
+    canRemovePoem: boolean;
+    canInsertStanza: boolean;
+    canRemoveStanza: boolean;
   };
 
   const btnClass = (type: string, attrs?: any) => {
@@ -140,7 +164,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({ editor, onSelectImage, onAddFo
           onClick={() => (editor as any).chain().focus().removeFb2TextAuthor().run()}
           className={btnClass('fb2TextAuthor')}
           //className="p-2 text-red-500 hover:bg-red-50 rounded"
-          title="Удалить автора текста"
+          title="Удалить подпись автора"
         >
           <Fb2ActionIcon icon={Signature} mode="remove" />
         </button>
@@ -149,7 +173,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({ editor, onSelectImage, onAddFo
           onClick={() => (editor as any).chain().focus().insertFb2TextAuthor().run()}
           disabled={!canInsertTextAuthor}
           className={btnClass('fb2TextAuthor')}
-          title="Добавить автора текста"
+          title="Добавить подпись автора"
         >
           <Fb2ActionIcon icon={Signature} mode="add" />
         </button>
@@ -174,12 +198,50 @@ export const Toolbar: React.FC<ToolbarProps> = ({ editor, onSelectImage, onAddFo
         </button>
       }
 
+      {canRemovePoem ?
+        <button type='button'
+          onClick={() => (editor as any).chain().focus().removeFb2Poem().run()}
+          className={btnClass('fb2Poem')}
+          title="Удалить поэму"
+        >
+          <Fb2ActionIcon icon={Feather} mode="remove" />
+        </button>
+        :
+        <button type='button'
+          onClick={() => (editor as any).chain().focus().insertFb2Poem().run()}
+          disabled={!canInsertPoem}
+          className={btnClass('fb2Poem')}
+          title="Добавить поэму"
+        >
+          <Fb2ActionIcon icon={Feather} mode="add" />
+        </button>
+      }
+
+      {canRemoveStanza ?
+        <button type='button'
+          onClick={() => (editor as any).chain().focus().removeFb2Stanza().run()}
+          className={btnClass('fb2Stanza')}
+          title="Удалить строфу"
+        >
+          <Fb2ActionIcon icon={AlignLeft} mode="remove" />
+        </button>
+        :
+        <button type='button'
+          onClick={() => (editor as any).chain().focus().insertFb2Stanza().run()}
+          disabled={!canInsertStanza}
+          className={btnClass('fb2Stanza')}
+          title="Добавить строфу"
+        >
+          <Fb2ActionIcon icon={AlignLeft} mode="add" />
+        </button>
+      }
+
       <button type='button' title='Вставить сноску'
         onClick={onAddFootnote}
         disabled={!isInsideParagraph} // Блокируем кнопку
         className={`${btnClass('footnote')} ${isInsideParagraph
-            ? 'text-blue-600 hover:bg-blue-50 border-blue-100 opacity-100'
-            : 'text-gray-300 bg-gray-50 border-gray-100 cursor-not-allowed opacity-50'
+          ? 'text-blue-600 hover:bg-blue-50 border-blue-100 opacity-100'
+          : 'text-gray-300 bg-gray-50 border-gray-100 cursor-not-allowed opacity-50'
           } border shadow-sm`}
       >
         <Asterisk size={20} />
