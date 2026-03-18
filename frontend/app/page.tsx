@@ -23,11 +23,35 @@ export default function Page() {
 
     const scrollToHeading = (pos: number) => {
         if (!editor || !scrollRef.current) return;
+
+        // Сначала перемещаем каретку
         editor.commands.focus(pos);
-        const dom = editor.view.nodeDOM(pos) as HTMLElement;
-        if (dom) {
-            scrollRef.current.scrollTo({ top: dom.offsetTop - 20, behavior: 'smooth' });
-        }
+        editor.commands.setTextSelection(pos);
+
+        // Ждем один тик отрисовки, чтобы координаты стали актуальными
+        requestAnimationFrame(() => {
+            try {
+                // Получаем координаты конкретной позиции
+                const coords = editor.view.coordsAtPos(pos);
+                const container = scrollRef.current;
+
+                if (coords && container) {
+                    const containerRect = container.getBoundingClientRect();
+
+                    // Вычисляем позицию: 
+                    // Текущий скролл контейнера + (Y координаты текста - Y верхний край контейнера)
+                    const targetTop = container.scrollTop + (coords.top - containerRect.top);
+
+                    container.scrollTo({
+                        top: targetTop - 40, // 40px отступ сверху для красоты
+                        behavior: 'smooth'
+                    });
+                }
+            } catch (e) {
+                // Если позиция не валидна (например, дерево еще не обновилось)
+                console.warn("Could not scroll to pos:", pos);
+            }
+        });
     };
 
     return (
@@ -57,7 +81,7 @@ export default function Page() {
                     />
                 </main>
                 {/* Правая панель: Метаданные */}
-                <MetadataSidebar 
+                <MetadataSidebar
                     meta={meta}
                     onMetaChange={setMetadata}
                 />
@@ -70,13 +94,13 @@ export default function Page() {
 
             {/* Редактор сносок */}
             {activeNote && (
-                <NotePopup 
-                    note={activeNote} 
+                <NotePopup
+                    note={activeNote}
                     content={footnotes[activeNote.id] || ''}
                     existingIds={Object.keys(footnotes)}
-                    onUpdate={updateNoteText} 
-                    onClose={closeNotePopup} 
-                    onDelete={deleteFootnote} 
+                    onUpdate={updateNoteText}
+                    onClose={closeNotePopup}
+                    onDelete={deleteFootnote}
                 />
             )}
             <StatusBar fileName="book.fb2" loading={isLoading} />

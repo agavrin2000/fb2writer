@@ -380,7 +380,7 @@ public class Fb2Service
                     string base64 = GetImage(hrefAttr.Value);
                     if (!string.IsNullOrEmpty(base64))
                     {
-                        nodes.Add(new { type = "image", attrs = new { src = base64 } });
+                        nodes.Add(new { type = "blockImage", attrs = new { src = base64 } });
                     }
                 }
             }
@@ -411,6 +411,22 @@ public class Fb2Service
         }
         else if (node is XElement el)
         {
+            string localName = el.Name.LocalName.ToLower();
+            // 1. Обработка изображений как атомарных узлов
+            if (localName == "image")
+            {
+
+                var hrefAttr = el.Attribute(xlink + "href");
+                if (hrefAttr != null)
+                {
+                    string base64 = GetImage(hrefAttr.Value);
+                    if (!string.IsNullOrEmpty(base64))
+                    {
+                        container.Add(new { type = "inlineImage", attrs = new { src = base64 }, display = "inline" });
+                    }
+                }
+                return; // Изображения обычно не имеют вложенных узлов в XML
+            }
             // Маппинг тегов XML на типы марок в TipTap/ProseMirror
             object? mark = el.Name.LocalName.ToLower() switch
             {

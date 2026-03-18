@@ -22,6 +22,42 @@ import { Fb2V } from '../extensions/fb2v';
 import Superscript from '@tiptap/extension-superscript';
 import Subscript from '@tiptap/extension-subscript';
 
+// 1. Инлайновое изображение (для параграфов)
+const InlineImage = Image.extend({
+    name: 'inlineImage', // Важно: другое имя!
+    inline: true,
+    group: 'inline',
+    selectable: true,
+    draggable: true,
+    addAttributes() {
+        return {
+            ...this.parent?.(),
+            class: { default: 'inline-block align-bottom mx-1 max-w-full h-auto' }
+        }
+    }
+}).configure({ allowBase64: true });
+
+// 2. Блочное изображение (для структуры FB2)
+const BlockImage = Image.extend({
+    name: 'blockImage', // Важно: другое имя!
+    inline: false,
+    group: 'block',
+    selectable: true,
+    draggable: true,
+    addAttributes() {
+        return {
+            ...this.parent?.(),
+            class: { default: 'block mx-auto my-4 rounded-lg shadow-md max-w-full' }
+        }
+    }
+}).configure({ allowBase64: true });
+
+interface FlatNode {
+    pos: number;
+    text: string;
+    level: number;
+}
+
 export const useFB2Editor = () => {
     const [metadata, setMetadata] = useState<Fb2Metadata | null>(null);
     const [tocTree, setTocTree] = useState<TocItem[]>([]);
@@ -35,8 +71,25 @@ export const useFB2Editor = () => {
     } | null>(null);
     const [footnotes, setFootnotes] = useState<Record<string, any>>({});
     const footnotesRef = useRef<Record<string, any>>({});
+ // Реф для хранения плоского списка заголовков (обновляется только при изменении текста)
+    const flatNodesRef = useRef<FlatNode[]>([]);
+        // Функция поиска активного заголовка (вынесена для переиспользования)
+    const updateActiveHeading = useCallback((editor: any) => {
+        const { from } = editor.state.selection;
+        let active = null;
 
-   // MAIN Editor
+        // Ищем последний заголовок, позиция которого <= текущему курсору
+        for (const node of flatNodesRef.current) {
+            if (node.pos <= from) {
+                active = node.pos;
+            } else {
+                break;
+            }
+        }
+        setActiveHeadingPos(active);
+    }, []);
+
+    // MAIN Editor
     const editor = useEditor({
         extensions: [
             StarterKit.configure({
@@ -66,7 +119,8 @@ export const useFB2Editor = () => {
                 // Позволяем динамически менять rel для сносок
                 validate: href => /^https?:\/\/|^\#/.test(href), // разрешаем ссылки на #id
             }),
-            Image.configure({ inline: false, allowBase64: true, HTMLAttributes: { class: 'mx-auto rounded-lg shadow-md my-4' } }),
+            InlineImage,
+            BlockImage,
             Fb2Section,
             Fb2Title,
             Fb2Cite,
@@ -105,38 +159,42 @@ export const useFB2Editor = () => {
         content: '<p>Загрузка...</p>',
         immediatelyRender: false,
         onUpdate: ({ editor }) => {
-            const flatNodes: { pos: number, text: string, level: number }[] = [];
+            const flatNodes: FlatNode[] = [];
+            
             editor.state.doc.descendants((node, pos) => {
-                // Работаем только с секциями
                 if (node.type.name === 'fb2Section') {
                     let sectionTitle = 'Глава без названия';
-                    let titleFound = false;
-
-                    // Ищем внутри текущей секции ПЕРВЫЙ узел fb2Title
-                    node.content.forEach((child) => {
-                        if (!titleFound && child.type.name === 'fb2Title') {
-                            sectionTitle = child.textContent.trim() || sectionTitle;
-                            titleFound = true; // Чтобы не брать вложенные подзаголовки, если они есть
-                        }
-                    });
+                    
+                    // Ищем ПЕРВЫЙ fb2Title внутри текущей секции
+                    const titleNode = node.content.content.find(child => child.type.name === 'fb2Title');
+                    if (titleNode) {
+                        sectionTitle = titleNode.textContent.trim() || sectionTitle;
+                    }
 
                     flatNodes.push({
-                        pos: pos, // Позиция самой секции в документе
+                        pos: pos,
                         text: sectionTitle,
                         level: node.attrs.level || 1
                     });
-
-                    // Возвращаем true, чтобы Tiptap продолжил обход ВНУТРИ секции 
-                    // (это позволит найти вложенные секции и добавить их в flatNodes)
-                    return true;
+                    return true; // Идем вглубь за подсекциями
                 }
+                return node.type.name.startsWith('fb2');
             });
+
+            // Сохраняем в реф для быстрого доступа из других событий
+            flatNodesRef.current = flatNodes;
+            
+            // Обновляем дерево оглавления в UI
             setTocTree(buildTree(flatNodes));
-            // Сразу ищем активный элемент после обновления
-            const { from } = editor.state.selection;
-            let active = null;
-            flatNodes.forEach(n => { if (n.pos <= from) active = n.pos; });
-            setActiveHeadingPos(active);
+            
+            // Сразу проверяем активный элемент
+            updateActiveHeading(editor);
+        },
+
+        // Срабатывает при каждом перемещении курсора или клике
+        onSelectionUpdate: ({ editor }) => {
+            // Используем уже готовые данные из рефа (очень быстро)
+            updateActiveHeading(editor);
         },
     });
 
@@ -383,7 +441,7 @@ export const useFB2Editor = () => {
 
         photino.send('open-file', { action: 'select_new' });
     }, [isLoading]);
-    
+
     // Save fb2
     const saveFile = useCallback(() => {
         if (!editor || isLoading) return;

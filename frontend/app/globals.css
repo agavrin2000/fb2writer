@@ -411,3 +411,16 @@ section.fb2-section section.fb2-section {
 .note-popup-editor.tiptap .fb2-title {
     font-size: large;
 }
+/* Для полноразмерных inline картинок*/
+.ProseMirror img {
+  display: inline-block;
+  max-width: 100%;
+  height: auto;
+  vertical-align: baseline;
+}
+
+.ProseMirror img.block {
+  display: block;
+  margin-left: auto;
+  margin-right: auto;
+}

@@ -2,30 +2,36 @@ import { BubbleMenu } from '@tiptap/react/menus';
 import React from 'react';
 import { Editor } from '@tiptap/react';
 import { NodeSelection } from '@tiptap/pm/state';
-import { Image as ImageIcon, X, Upload } from 'lucide-react';
+import { X, Download } from 'lucide-react';
+
 interface ImageBubbleMenuProps {
   editor: Editor | null;
 }
 
 export const ImageBubbleMenu: React.FC<ImageBubbleMenuProps> = ({ editor }) => {
-  const [info, setInfo] = React.useState<{size: string, w: number, h: number} | null>(null);
+  const [info, setInfo] = React.useState<{ size: string, w: number, h: number, src: string } | null>(null);
 
-  // Следим за обновлением редактора (курсор, клики, выделение)
   React.useEffect(() => {
     if (!editor) return;
 
     const updateInfo = () => {
       const { selection } = editor.state;
-      if (selection instanceof NodeSelection && selection.node.type.name === 'image') {
-        const src = selection.node.attrs.src || '';
-        const dom = editor.view.nodeDOM(selection.from) as HTMLElement;
-        const img = dom?.querySelector('img') || (dom as HTMLImageElement);
+      if (selection instanceof NodeSelection) {
+        const typeName = selection.node.type.name;
+        if (typeName === 'inlineImage' || typeName === 'blockImage') {
+          const src = selection.node.attrs.src || '';
+          const dom = editor.view.nodeDOM(selection.from) as HTMLElement;
+          const img = dom instanceof HTMLImageElement ? dom : dom?.querySelector('img');
 
-        setInfo({
-          size: src.startsWith('data:') ? (src.length * 0.75 / 1024).toFixed(1) + ' Кб' : 'URL',
-          w: img?.naturalWidth || 0,
-          h: img?.naturalHeight || 0
-        });
+          setInfo({
+            src,
+            size: src.startsWith('data:') ? (src.length * 0.75 / 1024).toFixed(1) + ' Кб' : 'URL',
+            w: img?.naturalWidth || 0,
+            h: img?.naturalHeight || 0
+          });
+        } else {
+          setInfo(null);
+        }
       } else {
         setInfo(null);
       }
@@ -35,15 +41,27 @@ export const ImageBubbleMenu: React.FC<ImageBubbleMenuProps> = ({ editor }) => {
     return () => { editor.off('selectionUpdate', updateInfo); };
   }, [editor]);
 
+  const handleDownload = () => {
+    if (!info?.src) return;
+    const link = document.createElement('a');
+    link.href = info.src;
+    link.download = `image-${Date.now()}.png`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   if (!editor) return null;
 
   return (
-    <BubbleMenu 
-      editor={editor} 
-      shouldShow={({ editor }) => editor.isActive('image')}
-      // Чтобы меню не "тормозило" при переключении между картинками
-      updateDelay={0} 
+    <BubbleMenu
+      editor={editor}
+      shouldShow={({ editor }) => editor.isActive('inlineImage') || editor.isActive('blockImage')}
+      updateDelay={0}
+      // Прижимаем всё меню к правому верхнему углу картинки
+      options={{ placement: 'top', offset: true, flip: true }}
     >
+      {/* Контейнер-обертка, который будет иметь ту же ширину, что и выделенная картинка */}
       <div className="flex bg-white border border-gray-200 rounded-lg shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
         {/* Плашка с информацией */}
         {info && (
@@ -57,14 +75,21 @@ export const ImageBubbleMenu: React.FC<ImageBubbleMenuProps> = ({ editor }) => {
             </span>
           </div>
         )}
-
+        <button
+          type="button"
+          onClick={handleDownload}
+          className="p-1.5 hover:bg-slate-100 text-slate-600 border-r border-gray-100 transition-colors"
+          title="Скачать"
+        >
+          <Download size={15} />
+        </button>
         <button type="button" title="Удалить изображение"
           onClick={() => editor.chain().focus().deleteSelection().run()}
           className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 text-[10px] font-black uppercase tracking-wider transition-colors"
         >
-          <X size={14}/>
+          <X size={14} />
         </button>
       </div>
-    </BubbleMenu>
+    </BubbleMenu >
   );
 };
