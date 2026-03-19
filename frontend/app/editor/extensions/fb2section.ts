@@ -1,6 +1,4 @@
 import { Node, mergeAttributes } from "@tiptap/core";
-import { ReactNodeViewRenderer } from '@tiptap/react'
-import { SectionComponent } from "../../components/ui/section-component";
 
 export const Fb2Section = Node.create({
   name: "fb2Section",

@@ -9,7 +9,7 @@ export const Fb2V = Node.create({
   parseHTML: () => [{ tag: "p.fb2-v" }, { tag: "v" }],
   renderHTML: ({ HTMLAttributes }) => [
     "p",
-    mergeAttributes(HTMLAttributes, { class: "fb2-v leading-relaxed min-h-[1em]" }),
+    mergeAttributes(HTMLAttributes, { class: "fb2-v" }),
     0,
   ],
 

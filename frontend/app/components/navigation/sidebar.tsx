@@ -54,7 +54,7 @@ const handleMouseEnter = (e: React.MouseEvent<HTMLButtonElement>) => {
 
                         {/* "Заглушка" снизу: обрезает линию после последнего ребенка в ветке */}
                         {index === items.length - 1 && level > 0 && (
-                            <div className="absolute -left-[2px] top-[15px] bottom-0 w-[4px] bg-white" />
+                            <div className="absolute -left-[2px] top-[15px] bottom-0 w-1 bg-white" />
                         )}
                     </div>
                 ))}
@@ -91,7 +91,7 @@ const handleMouseEnter = (e: React.MouseEvent<HTMLButtonElement>) => {
                 </div>
 
                 {/* Контент (дерево) */}
-                <div className="flex-grow overflow-y-auto p-4 custom-scrollbar min-w-[288px]">
+                <div className="grow overflow-y-auto p-4 custom-scrollbar min-w-[288px]">
                     {renderTocBranch(tree)}
                 </div>
             </aside>
