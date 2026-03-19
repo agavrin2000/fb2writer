@@ -335,7 +335,7 @@ public class Fb2Service
                     content = sectionContent
                 });
             }
-            else if (name is "title" or "epigraph" or "cite")
+            else if (name is "title" or "epigraph" or "cite" or "poem" or "stanza")
             {
                 var contentList = new List<object>();
                 ParseElement(el, ns, xlink, binaryCache, contentList);
@@ -345,12 +345,14 @@ public class Fb2Service
                     "title" => "fb2Title",
                     "epigraph" => "fb2Epigraph",
                     "cite" => "fb2Cite",
+                    "poem" => "fb2Poem",
+                    "stanza" => "fb2Stanza",
                     _ => "fb2Title"
                 };
 
                 nodes.Add(new { type, content = contentList });
             }
-            else if (name is "text-author" or "subtitle" or "p")
+            else if (name is "text-author" or "subtitle" or "p" or "v")
             {
                 var inlineContent = new List<object>();
                 foreach (var node in el.Nodes())
@@ -363,6 +365,7 @@ public class Fb2Service
                     "p" => "paragraph",
                     "text-author" => "fb2TextAuthor",
                     "subtitle" => "fb2Subtitle",
+                    "v" => "fb2V",
                     _ => "paragraph"
                 };
 
@@ -392,10 +395,9 @@ public class Fb2Service
         }
     }
 
-    // Рекурсивная функция для сбора текста и накопления стилей (marks)
+    // Рекурсивная функция для обработки inline элементов
     private void ProcessInline(XNode node, List<object> container, List<object> activeMarks)
     {
-
         if (node is XText textNode)
         {
             string val = textNode.Value;
@@ -412,7 +414,7 @@ public class Fb2Service
         else if (node is XElement el)
         {
             string localName = el.Name.LocalName.ToLower();
-            // 1. Обработка изображений как атомарных узлов
+            // Обработка изображений как атомарных узлов
             if (localName == "image")
             {
 
@@ -425,7 +427,7 @@ public class Fb2Service
                         container.Add(new { type = "inlineImage", attrs = new { src = base64 }, display = "inline" });
                     }
                 }
-                return; // Изображения обычно не имеют вложенных узлов в XML
+                return; // Изображения не имеют вложенных узлов в FB2
             }
             // Маппинг тегов XML на типы марок в TipTap/ProseMirror
             object? mark = el.Name.LocalName.ToLower() switch

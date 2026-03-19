@@ -88,6 +88,8 @@ export default function Page() {
             </div>
             {/* Всплывающее меню для картинок */}
             <ImageBubbleMenu editor={editor} />
+            {/* Всплывающее меню для секций */}
+            <SectionBubbleMenu editor={editor} />
 
             {/* Индикатор загрузки XML */}
             {isLoading && <Loader fileName={loadingFileName} />}

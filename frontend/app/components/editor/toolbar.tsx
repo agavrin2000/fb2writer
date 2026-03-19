@@ -117,9 +117,6 @@ export const Toolbar: React.FC<ToolbarProps> = ({ editor, onSelectImage, onAddFo
 
       <div className="w-px h-6 bg-gray-200 mx-2" />
 
-      <button type='button' title='Добавить раздел' onClick={() => (editor as any).chain().focus().insertSection().run()}><Fb2ActionIcon icon={BookPlus} mode="add" /></button>
-      <button type='button' title='Удалить раздел' onClick={() => (editor as any).chain().focus().deleteSection().run()}><Fb2ActionIcon icon={BookPlus} mode="remove" /></button>
-
       {canRemoveTitle ?
         <button type='button'
           onClick={() => (editor as any).chain().focus().removeFb2Title().run()}

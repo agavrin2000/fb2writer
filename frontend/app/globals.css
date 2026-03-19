@@ -16,99 +16,105 @@
 
 body {
   color: rgb(var(--foreground-rgb));
-  background: linear-gradient(
-      to bottom,
+  background: linear-gradient(to bottom,
       transparent,
-      rgb(var(--background-end-rgb))
-    )
-    rgb(var(--background-start-rgb));
+      rgb(var(--background-end-rgb))) rgb(var(--background-start-rgb));
 }
 
 /* Контейнер-обертка для имитации бумажного листа */
 .editor-paper-sheet {
-    background-color: #fdfdfd; /* Слегка теплый белый (цвет бумаги) */
-    background-image: linear-gradient(#e1e1e1 1px, transparent 1px);
-    background-size: 100% 2rem; /* Тонкая линовка, если нужно, или просто чистый лист */
-    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
-    border: 1px solid #e2e8f0;
-    margin: 20px auto;
-    max-width: 800px;
-    min-height: 80vh;
-    padding: 60px 80px; /* Большие книжные поля */
-    cursor: text;
+  background-color: #fdfdfd;
+  /* Слегка теплый белый (цвет бумаги) */
+  background-image: linear-gradient(#e1e1e1 1px, transparent 1px);
+  background-size: 100% 2rem;
+  /* Тонкая линовка, если нужно, или просто чистый лист */
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e2e8f0;
+  margin: 20px auto;
+  max-width: 800px;
+  min-height: 80vh;
+  padding: 60px 80px;
+  /* Большие книжные поля */
+  cursor: text;
 }
 
 /* Настройка шрифтов внутри TipTap */
 .tiptap {
-    font-family: 'Georgia', 'Times New Roman', serif; /* Классический книжный шрифт */
-    font-size: 18px;
-    line-height: 1.7;
-    color: #2c3e50;
-    outline: none !important;
+  font-family: 'Georgia', 'Times New Roman', serif;
+  /* Классический книжный шрифт */
+  font-size: 18px;
+  line-height: 1.7;
+  color: #2c3e50;
+  outline: none !important;
 }
 
 /* Стили заголовков (FB2 Title) */
 .tiptap h2 {
-    font-family: 'Segoe UI', sans-serif;
-    font-size: 28px;
-    font-weight: 700;
-    text-align: center;
-    margin-top: 40px;
-    margin-bottom: 30px;
-    color: #1a202c;
+  font-family: 'Segoe UI', sans-serif;
+  font-size: 28px;
+  font-weight: 700;
+  text-align: center;
+  margin-top: 40px;
+  margin-bottom: 30px;
+  color: #1a202c;
 }
 
 /* Обычный абзац с красной строкой (классика FB2) */
 .tiptap p {
-    margin-bottom: 0.5em;
-    text-indent: 1.5em; /* Красная строка */
-    text-align: justify; /* Выравнивание по ширине */
+  margin-bottom: 0.5em;
+  text-indent: 1.5em;
+  /* Красная строка */
+  text-align: justify;
+  /* Выравнивание по ширине */
 }
 
 /* Подсветка выделения */
 .tiptap ::selection {
-    background-color: #cbd5e1;
+  background-color: #cbd5e1;
 }
 
 /* Скроллбар для длинных книг */
 .editor-container::-webkit-scrollbar {
-    width: 8px;
+  width: 8px;
 }
+
 .editor-container::-webkit-scrollbar-thumb {
-    background: #cbd5e1;
-    border-radius: 10px;
+  background: #cbd5e1;
+  border-radius: 10px;
 }
 
 /* Кастомный скроллбар для области редактора */
 .custom-scrollbar::-webkit-scrollbar {
-    width: 10px;
+  width: 10px;
 }
 
 .custom-scrollbar::-webkit-scrollbar-track {
-    background: #e2e8f0;
+  background: #e2e8f0;
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb {
-    background: #cbd5e1;
-    border: 2px solid #e2e8f0;
-    border-radius: 10px;
+  background: #cbd5e1;
+  border: 2px solid #e2e8f0;
+  border-radius: 10px;
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-    background: #94a3b8;
+  background: #94a3b8;
 }
 
 /* Тень и эффект бумаги */
 .editor-paper-sheet {
-    box-shadow: 0 0 50px rgba(0,0,0,0.1);
+  box-shadow: 0 0 50px rgba(0, 0, 0, 0.1);
 }
 
 /* Отключаем скролл для всего окна браузера (Photino) */
-html, body, #__next {
+html,
+body,
+#__next {
   height: 100%;
   margin: 0;
   padding: 0;
-  overflow: hidden; 
+  overflow: hidden;
 }
 
 /* Настройка TipTap внутри листа */
@@ -119,14 +125,16 @@ html, body, #__next {
 
 .tiptap p {
   margin-bottom: 0.8em;
-  text-indent: 1.5em; /* Традиционная красная строка FB2 */
+  text-indent: 1.5em;
+  /* Традиционная красная строка FB2 */
   text-align: justify;
 }
 
 
 /* Подсветка выделенной картинки */
 .tiptap img.ProseMirror-selectednode {
-  outline: 3px solid #3b82f6; /* Синяя рамка */
+  outline: 3px solid #3b82f6;
+  /* Синяя рамка */
   outline-offset: 4px;
   border-radius: 2px;
   transition: outline 0.2s ease-in-out;
@@ -134,26 +142,30 @@ html, body, #__next {
 
 /* Эффект при наведении на картинку */
 .tiptap img:hover {
-    cursor: pointer;
-    filter: brightness(0.95);
+  cursor: pointer;
+  filter: brightness(0.95);
 }
-.tiptap h1, 
-.tiptap h2, 
+
+.tiptap h1,
+.tiptap h2,
 .tiptap h3 {
-    scroll-margin-top: 20px; /* Расстояние от верха контейнера до текста */
+  scroll-margin-top: 20px;
+  /* Расстояние от верха контейнера до текста */
 }
 
 /* Скролл-контейнер должен иметь плавную прокрутку */
 .scroll-smooth {
-    scroll-behavior: smooth;
+  scroll-behavior: smooth;
 }
+
 .tiptap a[rel="footnote"] {
-    color: #3b82f6;
-    vertical-align: super; /* Поднимаем как индекс */
-    font-size: 0.8em;
-    text-decoration: none;
-    font-weight: bold;
-    cursor: pointer;
+  color: #3b82f6;
+  vertical-align: super;
+  /* Поднимаем как индекс */
+  font-size: 0.8em;
+  text-decoration: none;
+  font-weight: bold;
+  cursor: pointer;
 }
 
 .editor-wrapper {
@@ -169,57 +181,122 @@ html, body, #__next {
 }
 
 .fb2-table {
-	border-collapse: collapse;
-	table-layout: fixed;
-	width: 100%;
-	margin: 0;
-	overflow: hidden;
+  border-collapse: collapse;
+  table-layout: fixed;
+  width: 100%;
+  margin: 0;
+  overflow: hidden;
 }
 
-.fb2-table td, .fb2-table th {
-    min-width: 1em;
-    border: 1px solid #ddd;
-    padding: 3px 5px;
-    vertical-align: top;
-    box-sizing: border-box;
-    position: relative;
+.fb2-table td,
+.fb2-table th {
+  min-width: 1em;
+  border: 1px solid #ddd;
+  padding: 3px 5px;
+  vertical-align: top;
+  box-sizing: border-box;
+  position: relative;
 }
 
-/* Основной контейнер секции */
+/* 1. Базовый вид всех секций */
 section.fb2-section {
-    display: block;
-    position: relative;
-    border: 2px solid #e0e0e0; /* Видимая рамка */
-    border-radius: 8px;
-    margin: 20px 0;
-    padding: 20px; /* Внутренний отступ от рамки до контента */
-    background-color: #ffffff;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  display: block;
+  position: relative;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  margin: 20px 0;
+  padding: 30px;
+  background-color: #ffffff;
+  /* Белый фон перекрывает фон родителя */
+  transition: border-color 0.2s, box-shadow 0.2s;
+  will-change: border-color, box-shadow; /* Оптимизация анимаций */
+  contain: layout style; 
+  /* Сильно ускоряет рендер длинных списков */
+  content-visibility: auto; 
+  contain-intrinsic-size: 1px 1000px
 }
 
-/* Эффект при наведении, чтобы лучше видеть структуру */
-section.fb2-section:hover {
-    border-color: rgba(0, 0, 0, 0.3);
+/* 3. Иерархия (лесенка) */
+/* Вложенная обертка внутри другой обертки получает отступ */
+.section-node-wrapper .section-node-wrapper {
+  margin-left: 25px;
+  overflow: visible;
 }
 
-/* Стили для заголовков ВНУТРИ секции */
-section.fb2-section > h1, 
-section.fb2-section > h2 {
-    margin-top: 0; /* Чтобы заголовок не "отрывался" от верха рамки */
-    color: #2c3e50;
-    border-bottom: 1px stripe #eee;
-    padding-bottom: 10px;
+/* Базовое состояние ручки */
+.section-handle {
+  /* 1. Позиционирование */
+  position: sticky;
+  top: 20px;
+  float: right;
+  margin-right: -35px;
+  /* Вынос вправо за пределы рамки */
+  z-index: 100;
+
+  /* 2. Размеры и центрирование */
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  /* 3. Оформление */
+  cursor: pointer;
+  border-radius: 6px;
+  background-color: #ffffff;
+  color: #94a3b8;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+
+  /* 4. Плавность */
+  /*transition: all 0.2s ease-in-out;*/
+  /* 4. Запрет выделения текста внутри ручки */
+  -webkit-user-select: none;
+  /* Safari 3+, Safari on iOS */
+  -moz-user-select: none;
+  /* Firefox */
+  -ms-user-select: none;
+  /* IE 10+ */
+  user-select: none;
+  /* Chrome, Edge, Opera */
+
+  /* Убираем эффект подсвечивания тапа на iOS (серый квадрат при клике) */
+  -webkit-tap-highlight-color: transparent;
+
 }
 
-/* Вложенные секции (лесенка) */
-section.fb2-section section.fb2-section {
-    margin-left: 25px; /* Сдвиг вправо для иерархии */
+/* Состояние при наведении (опционально) */
+.section-handle:hover {
+  background-color: #f8fafc !important;
+  border-color: #3b82f6 !important;
+  color: #3b82f6 !important;
+}
+
+/* 2. ПОДСВЕТКА ТОЛЬКО ПРЯМОЙ РУЧКИ */
+/* Символ > гарантирует, что правило не "протечет" во вложенные секции */
+.section-node-wrapper.is-selected>.section-handle {
+  background-color: #3b82f6 !important;
+  color: #ffffff !important;
+  border-color: #2563eb !important;
+}
+
+/* 3. ТО ЖЕ САМОЕ ДЛЯ РАМКИ СЕКЦИИ */
+.section-node-wrapper.is-selected>section.fb2-section {
+  border-color: #3b82f6 !important;
+  background-color: rgba(59, 130, 246, 0.02);
+}
+
+/* 4. СБРОС ДЛЯ ВЛОЖЕННЫХ (на всякий случай) */
+.section-node-wrapper.is-selected .section-node-wrapper:not(.is-selected)>.section-handle {
+  background-color: #ffffff !important;
+  color: #94a3b8 !important;
+  border-color: #e2e8f0 !important;
 }
 
 /* Базовое состояние (невидимое) */
 .fb2-title {
   position: relative;
-  transition: all 0.2s ease-in-out;
+  /*transition: all 0.2s ease-in-out;*/
   border-radius: 4px;
   outline: 2px solid transparent;
   outline-offset: 4px;
@@ -228,14 +305,15 @@ section.fb2-section section.fb2-section {
 
 /* Эффект при наведении */
 .fb2-title:hover {
-  outline-color: #6366f1; /* Indigo-500 */
+  outline-color: #6366f1;
+  /* Indigo-500 */
 }
 
 /* Этикетка справа-вверху */
 .fb2-title:hover::before {
   content: 'Заголовок раздела';
   @apply absolute -top-7 right-0 bg-indigo-400 text-white text-[10px] px-2 py-1 rounded font-sans not-italic;
-/*  position: absolute;
+  /*  position: absolute;
   top: -12px;
   right: 0;
   background-color: #6366f1;
@@ -253,7 +331,7 @@ section.fb2-section section.fb2-section {
 /* Базовое состояние (невидимое) */
 .fb2-epigraph {
   @apply ml-auto mb-6 max-w-[50%] italic text-gray-700 border-indigo-100 pl-4 py-1;
-  transition: all 0.2s ease-in-out;
+  /*transition: all 0.2s ease-in-out;*/
   position: relative;
 }
 
@@ -275,24 +353,25 @@ section.fb2-section section.fb2-section {
 /* Базовое состояние (невидимое) */
 .fb2-subtitle {
   position: relative;
-  transition: all 0.2s ease-in-out;
+  /*transition: all 0.2s ease-in-out;*/
   border-radius: 4px;
   outline: 2px solid transparent;
   outline-offset: 4px;
-  text-align: center !important; 
+  text-align: center !important;
   font-weight: bold;
 }
 
 /* Эффект при наведении */
 .fb2-subtitle:hover {
-  outline-color: #6366f1; /* Indigo-500 */
+  outline-color: #6366f1;
+  /* Indigo-500 */
 }
 
 /* Этикетка справа-вверху */
 .fb2-subtitle:hover::before {
   content: 'Подзаголовок';
   @apply absolute -top-7 right-0 bg-indigo-400 text-white text-[10px] px-2 py-1 rounded font-sans not-italic;
-/*  position: absolute;
+  /*  position: absolute;
   top: -12px;
   right: 0;
   background-color: #6366f1;
@@ -310,27 +389,31 @@ section.fb2-section section.fb2-section {
 .fb2-cite {
   /* Смена шрифта на контрастный */
   font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
-  
+
   /* Геометрия цитаты */
   display: block;
-  margin: 1.5rem 0 1.5rem 10%; /* Большой отступ слева для акцента */
+  margin: 1.5rem 0 1.5rem 10%;
+  /* Большой отступ слева для акцента */
   padding: 0.5rem 0 0.5rem 1rem;
   border-left: 2px solid #ddd;
-  
+
   /* Текст */
-  font-size: 0.95em; /* Чуть меньше основного текста */
+  font-size: 0.95em;
+  /* Чуть меньше основного текста */
   line-height: 1.5;
   color: #444;
-  font-style: normal; /* Сбрасываем курсив браузера, чтобы работал вложенный */
+  font-style: normal;
+  /* Сбрасываем курсив браузера, чтобы работал вложенный */
 }
 
 
 .fb2-poem {
   position: relative;
-  transition: all 0.2s ease-in-out;
+  /*transition: all 0.2s ease-in-out;*/
   border-radius: 4px;
-  text-align: center !important; 
-  margin: 2rem 0; /* Увеличил отступ, чтобы этикеткам было место */
+  text-align: center !important;
+  margin: 2rem 0;
+  /* Увеличил отступ, чтобы этикеткам было место */
   font-style: italic;
   padding: 1rem 0;
 }
@@ -339,6 +422,7 @@ section.fb2-section section.fb2-section {
 .fb2-poem:hover {
   outline: 2px solid #6366f1;
 }
+
 .fb2-poem:hover::before {
   content: 'Поэма';
   /* Смещаем влево, чтобы не мешать строфе */
@@ -347,7 +431,7 @@ section.fb2-section section.fb2-section {
 
 .fb2-stanza {
   position: relative;
-  transition: all 0.2s ease-in-out;
+  /*transition: all 0.2s ease-in-out;*/
   border-radius: 4px;
   margin: 0.5rem 0;
   padding: 10px 0;
@@ -355,8 +439,10 @@ section.fb2-section section.fb2-section {
 
 /* Этикетка СТРОФЫ — справа */
 .fb2-stanza:hover {
-  outline: 1px dashed #818cf8; /* Сделал линию строфы пунктирной, чтобы не сливалась с поэмой */
+  outline: 1px dashed #818cf8;
+  /* Сделал линию строфы пунктирной, чтобы не сливалась с поэмой */
 }
+
 .fb2-stanza:hover::before {
   content: 'Строфа';
   /* Оставляем справа */
@@ -371,46 +457,51 @@ section.fb2-section section.fb2-section {
 
 
 .fb2-v {
-  white-space: pre-wrap; /* Сохраняет множественные пробелы в начале строк */
+  white-space: pre-wrap;
+  /* Сохраняет множественные пробелы в начале строк */
 }
 
 /* Изолированные стили для аннотации в сайдбаре */
 .annotation-editor.tiptap {
-    line-height: 1.4;
-    font-family: ui-sans-serif, system-ui, sans-serif; /* Отличаем от книжного шрифта */
-    font-size: small;
+  line-height: 1.4;
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  /* Отличаем от книжного шрифта */
+  font-size: small;
 }
 
 .annotation-editor.tiptap p {
-    margin-bottom: 0.5rem;
+  margin-bottom: 0.5rem;
 }
 
 .annotation-editor.tiptap strong {
-    color: #1d4ed8; /* Синий акцент для жирного текста в сайдбаре */
+  color: #1d4ed8;
+  /* Синий акцент для жирного текста в сайдбаре */
 }
 
 /* Скрываем элементы, которые не нужны в мини-редакторе */
-.annotation-editor.tiptap h1, 
+.annotation-editor.tiptap h1,
 .annotation-editor.tiptap h2 {
-    font-size: 1.1rem;
-    margin-top: 0.5rem;
+  font-size: 1.1rem;
+  margin-top: 0.5rem;
 }
 
 /* Изолированные стили для редактора сносок */
 .note-popup-editor.tiptap {
-    line-height: 1.4;
-    font-family: ui-sans-serif, system-ui, sans-serif; /* Отличаем от книжного шрифта */
-    font-size: small;
+  line-height: 1.4;
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  /* Отличаем от книжного шрифта */
+  font-size: small;
 }
 
 .note-popup-editor.tiptap p {
-    margin-bottom: 0.5rem;
+  margin-bottom: 0.5rem;
 }
 
 /* Скрываем элементы, которые не нужны в мини-редакторе */
 .note-popup-editor.tiptap .fb2-title {
-    font-size: large;
+  font-size: large;
 }
+
 /* Для полноразмерных inline картинок*/
 .ProseMirror img {
   display: inline-block;
