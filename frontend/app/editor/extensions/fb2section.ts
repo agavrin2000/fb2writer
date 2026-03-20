@@ -3,7 +3,7 @@ import { Node, mergeAttributes } from "@tiptap/core";
 export const Fb2Section = Node.create({
   name: "fb2Section",
   group: "block",
-  content: "fb2Title? fb2Epigraph* fb2BlockImage? (block | fb2Section)+",
+  content: "fb2Title? fb2Epigraph* fb2BlockImage? fb2Annotation? (block | fb2Section)+",
   defining: true,
   selectable: true,
   isolating: true,

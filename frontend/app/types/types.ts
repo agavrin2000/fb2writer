@@ -97,3 +97,10 @@ export interface TocItem {
     id: string;
     children: TocItem[];
 }
+
+export interface FlatNode {
+    pos: number;
+    text: string;
+    level: number;
+    id: string;
+}

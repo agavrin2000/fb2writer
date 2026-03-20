@@ -4,32 +4,21 @@ import { useEditor } from '@tiptap/react';
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { Fb2Metadata, TocItem } from '../../types/types';
 import { photino } from '../../api/photino';
-import { buildTree } from '../../utils/utils';
 import { EditorView } from '@tiptap/pm/view';
 import { Editor } from '@tiptap/react';
 import { Transaction } from '@tiptap/pm/state';
 import { EditorExtensions } from '../schema';
+import { FlatNode } from '../../types/types';
+import { buildTree, debounce, collectNodes } from '../../utils/utils';
+import { useTOC } from './useTOC';
 
-interface FlatNode {
-    pos: number;
-    text: string;
-    level: number;
-    id: string;
-}
 
-function debounce<T extends (...args: any[]) => any>(fn: T, ms: number) {
-    let timeoutId: ReturnType<typeof setTimeout>;
-    return function (this: any, ...args: Parameters<T>) {
-        clearTimeout(timeoutId);
-        timeoutId = setTimeout(() => fn.apply(this, args), ms);
-    };
-}
+
 
 export const useFB2Editor = () => {
     console.log("RENDER")
+    const { tocTree, activeHeadingPos, setActiveHeadingPos, flatNodesRef, updateActiveHeading, debouncedSetToc } = useTOC();
     const [metadata, setMetadata] = useState<Fb2Metadata | null>(null);
-    const [tocTree, setTocTree] = useState<TocItem[]>([]);
-    const [activeHeadingPos, setActiveHeadingPos] = useState<number | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [loadingFileName, setLoadingFileName] = useState('');
     const [activeNote, setActiveNote] = useState<{
@@ -40,49 +29,14 @@ export const useFB2Editor = () => {
     const [footnotes, setFootnotes] = useState<Record<string, any>>({});
     const footnotesRef = useRef<Record<string, any>>({});
 
-    // Реф для хранения плоского списка заголовков (обновляется только при изменении текста)
-    const flatNodesRef = useRef<FlatNode[]>([]);
 
     // Функция поиска активного заголовка (вынесена для переиспользования)
     const lastActivePos = useRef<number | null>(null);
     const lastFlatNodes = useRef<string>('');
 
-    // Обновление указателя в структуре книги
-    const updateActiveHeading = useCallback((editor: any) => {
-        const { from } = editor.state.selection;
-        let active = null;
 
-        // 1. Быстрый поиск в массиве (уже хорошо работает)
-        for (const node of flatNodesRef.current) {
-            if (node.pos <= from) {
-                active = node.pos;
-            }
-            else {
-                break;
-            }
-        }
-        // Обновляем стейт React ТОЛЬКО если мы перешли к ДРУГОМУ заголовку
-        if (active !== lastActivePos.current) {
-            lastActivePos.current = active;
-            setActiveHeadingPos(active); // Теперь рендер случится 1 раз при смене главы
-        }
-    }, []);
     const updateActiveHeadingRef = useRef(updateActiveHeading);
     updateActiveHeadingRef.current = updateActiveHeading;
-
-    // Создаем "отложенную" версию обновления дерева
-    const debouncedSetToc = useMemo(
-        () => debounce((nodes: FlatNode[]) => {
-            // Сравниваем только структуру (текст заголовков и их количество)
-            const currentCheck = nodes.map(n => n.text).join('|');
-
-            if (currentCheck !== lastFlatNodes.current) {
-                lastFlatNodes.current = currentCheck;
-                setTocTree(buildTree(nodes)); // Этот вызов вызывает RENDER
-            }
-        }, 500),
-        []
-    );
 
     const setActiveNoteRef = useRef(setActiveNote);
     setActiveNoteRef.current = setActiveNote;
@@ -130,45 +84,12 @@ export const useFB2Editor = () => {
             // Если текст не менялся (только курсор) — выходим, 
             // так как это покроет onSelectionUpdate ниже
             if (!transaction.docChanged) return;
-
-            // Сбор данных делаем СИНХРОННО (это быстро), чтобы реф всегда был актуален
-            const nodes: FlatNode[] = [];
-            editor.state.doc.descendants((node, pos) => {
-                if (node.type.name === 'fb2Section' || node.type.name === 'fb2BodySection') {
-                    console.log("Проверка атрибутов узла:", node.attrs);
-                    let title = 'Без названия';
-                    const titleNode = node.type.name === 'fb2Section' ? node.firstChild : node.child(1);
-                    
-                    if (titleNode && titleNode.type.name === 'fb2Title') {
-                        // 1. Собираем текст из всех параграфов внутри заголовка
-                        const parts: string[] = [];
-
-                        titleNode.forEach(child => {
-                            const text = child.textContent.trim();
-                            if (text) parts.push(text);
-                        });
-
-                        // 2. Соединяем их через пробел (или другой разделитель)
-                        if (parts.length > 0) {
-                            title = parts.join(' ');
-                        }
-                    }
-
-                    nodes.push({
-                        pos: pos + 1,
-                        text: title,
-                        level: node.attrs.level || 1,
-                        id: node.attrs.sectionId,
-                    });
-
-                    return true; // Идем глубь за подсекциями
-                }
-                return false;
-            });
+            // 1. Сбор данных (Синхронно, ~1-2мс на 5МБ)
+            const nodes = collectNodes(editor.state.doc);
 
             flatNodesRef.current = nodes;
 
-            // Тяжелые операции уводим в очередь
+               // 2. Тяжелый рендер React-дерева (ОТЛОЖЕННО)
             requestAnimationFrame(() => {
                 debouncedSetToc(nodes);
                 updateActiveHeadingRef.current(editor);
