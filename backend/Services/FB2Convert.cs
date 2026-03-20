@@ -170,7 +170,21 @@ public class Fb2Service
 
         if (body != null)
         {
-            ParseElement(body, ns, xlink, binaryCache, contentNodes);
+            // Мы создаем узел body вручную и вызываем парсинг его контента
+            var bodyContent = new List<object>
+            {
+                // add placeholder для возможности изменения секции body
+                new { type = "fb2Placeholder" }
+            };
+
+            ParseElement(body, ns, xlink, binaryCache, bodyContent);
+
+            contentNodes.Add(new
+            {
+                type = "fb2BodySection",
+                attrs = new { level = 1, sectionId = Guid.NewGuid().ToString() },
+                content = bodyContent
+            });
         }
 
 
@@ -331,7 +345,7 @@ public class Fb2Service
                 nodes.Add(new
                 {
                     type = "fb2Section",
-                    attrs = new { level = level },
+                    attrs = new { level = level + 1, sectionId = el.Attribute("id")?.Value ?? Guid.NewGuid().ToString() },
                     content = sectionContent
                 });
             }
@@ -383,14 +397,9 @@ public class Fb2Service
                     string base64 = GetImage(hrefAttr.Value);
                     if (!string.IsNullOrEmpty(base64))
                     {
-                        nodes.Add(new { type = "blockImage", attrs = new { src = base64 } });
+                        nodes.Add(new { type = "fb2BlockImage", attrs = new { src = base64 } });
                     }
                 }
-            }
-            else if (name == "body")
-            {
-                // Для body продолжаем наполнять текущий список (обычно это корень)
-                ParseElement(el, ns, xlink, binaryCache, nodes);
             }
         }
     }
@@ -424,7 +433,7 @@ public class Fb2Service
                     string base64 = GetImage(hrefAttr.Value);
                     if (!string.IsNullOrEmpty(base64))
                     {
-                        container.Add(new { type = "inlineImage", attrs = new { src = base64 }, display = "inline" });
+                        container.Add(new { type = "fb2InlineImage", attrs = new { src = base64 }, display = "inline" });
                     }
                 }
                 return; // Изображения не имеют вложенных узлов в FB2

@@ -1,6 +1,6 @@
 import { TocItem } from "../types/types";
 
-export const buildTree = (nodes: { pos: number; text: string; level: number }[]) => {
+export const buildTree = (nodes: { pos: number; text: string; level: number; id: string }[]) => {
   const root: TocItem[] = [];
   const stack: TocItem[] = [];
   nodes.forEach((node) => {

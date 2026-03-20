@@ -15,12 +15,15 @@ import { Fb2Stanza } from './extensions/fb2stanza';
 import { Fb2Subtitle } from './extensions/fb2subtitle';
 import { Fb2TextAuthor } from './extensions/fb2textauthor';
 import { Fb2V } from './extensions/fb2v';
+import { Fb2Date } from './extensions/fb2date';
 import { Fb2BlockImage } from './extensions/fb2blockimage';
 import { Fb2InlineImage } from './extensions/fb2inlineimage';
+import { Fb2Placeholder } from './extensions/fb2placeholder';
 
 
 export const EditorExtensions = [
     StarterKit.configure({
+        gapcursor: false,
         // Заголовки разных уровней
         heading: { levels: [1, 2, 3, 4] },
         // Настройка цитат
@@ -59,5 +62,7 @@ export const EditorExtensions = [
     Fb2Stanza,
     Fb2Subtitle,
     Fb2TextAuthor,
-    Fb2V
+    Fb2V,
+    Fb2Date,
+    Fb2Placeholder
 ];

@@ -3,7 +3,7 @@ import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { TocItem } from '../../types/types';
 import { ChevronRight, ChevronLeft, Strikethrough, Code, Quote, Superscript, Subscript, FileImage } from 'lucide-react';
 
-export const Sidebar = ({ tree, onNavigate, activePos }: { tree: TocItem[], onNavigate: (pos: number) => void, activePos: number | null }) => {
+export const Sidebar = ({ tree, onNavigate, activePos }: { tree: TocItem[], onNavigate: (id: string, pos: number) => void, activePos: number | null }) => {
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
     // Функция для переключения (можно вызвать горячей клавишей Alt+B)
     const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
@@ -33,7 +33,7 @@ const handleMouseEnter = (e: React.MouseEvent<HTMLButtonElement>) => {
 <button
     type="button"
     onMouseEnter={handleMouseEnter}
-    onClick={() => onNavigate(item.pos)}
+    onClick={() => onNavigate(item. id, item.pos)}
     // Используем padding вместо margin, чтобы hover не вылезал вправо
     style={{ paddingLeft: level > 0 ? '28px' : '12px' }}
     className={`relative z-10 w-full text-left pr-3 py-1.5 text-[11px] rounded transition-all mb-0.5 flex items-center ${

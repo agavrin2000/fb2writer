@@ -94,5 +94,6 @@ export interface TocItem {
     pos: number;
     text: string;
     level: number;
+    id: string;
     children: TocItem[];
 }

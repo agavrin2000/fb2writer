@@ -2,7 +2,7 @@ import Image from '@tiptap/extension-image';
 
 // Блочное изображение (для структуры FB2)
 export const Fb2BlockImage = Image.extend({
-    name: 'blockImage',
+    name: 'fb2BlockImage',
     inline: false,
     group: 'block',
     selectable: true,

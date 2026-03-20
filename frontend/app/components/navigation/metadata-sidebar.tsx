@@ -31,8 +31,7 @@ const LANGUAGES = [
 ];
 
 export const MetadataSidebar = ({ meta, onMetaChange }: MetadataSidebarProps) => {
-    //const [meta, setMeta] = useState<any>(fb2Meta);
-    const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [activeTab, setActiveTab] = useState<'title' | 'src-title' | 'publish' | 'custom' | 'doc'>('title');
 
     const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);

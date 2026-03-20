@@ -7,11 +7,11 @@ const EditorCanvasRender = React.forwardRef<HTMLDivElement, { editor: Editor | n
   ({ editor }, ref) => {
     // Если editor еще не инициализирован, возвращаем заглушку, 
     // чтобы не ломать дерево рендеринга
-    if (!editor) return <div ref={ref} className="flex-grow bg-gray-200" />;
+    if (!editor) return <div ref={ref} className="grow bg-gray-200" />;
 
     return (
-      <div ref={ref} className="flex-grow overflow-y-auto bg-gray-200 py-2 scroll-smooth custom-scrollbar">
-        <div className="w-[90%] min-w-[80%] max-w-[1200px] mx-auto bg-white shadow-2xl rounded-sm border border-gray-300 relative">
+      <div ref={ref} className="grow overflow-y-auto bg-gray-200 py-2 scroll-smooth custom-scrollbar">
+        <div className="w-[90%] min-w-[80%] max-w-300 mx-auto bg-white shadow-2xl rounded-sm border border-gray-300 relative">
           <div className="p-[60px_10%] pb-[70vh]">
             <EditorContent 
               editor={editor} 
