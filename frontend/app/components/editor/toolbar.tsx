@@ -4,6 +4,7 @@ import { BookPlus, Bold, Italic, Strikethrough, Code, Quote, Superscript, Subscr
 import { ALargeSmall, Heading1, TextQuote, Signature, PenTool } from 'lucide-react'
 import { useEditorState } from '@tiptap/react'
 import { Fb2ActionIcon } from '../ui/fb2action-icon'
+import { useFootnotes } from "../../editor/hooks/useFootnotes";
 
 interface ToolbarProps {
   editor: Editor | null;
@@ -49,7 +50,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({ editor, onSelectImage, onAddFo
       };
     },
   });
-
+  
   if (!editor) return null;
   const { canInsertTitle, canRemoveTitle, canInsertEpigraph, canRemoveEpigraph,
     canInsertTextAuthor, canRemoveTextAuthor, canInsertSubtitle, canRemoveSubtitle,

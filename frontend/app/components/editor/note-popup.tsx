@@ -19,6 +19,7 @@ interface NotePopupProps {
 }
 
 export const NotePopup: React.FC<NotePopupProps> = ({ note, content, existingIds, onUpdate, onClose, onDelete }) => {
+
   const [editableId, setEditableId] = useState(note.id);
   const handleDelete = () => {
     if (window.confirm(`Вы уверены, что хотите полностью удалить сноску ${note.id}?`)) {

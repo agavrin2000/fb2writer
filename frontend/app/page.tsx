@@ -1,185 +1,135 @@
-'use client';
-import { useRef } from 'react';
-import { useFB2Editor } from './editor/hooks/useFB2Editor';
-import { Header } from './components/layout/header';
-import { Sidebar } from './components/navigation/sidebar';
-import { MetadataSidebar } from './components/navigation/metadata-sidebar';
-import { EditorCanvas } from './components/editor/canvas';
-import { StatusBar } from './components/layout/statusbar';
-import { Toolbar } from './components/editor/toolbar';
-import { ImageBubbleMenu } from './components/editor/image-bubble-menu';
-import { SectionBubbleMenu } from './components/editor/section-bubble-menu';
-import { Loader } from './components/editor/loader';
-import { NotePopup } from './components/editor/note-popup';
-import { photino } from './api/photino';
+"use client";
+import { useFB2Editor } from "./editor/hooks/useFB2Editor";
+import { Header } from "./components/layout/header";
+import { Sidebar } from "./components/navigation/sidebar";
+import { MetadataSidebar } from "./components/navigation/metadata-sidebar";
+import { EditorCanvas } from "./components/editor/canvas";
+import { StatusBar } from "./components/layout/statusbar";
+import { Toolbar } from "./components/editor/toolbar";
+import { ImageBubbleMenu } from "./components/editor/image-bubble-menu";
+import { SectionBubbleMenu } from "./components/editor/section-bubble-menu";
+import { Loader } from "./components/editor/loader";
+import { NotePopup } from "./components/editor/note-popup";
+import { photino } from "./api/photino";
+import { useFootnotes } from "./editor/hooks/useFootnotes";
+import { useState, useCallback, useEffect, useRef } from "react";
+import { Fb2Metadata } from "./types/types";
 
 export default function Page() {
-    const scrollRef = useRef<HTMLDivElement>(null);
-    const {
-        editor, tocTree, activeHeadingPos, isLoading, meta,
-        openFile, saveFile, activeNote, setMetadata,
-        loadingFileName, footnotes, closeNotePopup, updateNoteText, addFootnote, deleteFootnote
-    } = useFB2Editor();
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const footnotesRef = useRef<Record<string, any>>({});
+  const setActiveNoteRef = useRef<(note: any) => void>(() => {});
+  const [metadata, setMetadata] = useState<Fb2Metadata | null>(null);
+  const {
+    editor,
+    setIsLoading,
+    setLoadingFileName,
+    openFile,
+    tocTree,
+    activeHeadingPos,
+    isLoading,
+    loadingFileName,
+  } = useFB2Editor(footnotesRef, setActiveNoteRef);
 
-    /* исходный варинат
-       const scrollToHeading = (pos: number) => {
-            if (!editor || !scrollRef.current) return;
-    
-            // Сначала перемещаем каретку
-            editor.commands.focus(pos);
-            editor.commands.setTextSelection(pos);
-    
-            // Ждем один тик отрисовки, чтобы координаты стали актуальными
-            requestAnimationFrame(() => {
-                try {
-                    // Получаем координаты конкретной позиции
-                    const coords = editor.view.coordsAtPos(pos);
-                    const container = scrollRef.current;
-    
-                    if (coords && container) {
-                        const containerRect = container.getBoundingClientRect();
-    
-                        // Вычисляем позицию: 
-                        // Текущий скролл контейнера + (Y координаты текста - Y верхний край контейнера)
-                        const targetTop = container.scrollTop + (coords.top - containerRect.top);
-    
-                        container.scrollTo({
-                            top: targetTop - 40, // 40px отступ сверху для красоты
-                            behavior: 'smooth'
-                        });
-                    }
-                } catch (e) {
-                    // Если позиция не валидна (например, дерево еще не обновилось)
-                    console.warn("Could not scroll to pos:", pos);
-                }
-            });
-        };
-    */
-/*
-    const scrollToHeading = (pos: number) => {
-        if (!editor || !scrollRef.current) return;
+  // 3. Инициализируем хук сносок (передаем editor)
+  const {
+    activeNote,
+    footnotes,
+    setFootnotes,
+    addFootnote,
+    updateNoteContent,
+    closeNotePopup,
+    deleteFootnote,
+    cleanupOrphanNotes,
+  } = useFootnotes(editor, footnotesRef, setActiveNoteRef);
 
-        // 1. Принудительный фокус и выделение (будит секцию)
-        editor.commands.setTextSelection(pos);
+  // 4. ФИНАЛЬНАЯ ФУНКЦИЯ ЗАГРУЗКИ (внутри Page)
+  const onFb2Content = useCallback(
+    (payload: any) => {
+      const fb2data =
+        typeof payload === "string" ? JSON.parse(payload) : payload;
 
-        const container = scrollRef.current;
-        let attempts = 0;
-        const maxAttempts = 25; // Сколько раз будем проверять, не уплыли ли координаты
-
-        const performScroll = () => {
-            const coords = editor.view.coordsAtPos(pos);
-            const containerRect = container.getBoundingClientRect();
-
-            if (coords) {
-                const targetTop = container.scrollTop + (coords.top - containerRect.top) - 80;
-
-                container.scrollTo({
-                    top: targetTop,
-                    behavior: attempts === 0 ? 'smooth' : 'auto' // Первый раз плавно, потом мгновенно корректируем
-                    //behavior: 'auto' // Первый раз плавно, потом мгновенно корректируем
-                });
-
-                // Если мы еще не сделали все попытки, проверяем через 100мс
-                if (attempts < maxAttempts) {
-                    attempts++;
-                    setTimeout(performScroll, 200); // Даем время на развертывание content-visibility
-                }
-            }
-        };
-
-        // Запускаем первый цикл
-        requestAnimationFrame(performScroll);
-    };
-*/
-
-/*const scrollToHeading = (sectionId: string, pos: number) => {
-    if (!editor || !sectionId) return;
-
-    // 1. Пробуждаем секцию (фокус принудительно рендерит узел)
-    editor.chain().focus().setTextSelection(pos).run();
-
-    const element = document.getElementById(sectionId);
-    if (!element) return;
-
-    let attempts = 0;
-    const maxAttempts = 15; // 1.5 секунды слежения (хватит для 5 МБ)
-
-    const stabilize = () => {
-        const currentElement = document.getElementById(sectionId);
-        if (currentElement) {
-            // Используем нативный метод. 
-            // Первый раз - плавно (smooth), остальные - мгновенно (auto) для фиксации.
-            currentElement.scrollIntoView({
-                behavior: attempts === 0 ? 'smooth' : 'auto',
-                block: 'start'
-            });
-
-            if (attempts < maxAttempts) {
-                attempts++;
-                // Каждые 100мс проверяем, не уплыл ли заголовок
-                setTimeout(stabilize, 100); 
-            }
+      if (editor && fb2data) {
+        setMetadata(fb2data.Meta || {});
+        if (fb2data.Footnotes) {
+          setFootnotes(fb2data.Footnotes);
+          // И обновляем реф вручную для handleClick
+          if (footnotesRef.current) footnotesRef.current = fb2data.Footnotes;
+        } else {
+          setFootnotes({});
         }
+        if (fb2data.EditorContent) {
+          editor.commands.setContent(fb2data.EditorContent);
+        }
+        setIsLoading(false);
+        setLoadingFileName("");
+      }
+    },
+    [editor, setFootnotes, setMetadata, setIsLoading, setLoadingFileName],
+  );
+
+  const saveFile = useCallback(() => {
+    if (!editor || isLoading) return;
+    if (!editor) return;
+    const actualFootnotes = cleanupOrphanNotes();
+    const fb2Data = {
+      content: editor?.getJSON(),
+      footnotes: actualFootnotes,
+      metadata: metadata,
     };
+    photino.send("save-file", fb2Data);
+  }, [editor, isLoading]);
 
-    // Запускаем цикл стабилизации
-    requestAnimationFrame(stabilize);
-};*/
+  // Подписываемся на событие Photino
+  useEffect(() => {
+    photino.on("fb2-content", onFb2Content);
+    return () => {
+      // Обязательно отписываемся, чтобы не было утечек памяти
+      photino.off("fb2-content", onFb2Content);
+    };
+  }, [onFb2Content]);
 
+  return (
+    <div className="flex flex-col h-screen overflow-hidden bg-white">
+      {/* Верхнее меню (Файл, Сохранить) */}
+      <Header editor={editor} onSave={saveFile} onOpen={openFile} />
+      <div className="flex flex-1 overflow-hidden relative">
+        {/* Навигация по главам */}
+        <Sidebar tree={tocTree} activePos={activeHeadingPos} editor={editor} />
+        {/* Основная рабочая область */}
+        <main className="flex-1 flex flex-col min-w-0 bg-gray-100">
+          {/* Тулбар форматирования над листом */}
+          <Toolbar
+            editor={editor}
+            onSelectImage={() => photino.send("select-image")}
+            onAddFootnote={addFootnote}
+          />
+          {/* Лист редактора */}
+          <EditorCanvas editor={editor} ref={scrollRef} />
+        </main>
+        {/* Правая панель: Метаданные */}
+        <MetadataSidebar meta={metadata} onMetaChange={setMetadata} />
+      </div>
+      {/* Всплывающее меню для картинок */}
+      <ImageBubbleMenu editor={editor} />
+      {/* Всплывающее меню для секций */}
+      <SectionBubbleMenu editor={editor} />
 
-
-    return (
-        <div className="flex flex-col h-screen overflow-hidden bg-white">
-            {/* Верхнее меню (Файл, Сохранить) */}
-            <Header
-                editor={editor}
-                onSave={saveFile}
-                onOpen={openFile}
-            />
-            <div className="flex flex-1 overflow-hidden relative">
-                {/* Навигация по главам */}
-                <Sidebar tree={tocTree} activePos={activeHeadingPos} editor={editor} />
-                {/* Основная рабочая область */}
-                <main className="flex-1 flex flex-col min-w-0 bg-gray-100">
-                    {/* Тулбар форматирования над листом */}
-                    <Toolbar
-                        editor={editor}
-                        onSelectImage={() => photino.send('select-image')}
-                        onAddFootnote={addFootnote}
-                    />
-
-                    {/* Лист редактора */}
-                    <EditorCanvas
-                        editor={editor}
-                        ref={scrollRef}
-                    />
-                </main>
-                {/* Правая панель: Метаданные */}
-                <MetadataSidebar
-                    meta={meta}
-                    onMetaChange={setMetadata}
-                />
-            </div>
-            {/* Всплывающее меню для картинок */}
-            <ImageBubbleMenu editor={editor} />
-            {/* Всплывающее меню для секций */}
-            <SectionBubbleMenu editor={editor} />
-
-            {/* Индикатор загрузки XML */}
-            {isLoading && <Loader fileName={loadingFileName} />}
-
-            {/* Редактор сносок */}
-            {activeNote && (
-                <NotePopup
-                    note={activeNote}
-                    content={footnotes[activeNote.id] || ''}
-                    existingIds={Object.keys(footnotes)}
-                    onUpdate={updateNoteText}
-                    onClose={closeNotePopup}
-                    onDelete={deleteFootnote}
-                />
-            )}
-            <StatusBar fileName="book.fb2" loading={isLoading} />
-        </div>
-    );
+      {/* Индикатор загрузки XML */}
+      {isLoading && <Loader fileName={loadingFileName} />}
+      {/* Редактор сносок */}
+      {activeNote && (
+        <NotePopup
+          note={activeNote}
+          content={footnotes[activeNote.id] || ""}
+          existingIds={Object.keys(footnotes)}
+          onUpdate={updateNoteContent}
+          onClose={closeNotePopup}
+          onDelete={deleteFootnote}
+        />
+      )}
+      {/* Статусная строка */}
+      <StatusBar fileName={loadingFileName} loading={isLoading} />
+    </div>
+  );
 }
