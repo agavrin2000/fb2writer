@@ -127,31 +127,7 @@ export default function Page() {
 };*/
 
 
-const scrollToHeading = (sectionId: string, pos: number) => {
-    if (!editor || !sectionId) return;
 
-    editor.chain().focus().setTextSelection(pos).run();
-
-    let attempts = 0;
-    const maxAttempts = 15;
-
-    const stabilize = () => {
-        const element = document.getElementById(sectionId);
-        if (element) {
-            element.scrollIntoView({
-                behavior: attempts === 0 ? 'smooth' : 'auto',
-                block: 'start'
-            });
-
-            if (attempts < maxAttempts) {
-                attempts++;
-                setTimeout(stabilize, 100);
-            }
-        }
-    };
-
-    requestAnimationFrame(stabilize);
-};
     return (
         <div className="flex flex-col h-screen overflow-hidden bg-white">
             {/* Верхнее меню (Файл, Сохранить) */}
@@ -162,7 +138,7 @@ const scrollToHeading = (sectionId: string, pos: number) => {
             />
             <div className="flex flex-1 overflow-hidden relative">
                 {/* Навигация по главам */}
-                <Sidebar tree={tocTree} onNavigate={scrollToHeading} activePos={activeHeadingPos} />
+                <Sidebar tree={tocTree} activePos={activeHeadingPos} editor={editor} />
                 {/* Основная рабочая область */}
                 <main className="flex-1 flex flex-col min-w-0 bg-gray-100">
                     {/* Тулбар форматирования над листом */}

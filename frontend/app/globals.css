@@ -65,6 +65,7 @@ body {
 /* Скроллбар для длинных книг */
 .editor-container::-webkit-scrollbar {
   width: 8px;
+  background: transparent;
 }
 
 .editor-container::-webkit-scrollbar-thumb {
@@ -72,23 +73,37 @@ body {
   border: 2px solid #e2e8f0;
   border-radius: 10px;
 }
-
-.custom-scrollbar {
-    scroll-behavior: auto !important;
-}
-/* Кастомный скроллбар для области редактора */
+/* 1. Сама дорожка скроллбара */
 .custom-scrollbar::-webkit-scrollbar {
-  width: 10px;
+  width: 12px;
+  /* Важно: не ставим display: none, иначе hover не поймаем */
 }
 
-.custom-scrollbar::-webkit-scrollbar-track {
-  background: #e2e8f0;
+/* 2. Ползунок по умолчанию "невидимый" (но существующий) */
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background-color: rgba(0, 0, 0, 0); /* Полная прозрачность через RGBA */
+  border-radius: 10px;
+  min-height: 150px; /* Делаем его длинным, чтобы легко было попасть */
+  border: 3px solid transparent; /* Создаем отступ, чтобы он был изящным */
+  background-clip: padding-box; /* Чтобы border не съедал цвет */
 }
 
+/* 3. Эффект: Показываем ползунок, когда мышь ВНУТРИ всего контейнера */
+/* Это заставит его проявиться, как только вы начнете двигать мышь по редактору */
+.custom-scrollbar:hover::-webkit-scrollbar-thumb {
+  background-color: rgba(148, 163, 184, 0.4); /* Нежно-серый (slate-400 с альфой) */
+}
+
+/* 4. Акцент: Когда мышь наведена прямо на ЗОНУ скроллбара (справа) */
+/* В WebView2 это самый надежный способ "подсветить" его ярче */
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
+  background-color: rgba(100, 116, 139, 0.8) !important; /* Темно-серый */
 }
 
+/* 5. Дополнительно: можно подсветить саму дорожку при наведении */
+.custom-scrollbar::-webkit-scrollbar-track:hover {
+  background-color: rgba(0, 0, 0, 0.03);
+}
 /* Тень и эффект бумаги */
 .editor-paper-sheet {
   box-shadow: 0 0 50px rgba(0, 0, 0, 0.1);

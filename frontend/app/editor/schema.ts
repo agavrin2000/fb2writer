@@ -19,6 +19,7 @@ import { Fb2Date } from './extensions/fb2date';
 import { Fb2BlockImage } from './extensions/fb2blockimage';
 import { Fb2InlineImage } from './extensions/fb2inlineimage';
 import { Fb2Placeholder } from './extensions/fb2placeholder';
+import { Fb2Annotation } from './extensions/fb2annotation';
 
 
 export const EditorExtensions = [
@@ -64,5 +65,6 @@ export const EditorExtensions = [
     Fb2TextAuthor,
     Fb2V,
     Fb2Date,
-    Fb2Placeholder
+    Fb2Placeholder,
+    Fb2Annotation
 ];

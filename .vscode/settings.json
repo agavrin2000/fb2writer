@@ -1,0 +1,4 @@
+{
+  "tailwindCSS.experimental.configFile": "postcss.config.mjs",
+  "css.lint.unknownAtRules": "ignore"
+}
