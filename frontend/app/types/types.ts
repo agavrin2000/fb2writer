@@ -1,4 +1,5 @@
 // Основной интерфейс для персон (авторы, переводчики)
+
 export interface Fb2Person {
     FirstName?: string;
     MiddleName?: string;
@@ -77,11 +78,7 @@ export interface Fb2Data {
     Footnotes: Record<string, any>;
 }
 
-// Описываем интерфейс Photino, но НЕ вкладываем его в window
-export interface IPhotinoBridge {
-    sendMessage: (message: string) => void;
-    receiveMessage: (callback: (message: string) => void) => void;
-}
+
 
 export interface Fb2Note {
     Title: string,

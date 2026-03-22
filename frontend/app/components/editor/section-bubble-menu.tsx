@@ -82,8 +82,26 @@ export const SectionBubbleMenu: React.FC<SectionBubbleMenuProps> = ({ editor }) 
                 return isSection
             }}
 
-            options={{ placement: 'right-start', offset: 40 }}
-        >
+     //       options={{ placement: 'right-start', offset: 40 }}
+                  options={{
+        placement: 'right-start',
+        // Floating UI использует offset для отступа [crossAxis, mainAxis]
+          offset: {
+    mainAxis: 10,  // Отступ вправо от ручки
+    crossAxis: 0,   // Смещение вверх/вниз относительно верхнего края ручки
+  },
+        // Принудительно рендерим в портал (body), чтобы sticky-родители не обрезали меню
+        flip: true, 
+        
+        // САМОЕ ВАЖНОЕ: Переопределяем виртуальную область привязки
+    getReferenceClientRect: (() => {
+      const { selection } = editor.state;
+      const dom = editor.view.nodeDOM(selection.from) as HTMLElement;
+      const handle = dom?.querySelector('.section-handle');
+      return handle ? handle.getBoundingClientRect() : null;
+    }) as any,
+  } as any}
+    >
             <div style={toolbarStyle} key={`${editor.state.selection.from}-${editor.state.tr.steps.length}`}>
                 {/* Добавить секцию */}
                 <button onClick={() => addFb2Section('after')} style={btnStyle} title="Добавить раздел">

@@ -18,7 +18,7 @@ export const ImageBubbleMenu: React.FC<ImageBubbleMenuProps> = ({ editor }) => {
       const { selection } = editor.state;
       if (selection instanceof NodeSelection) {
         const typeName = selection.node.type.name;
-        if (typeName === 'inlineImage' || typeName === 'blockImage') {
+        if (typeName === 'fb2InlineImage' || typeName === 'fb2BlockImage') {
           const src = selection.node.attrs.src || '';
           const dom = editor.view.nodeDOM(selection.from) as HTMLElement;
           const img = dom instanceof HTMLImageElement ? dom : dom?.querySelector('img');
@@ -56,7 +56,7 @@ export const ImageBubbleMenu: React.FC<ImageBubbleMenuProps> = ({ editor }) => {
   return (
     <BubbleMenu
       editor={editor}
-      shouldShow={({ editor }) => editor.isActive('inlineImage') || editor.isActive('blockImage')}
+      shouldShow={({ editor }) => editor.isActive('fb2InlineImage') || editor.isActive('fb2BlockImage')}
       updateDelay={0}
       // Прижимаем всё меню к правому верхнему углу картинки
       options={{ placement: 'top', offset: true, flip: true }}

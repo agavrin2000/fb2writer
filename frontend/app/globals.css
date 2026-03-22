@@ -269,21 +269,21 @@ section.fb2-section {
 }
 
 /* 2. ПОДСВЕТКА ТОЛЬКО ПРЯМОЙ РУЧКИ */
-/* Символ > гарантирует, что правило не "протечет" во вложенные секции */
-.section-node-wrapper.is-selected>.section-handle {
+/* Заменяем .is-selected на системный класс ProseMirror */
+.section-node-wrapper.ProseMirror-selectednode > .section-handle {
   background-color: #3b82f6 !important;
   color: #ffffff !important;
   border-color: #2563eb !important;
 }
 
 /* 3. ТО ЖЕ САМОЕ ДЛЯ РАМКИ СЕКЦИИ */
-.section-node-wrapper.is-selected>section.fb2-section {
+.section-node-wrapper.ProseMirror-selectednode > section.fb2-section {
   border-color: #3b82f6 !important;
   background-color: rgba(59, 130, 246, 0.02);
 }
 
-/* 4. СБРОС ДЛЯ ВЛОЖЕННЫХ (на всякий случай) */
-.section-node-wrapper.is-selected .section-node-wrapper:not(.is-selected)>.section-handle {
+/* 4. СБРОС ДЛЯ ВЛОЖЕННЫХ */
+.section-node-wrapper.ProseMirror-selectednode .section-node-wrapper:not(.ProseMirror-selectednode) > .section-handle {
   background-color: #ffffff !important;
   color: #94a3b8 !important;
   border-color: #e2e8f0 !important;

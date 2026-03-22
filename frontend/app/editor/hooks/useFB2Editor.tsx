@@ -1,30 +1,19 @@
 "use client";
 
-import { useEditor } from "@tiptap/react";
-import {
-  useState,
-  useCallback,
-  useEffect,
-  useRef,
-  useMemo,
-  RefObject,
-} from "react";
-import { photino } from "../../api/photino";
-import { EditorView } from "@tiptap/pm/view";
-import { Editor } from "@tiptap/react";
+import { useEditor, Editor } from "@tiptap/react";
+import { useRef, useMemo, RefObject, useCallback } from "react";
 import { Transaction } from "@tiptap/pm/state";
 import { EditorExtensions } from "../schema";
 import { collectNodes } from "../../utils/utils";
 import { useTOC } from "./useTOC";
-import { useFootnotes } from "./useFootnotes";
-import { Toast, ToastHandle } from "../../components/toast";
+import { createEditorProps } from "../editor-props";
+import { Fb2Metadata, Fb2Data, TocItem } from "../../types/types";
 
 export const useFB2Editor = (
   footnotesRef: RefObject<Record<string, any>>,
   setActiveNoteRef: RefObject<(note: any) => void>,
 ) => {
-  console.log("RENDER");
-  const toastRef = useRef<ToastHandle>(null);
+  // 1. Логика оглавления (TOC)
   const {
     tocTree,
     activeHeadingPos,
@@ -34,44 +23,18 @@ export const useFB2Editor = (
     debouncedSetToc,
   } = useTOC();
 
-  const [isLoading, setIsLoading] = useState(false);
-  const [loadingFileName, setLoadingFileName] = useState("");
-
+  // Используем реф для функции обновления заголовка,
+  // чтобы onUpdate/onSelectionUpdate всегда видели свежую версию без пересоздания опций редактора
   const updateActiveHeadingRef = useRef(updateActiveHeading);
   updateActiveHeadingRef.current = updateActiveHeading;
 
+  // 2. Вынесенные пропсы (обработка кликов по сноскам)
   const editorProps = useMemo(
-    () => ({
-      handleClick: (view: EditorView, pos: number, event: MouseEvent) => {
-        const { schema } = view.state;
-        const node = view.state.doc.nodeAt(pos);
-        const mark = node?.marks.find((m) => m.type === schema.marks.link);
-        const href = (mark?.attrs.href as string) || "";
-
-        if (mark && href.startsWith("#")) {
-          const noteId = href.replace("#", "");
-
-          // Используем .current, чтобы всегда иметь свежие данные без ререндера editor
-          const noteContent = footnotesRef.current[noteId];
-
-          if (noteContent !== undefined) {
-            event.preventDefault();
-            // Вызываем функцию через реф
-            setActiveNoteRef.current({
-              id: noteId,
-              x: event.clientX,
-              y: event.clientY,
-            });
-            return true;
-          }
-        }
-        setActiveNoteRef.current(null);
-        return false;
-      },
-    }),
-    [],
+    () => createEditorProps(footnotesRef, setActiveNoteRef),
+    [footnotesRef, setActiveNoteRef],
   );
 
+  // 3. Конфигурация событий и опций редактора
   const editorOptions = useMemo(
     () => ({
       extensions: EditorExtensions,
@@ -79,6 +42,7 @@ export const useFB2Editor = (
       immediatelyRender: false,
       editorProps: editorProps,
 
+      // Обработка изменений контента
       onUpdate: ({
         editor,
         transaction,
@@ -86,105 +50,68 @@ export const useFB2Editor = (
         editor: Editor;
         transaction: Transaction;
       }) => {
-        // Если текст не менялся (только курсор) — выходим,
-        // так как это покроет onSelectionUpdate ниже
+        // Если текст не менялся (только курсор) — ничего не делаем
         if (!transaction.docChanged) return;
-        // 1. Сбор данных (Синхронно, ~1-2мс на 5МБ)
-        const nodes = collectNodes(editor.state.doc);
 
+        // Быстрый сбор структуры документа (~1-2мс на больших файлах)
+        const nodes = collectNodes(editor.state.doc);
         flatNodesRef.current = nodes;
 
-        // 2. Тяжелый рендер React-дерева (ОТЛОЖЕННО)
+        // Тяжелый рендер React-дерева оглавления и поиск активной главы выносим в следующий кадр
         requestAnimationFrame(() => {
           debouncedSetToc(nodes);
           updateActiveHeadingRef.current(editor);
         });
       },
+
+      // Обработка перемещения курсора / выделения
       onSelectionUpdate: ({ editor }: { editor: Editor }) => {
-        // Для кликов и навигации используем только поиск активной главы
-        // без пересбора всего дерева оглавления
+        // Только обновляем подсветку текущей главы в Sidebar
         updateActiveHeadingRef.current(editor);
       },
-      // ВАЖНО: добавь все зависимости здесь!
     }),
-    [editorProps, debouncedSetToc],
+    [editorProps, debouncedSetToc, flatNodesRef], // flatNodesRef здесь константный, но для порядка добавлен
   );
 
-  // MAIN Editor
+  // 4. Инициализация Tiptap
   const editor = useEditor(editorOptions);
 
-  useEffect(() => {
-    const handleKeyDown = (event: globalThis.KeyboardEvent) => {
-      // Проверяем Ctrl+S (или Cmd+S на Mac)
-      const isCtrlS = (event.ctrlKey || event.metaKey) && event.code === "KeyO";
+  const scrollToHeading = useCallback(
+    (item: TocItem) => {
 
-      if (isCtrlS) {
-        event.preventDefault(); // Предотвращаем системное сохранение страницы
-        if (editor) {
-          openFile;
+        if (!editor || !item.id) return;
+
+      editor.chain().focus().setTextSelection(item.pos).run();
+
+      let attempts = 0;
+      const maxAttempts = 15;
+
+      const stabilize = () => {
+        const element = document.getElementById(item.id);
+        if (element) {
+          element.scrollIntoView({
+            behavior: attempts === 0 ? "smooth" : "auto",
+            block: "start",
+          });
+
+          if (attempts < maxAttempts) {
+            attempts++;
+            setTimeout(stabilize, 100);
+          }
         }
-      }
-    };
+      };
 
-    // Другие мелкие обработчики
-    const onStartLoading = (payload: string) => {
-      setIsLoading(true);
-      setLoadingFileName(payload || "Обработка...");
-    };
-
-    const onInsertImage = (url: any) => {
-      if (editor) editor.chain().focus().setImage({ src: url }).run();
-    };
-
-    const onSaveSuccess = (path: string) =>
-      toastRef.current?.show("Изменения сохранены");
-    const onCancelLoading = () => {
-      setIsLoading(false);
-      setLoadingFileName("");
-    };
-
-    const onError = (payload: any) => {
-      setIsLoading(false);
-      toastRef.current?.show(`Ошибка: ${payload}`);
-      alert(`Ошибка: ${payload}`);
-    };
-
-    // Подписываемся на события из PhotinoBridge
-    photino.on("start-loading", onStartLoading);
-    photino.on("insert-image", onInsertImage);
-    photino.on("error", onError);
-    photino.on("save-success", onSaveSuccess);
-    photino.on("cancel-loading", onCancelLoading);
-
-    return () => {
-      // Обязательно отписываемся, чтобы не было утечек памяти
-      photino.off("start-loading", onStartLoading);
-      photino.off("insert-image", onInsertImage);
-      photino.off("error", onError);
-      photino.off("save-success", onSaveSuccess);
-      photino.off("cancel-loading", onCancelLoading);
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [editor, setIsLoading]);
-
-  // Функции-обертки для отправки команд в C#
-  const openFile = useCallback(() => {
-    // Добавляем проверку, чтобы не открывать окно выбора файла дважды
-    if (isLoading) return;
-
-    photino.send("open-file", { action: "select_new" });
-  }, [isLoading]);
+      requestAnimationFrame(stabilize);
+      editor?.commands.focus();
+    },
+    [editor],
+  );
 
   return {
     editor,
     tocTree,
     activeHeadingPos,
     setActiveHeadingPos,
-    isLoading,
-    loadingFileName,
-    setIsLoading,
-    openFile,
-    setLoadingFileName,
+    scrollToHeading,
   };
 };

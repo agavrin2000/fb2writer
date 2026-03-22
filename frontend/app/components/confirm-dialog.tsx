@@ -42,7 +42,7 @@ export const ConfirmDialog = forwardRef<ConfirmHandle, {}>((_, ref) => {
   const isDanger = config.variant === 'danger';
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
       {/* Overlay (Задний фон) */}
       <div 
         className={`absolute inset-0 bg-slate-900/40 backdrop-blur-sm transition-opacity duration-300 ${

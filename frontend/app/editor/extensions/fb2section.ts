@@ -46,7 +46,7 @@ export const Fb2Section = Node.create({
       }
 
       dom.append(handle, content);
-      return { dom, contentDOM: content };
+      return { dom, contentDOM: content,  };
     };
   },
 });

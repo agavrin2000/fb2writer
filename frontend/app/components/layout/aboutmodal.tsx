@@ -10,7 +10,7 @@ export const AboutModal = ({ isOpen, onClose }: AboutModalProps) => {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 backdrop-blur-sm animate-in fade-in duration-200">
       <div className="bg-white w-[520px] rounded-2xl shadow-2xl border border-gray-200 overflow-hidden animate-in zoom-in-95 duration-200">
         
         {/* Шапка модального окна */}
@@ -73,7 +73,8 @@ export const AboutModal = ({ isOpen, onClose }: AboutModalProps) => {
               <div className="space-y-2.5">
                 <HotkeyRow label="Открыть файл" keys={['Ctrl', 'O']} />
                 <HotkeyRow label="Сохранить" keys={['Ctrl', 'S']} />
-                <HotkeyRow label="Тулбар" keys={['Alt', 'B']} />
+                <HotkeyRow label="Структура книги" keys={['Alt', 'B']} />
+                <HotkeyRow label="Метаинформация" keys={['Alt', 'I']} />
                 <HotkeyRow label="Жирный" keys={['Ctrl', 'B']} />
                 <HotkeyRow label="Курсив" keys={['Ctrl', 'I']} />
               </div>
