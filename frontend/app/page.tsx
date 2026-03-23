@@ -91,7 +91,9 @@ export default function Page() {
       {/* Всплывающее меню для секций 
       <SectionBubbleMenu editor={editor} />
 */}
-      <Fb2SectionMenu editor={editor} />
+      <Fb2SectionMenu editor={editor} 
+                  onSelectImage={actions.selectImage}
+/>
       {isLoading && <Loader fileName={loadingFileName} />}
 
       {notes.activeNote && (
