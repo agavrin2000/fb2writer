@@ -13,49 +13,61 @@ export const Fb2Subtitle = Node.create({
     mergeAttributes(HTMLAttributes, { class: "fb2-subtitle" }),
     0,
   ],
-
-  addCommands(): any {
+  addCommands() {
     return {
       insertFb2Subtitle:
         () =>
-        ({ state, chain }: CommandProps) => {
-          const { $from } = state.selection;
+        ({ state, dispatch, chain }: CommandProps) => {
+          const { selection } = state;
+          const { $from } = selection;
 
-          // 1. Проверяем запрещенные контексты
-          // Идем вверх по дереву и смотрим, нет ли среди родителей "плохих" узлов
-          const isRestricted = (depth: number) => {
-            const name = $from.node(depth).type.name;
-            return ["fb2Title", "fb2Epigraph", "fb2Subtitle"].includes(name);
-          };
+          // 1. Ищем ближайшего родителя (Секция или Строфа)
+          let parentNode = null;
+          let parentPos = -1;
 
           for (let d = $from.depth; d > 0; d--) {
-            if (isRestricted(d)) return false; // Команда недоступна
-          }
-
-          // 2. Проверяем, что мы вообще внутри секции
-          let sectionDepth = -1;
-          for (let d = $from.depth; d > 0; d--) {
-            if ($from.node(d).type.name === "fb2Section") {
-              sectionDepth = d;
+            const name = $from.node(d).type.name;
+            if (["fb2Section", "fb2Stanza"].includes(name)) {
+              parentNode = $from.node(d);
+              parentPos = $from.before(d);
               break;
             }
+            if (["fb2Title", "fb2Epigraph", "fb2Subtitle"].includes(name))
+              return false;
           }
 
-          if (sectionDepth === -1) return false;
+          if (!parentNode) return false;
 
-          // 3. Выполняем вставку
-          // Вставляем сразу после текущего блока (например, после параграфа, где стоит курсор)
-          return chain()
-            .insertContent({
-              type: "fb2Subtitle",
-              content: [
-                {
-                  type: "text", text: "Новый подзаголовок" 
-                },
-              ],
-            })
-            .focus()
-            .run();
+          let insertPos = $from.pos;
+
+          // 2. ЛОГИКА ДЛЯ СТРОФЫ (fb2Stanza)
+          if (parentNode.type.name === "fb2Stanza") {
+            let hasSubtitle = false;
+            let titleOffset = 0;
+
+            // Быстро проверяем структуру строфы (в ней мало узлов)
+            parentNode.forEach((child, offset) => {
+              if (child.type.name === "fb2Subtitle") hasSubtitle = true;
+              if (child.type.name === "fb2Title") titleOffset = child.nodeSize;
+            });
+
+            // Если подзаголовок уже есть — выходим
+            if (hasSubtitle) return false;
+
+            // Вставляем строго после title (если его нет, titleOffset будет 0)
+            insertPos = parentPos + 1 + titleOffset;
+          }
+
+          if (dispatch) {
+            return chain()
+              .insertContentAt(insertPos, {
+                type: "fb2Subtitle",
+                content: [{ type: "text", text: "Подзаголовок" }],
+              })
+              .focus(insertPos + 2)
+              .run();
+          }
+          return true;
         },
       removeFb2Subtitle:
         () =>

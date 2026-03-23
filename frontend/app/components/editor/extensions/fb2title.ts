@@ -1,5 +1,6 @@
 import { Node, mergeAttributes } from "@tiptap/core";
 import { CommandProps } from "@tiptap/core";
+import { NodeSelection } from "@tiptap/pm/state";
 
 export const Fb2Title = Node.create({
   name: "fb2Title",
@@ -15,7 +16,7 @@ export const Fb2Title = Node.create({
     "div",
     mergeAttributes(HTMLAttributes, {
       // text-center — по центру, font-bold — жирный, mb-4 — отступ снизу
-      class: "fb2-title text-center font-bold mb-4 my-6 tracking-wide",
+      class: "fb2-title ",
     }),
     0,
   ],
@@ -25,33 +26,46 @@ export const Fb2Title = Node.create({
         () =>
         ({ state, dispatch, chain }: CommandProps) => {
           const { selection } = state;
-          const $pos = selection.$from;
-          // 1. Ищем ближайшего родителя-секцию
           let sectionPos = -1;
           let sectionNode = null;
 
-          for (let d = $pos.depth; d > 0; d--) {
-            const sectionType = state.schema.nodes["fb2Section"];
-            if (sectionType && $pos.node(d).type === sectionType) {
-              sectionPos = $pos.before(d);
-              sectionNode = $pos.node(d);
-              break;
+          // 1. Проверяем: выделена ли сама секция?
+          if (
+            selection instanceof NodeSelection &&
+            (selection.node.type.name === "fb2Section" ||
+              selection.node.type.name === "fb2BodySection" ||
+              selection.node.type.name === "fb2Poem" ||
+              selection.node.type.name === "fb2Stanza")
+          ) {
+            sectionPos = selection.from;
+            sectionNode = selection.node;
+          }
+          // 2. Если нет — ищем родительскую секцию вверх по дереву
+          else {
+            const { $from } = selection;
+            for (let d = $from.depth; d > 0; d--) {
+              const node = $from.node(d);
+              if (
+                node.type.name === "fb2Section" ||
+                node.type.name === "fb2BodySection" ||
+                node.type.name === "fb2Poem" ||
+                node.type.name === "fb2Stanza"
+              ) {
+                sectionPos = $from.before(d);
+                sectionNode = node;
+                break;
+              }
             }
           }
-          // Если мы не внутри секции — команда недоступна
-          if (!sectionNode) {
-            return false;
-          }
 
-          // 2. Проверяем, есть ли уже заголовок в этой секции
-          let hasTitle = false;
-          sectionNode.content.forEach((child) => {
-            if (child.type.name === "fb2Title") hasTitle = true;
-          });
-          if (hasTitle) {
-            return false;
-          }
-          // 3. Выполняем вставку (всегда в начало секции)
+          // Если не нашли секцию или заголовок уже есть — блокируем команду
+          if (!sectionNode) return false;
+
+          const firstChild = sectionNode.firstChild;
+          const hasTitle = firstChild?.type.name === "fb2Title";
+
+          if (hasTitle) return false;
+
           if (dispatch) {
             return chain()
               .insertContentAt(sectionPos + 1, {
@@ -63,28 +77,46 @@ export const Fb2Title = Node.create({
                   },
                 ],
               })
-              .focus('start')
+              .focus(sectionPos + 2) // Фокусируемся внутри нового заголовка
               .run();
           }
+
           return true;
         },
-
       removeFb2Title:
         () =>
         ({ state, dispatch, chain }: CommandProps) => {
-          const { $from } = state.selection;
+          const { selection, doc } = state;
           let titlePos = -1;
           let titleNodeSize = 0;
 
-          for (let d = $from.depth; d > 0; d--) {
-            const node = $from.node(d);
-            if (node.type.name === "fb2Title") {
-              titlePos = $from.before(d);
-              titleNodeSize = node.nodeSize; // Берем размер ВСЕГО заголовка
-              break;
+          // 1. Если выделена вся нода (fb2Section)
+          if (
+            selection instanceof NodeSelection &&
+            (selection.node.type.name === "fb2Section" ||
+              selection.node.type.name === "fb2BodySection")
+          ) {
+            selection.node.forEach((child, offset) => {
+              if (child.type.name === "fb2Title") {
+                titlePos = selection.from + 1 + offset;
+                titleNodeSize = child.nodeSize;
+              }
+            });
+          }
+          // 2. Если курсор внутри (обычное выделение)
+          else {
+            const { $from } = selection;
+            for (let d = $from.depth; d > 0; d--) {
+              const node = $from.node(d);
+              if (node.type.name === "fb2Title") {
+                titlePos = $from.before(d);
+                titleNodeSize = node.nodeSize;
+                break;
+              }
             }
           }
 
+          // Если заголовок не найден, команда "не может" быть выполнена
           if (titlePos === -1) return false;
 
           if (dispatch) {
@@ -93,6 +125,7 @@ export const Fb2Title = Node.create({
               .focus()
               .run();
           }
+
           return true;
         },
     };

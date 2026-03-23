@@ -1,5 +1,6 @@
 import { Node, mergeAttributes } from "@tiptap/core";
 import { CommandProps } from "@tiptap/core";
+import { NodeSelection } from "@tiptap/pm/state";
 
 export const Fb2Epigraph = Node.create({
   name: "fb2Epigraph",
@@ -11,8 +12,7 @@ export const Fb2Epigraph = Node.create({
   renderHTML: ({ HTMLAttributes }) => [
     "div",
     mergeAttributes(HTMLAttributes, {
-      class:
-        "fb2-epigraph",
+      class: "fb2-epigraph",
     }),
     0,
   ],
@@ -22,45 +22,46 @@ export const Fb2Epigraph = Node.create({
         () =>
         ({ state, dispatch, chain }: CommandProps) => {
           const { selection } = state;
-          const $pos = selection.$from;
-          // 1. Ищем ближайшего родителя-секцию
           let sectionPos = -1;
           let sectionNode = null;
 
-          for (let d = $pos.depth; d > 0; d--) {
-            if ($pos.node(d).type.name === "fb2Section") {
-              sectionPos = $pos.before(d);
-              sectionNode = $pos.node(d);
-              break;
+          // 1. Находим секцию (через выделение или по родителям)
+          if (
+            selection instanceof NodeSelection &&
+            selection.node.type.name === "fb2Section"
+          ) {
+            sectionPos = selection.from;
+            sectionNode = selection.node;
+          } else {
+            const { $from } = selection;
+            for (let d = $from.depth; d > 0; d--) {
+              if ($from.node(d).type.name === "fb2Section") {
+                sectionPos = $from.before(d);
+                sectionNode = $from.node(d);
+                break;
+              }
             }
           }
-          // Если мы не внутри секции — команда недоступна
-          if (!sectionNode) {
-            return false;
-          }
 
-          // 2. Проверяем, есть ли уже заголовок в этой секции
-          let hasTitle = false;
-          sectionNode.content.forEach((child) => {
-            if (child.type.name === "fb2Title") hasTitle = true;
+          if (!sectionNode) return false;
+
+          // 2. Определяем позицию вставки
+          // Эпиграф должен идти ПОСЛЕ заголовка и ПОСЛЕ уже существующих эпиграфов
+          let insertOffset = 0;
+
+          sectionNode.forEach((child, offset) => {
+            if (
+              child.type.name === "fb2Title" ||
+              child.type.name === "fb2Epigraph"
+            ) {
+              insertOffset = offset + child.nodeSize;
+            }
           });
 
-          // 3. Выполняем вставку (в начало секции или после заголовка)
           if (dispatch) {
-            let insertPos = sectionPos + 1; // По умолчанию в начало секции
-
-            // Если заголовок есть, ищем его точный размер
-            if (hasTitle) {
-              sectionNode.content.forEach((child, offset) => {
-                if (child.type.name === "fb2Title") {
-                  // Позиция ПОСЛЕ заголовка = начало контента секции + смещение до узла + размер узла
-                  insertPos = sectionPos + 1 + offset + child.nodeSize;
-                }
-              });
-            }
-
+            const finalPos = sectionPos + 1 + insertOffset;
             return chain()
-              .insertContentAt(insertPos, {
+              .insertContentAt(finalPos, {
                 type: "fb2Epigraph",
                 content: [
                   {
@@ -69,37 +70,37 @@ export const Fb2Epigraph = Node.create({
                   },
                 ],
               })
-              .focus(insertPos + 1) // Фокус на первый параграф внутри нового эпиграфа
+              .focus(finalPos + 2) // Ставим курсор в новый эпиграф
               .run();
           }
           return true;
         },
-
       removeFb2Epigraph:
         () =>
         ({ state, dispatch, chain }: CommandProps) => {
           const { $from } = state.selection;
-          let epigraphPos = -1;
-          let epigraphNodeSize = 0;
+          let textEpigraphPos = -1;
+          let textEpigraphNodeSize = 0;
 
           for (let d = $from.depth; d > 0; d--) {
             const node = $from.node(d);
             if (node.type.name === "fb2Epigraph") {
-              epigraphPos = $from.before(d);
-              epigraphNodeSize = node.nodeSize; // Берем размер ВСЕГО эпиграфа
+              textEpigraphPos = $from.before(d);
+              textEpigraphNodeSize = node.nodeSize;
               break;
             }
           }
 
-          if (epigraphPos === -1) return false;
+          if (textEpigraphPos === -1) return false;
 
           if (dispatch) {
+            const focusPos = textEpigraphPos - 1;
             return chain()
               .deleteRange({
-                from: epigraphPos,
-                to: epigraphPos + epigraphNodeSize,
+                from: textEpigraphPos,
+                to: textEpigraphPos + textEpigraphNodeSize,
               })
-              .focus()
+              .focus(focusPos)
               .run();
           }
           return true;

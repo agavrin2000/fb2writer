@@ -1,22 +1,17 @@
 import { useState, useCallback, useEffect, useRef, RefObject } from "react";
 import { Node as ProseMirrorNode } from "@tiptap/pm/model";
-
+import { Editor } from "@tiptap/react";
+import {ActiveNote, FootnotesMap, TiptapContent} from "@/types/types"
 // 1. Объявляем интерфейс (или импортируем его)
-/*export interface ActiveNote {
-  id: string;
-  x: number;
-  y: number;
-  isNew?: boolean;
-  pos?: number;
-}*/
+
 
 export const useFootnotes = (
-  editor: any,
-  externalFootnotesRef: RefObject<Record<string, any>>, // Используем RefObject
-  externalSetActiveNoteRef: RefObject<(note: any) => void>,
+  editor: Editor | null,
+  externalFootnotesRef: RefObject<FootnotesMap>, // Используем RefObject
+  externalSetActiveNoteRef: RefObject<(note: ActiveNote | null) => void>,
 ) => {
-  const [footnotes, setFootnotes] = useState<Record<string, any>>({});
-  const [activeNote, setActiveNote] = useState<any | null>(null);
+  const [footnotes, setFootnotes] = useState<FootnotesMap>({});
+  const [activeNote, setActiveNote] = useState<ActiveNote | null>(null);
   null;
   const footnotesRef = useRef(footnotes);
 
@@ -35,7 +30,7 @@ export const useFootnotes = (
 
   useEffect(() => {
     // Связываем функцию из рефа (которую дергает handleClick) со стейтом хука
-    externalSetActiveNoteRef.current = (note: any) => {
+    externalSetActiveNoteRef.current = (note: ActiveNote | null) => {
       setActiveNote(note);
     };
   }, [externalSetActiveNoteRef]);
@@ -46,7 +41,7 @@ export const useFootnotes = (
   }, []);
 
   const updateNoteContent = useCallback(
-    (newContent: any, newId?: string) => {
+    (newContent: TiptapContent[], newId?: string) => {
       if (!activeNote || !editor) return;
 
       const oldId = activeNote.id;
@@ -210,7 +205,7 @@ export const useFootnotes = (
     });
 
     // 2. Создаем новый объект только с теми сносками, которые используются
-    const cleanedFootnotes: Record<string, any> = {};
+    const cleanedFootnotes: FootnotesMap = {};
     let removedCount = 0;
 
     Object.keys(footnotes).forEach((id) => {

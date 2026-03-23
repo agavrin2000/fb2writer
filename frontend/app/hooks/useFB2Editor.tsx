@@ -1,17 +1,17 @@
 "use client";
 
-import { useEditor, Editor } from "@tiptap/react";
 import { useRef, useMemo, RefObject, useCallback } from "react";
+import { useEditor, Editor } from "@tiptap/react";
 import { Transaction } from "@tiptap/pm/state";
 import { EditorExtensions } from "@/components/editor/EditorExtensions";
-import { collectNodes } from "../utils/utils";
+import { collectNodes } from "@/utils/utils";
 import { useTOC } from "./useTOC";
 import { createEditorProps } from "../components/editor/createEditorProps";
-import { TocItem } from "@/types/types";
+import {TocItem, ActiveNote, FootnotesMap} from "@/types/types"
 
 export const useFB2Editor = (
-  footnotesRef: RefObject<Record<string, any>>,
-  setActiveNoteRef: RefObject<(note: any) => void>,
+  footnotesRef: RefObject<FootnotesMap>,
+  setActiveNoteRef: RefObject<(note: ActiveNote | null) => void>,
 ) => {
   // 1. Логика оглавления (TOC)
   const {

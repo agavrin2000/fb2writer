@@ -21,9 +21,9 @@ export const Fb2TextAuthor = Node.create({
           const { selection } = state;
           const $pos = selection.$from;
 
-          // 1. Ищем глубину (depth) ближайшего родителя-эпиграфа
+          // 1. Ищем глубину (depth) ближайшего родителя-эпиграфа или цитаты
           let depth = $pos.depth;
-          while (depth > 0 && $pos.node(depth).type.name !== "fb2Epigraph") {
+          while (depth > 0 && $pos.node(depth).type.name !== "fb2Epigraph" && $pos.node(depth).type.name !== "fb2Cite") {
             depth--;
           }
 
@@ -36,7 +36,6 @@ export const Fb2TextAuthor = Node.create({
           return chain()
             .insertContentAt(insertPos, {
               type: "fb2TextAuthor",
-              // Убираем "paragraph", вставляем текст сразу в контент узла
               content: [{ type: "text", text: "Автор текста" }],
             })
             .focus(insertPos + 1) // Смещение +1, так как структуры стало меньше

@@ -78,15 +78,7 @@ export interface Fb2Data {
     Footnotes: Record<string, any>;
 }
 
-
-
-export interface Fb2Note {
-    Title: string,
-    Content: string
-}
-
-export type Fb2NotesMap = Record<string, Fb2Note>;
-
+// Элемент оглавления
 export interface TocItem {
     pos: number;
     text: string;
@@ -101,3 +93,24 @@ export interface FlatNode {
     level: number;
     id: string;
 }
+
+// Активная сноска
+export interface ActiveNote {
+  id: string;
+  x: number;
+  y: number;
+  isNew?: boolean;
+  pos?: number;
+}
+
+// Структура контента Tiptap
+export interface TiptapContent {
+  type: string;
+  content?: TiptapContent[];
+  text?: string;
+  marks?: Array<{ type: string; attrs?: Record<string, any> }>;
+  attrs?: Record<string, any>;
+}
+
+// Ссловарь сносок
+export type FootnotesMap = Record<string, TiptapContent[]>;

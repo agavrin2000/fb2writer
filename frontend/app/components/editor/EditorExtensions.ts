@@ -57,13 +57,13 @@ export const EditorExtensions = [
     Fb2Title,
     Fb2Cite,
     Fb2CustomStyle,
-    Fb2Epigraph,
-    Fb2Poem,
-    Fb2Stanza,
-    Fb2Subtitle,
     Fb2TextAuthor,
-    Fb2V,
     Fb2Date,
+    Fb2Epigraph,
+    Fb2V,
+    Fb2Stanza,
+    Fb2Poem,
+    Fb2Subtitle,
     Fb2Placeholder,
     Fb2Annotation
 ];

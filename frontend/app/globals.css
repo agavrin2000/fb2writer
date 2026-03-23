@@ -297,8 +297,13 @@ section.fb2-section {
   outline: 2px solid transparent;
   outline-offset: 4px;
   font-size: x-large;
+  @apply text-center font-bold mb-4 my-6 tracking-wide;
 }
 
+.fb2-title, 
+.fb2-title * {
+  text-align: center !important;
+}
 /* Эффект при наведении */
 .fb2-title:hover {
   outline-color: #6366f1;
@@ -307,13 +312,15 @@ section.fb2-section {
 
 /* Этикетка справа-вверху */
 .fb2-title:hover::before {
-  content: 'Заголовок раздела';
-  @apply absolute -top-7 right-0 bg-indigo-400 text-white text-[10px] px-2 py-1 rounded font-sans not-italic;
+  content: 'Заголовок';
+  @apply absolute -top-7 right-0 bg-indigo-400 text-white text-[10px] px-2 py-1 rounded font-sans font-normal not-italic z-20;
 }
 
 /* Базовое состояние (невидимое) */
 .fb2-epigraph {
-  @apply ml-auto mb-6 max-w-[50%] italic text-gray-700 border-indigo-100 pl-4 py-1;
+  letter-spacing: 0.02em; /* Небольшая разрядка букв */
+  line-height: 1.4;
+  @apply ml-auto mb-6 max-w-[50%] text-gray-500 border-indigo-100 pl-4 py-1;
   transition: all 0.2s ease-in-out;
   position: relative;
 }
@@ -389,52 +396,64 @@ section.fb2-section {
   /* Сбрасываем курсив браузера, чтобы работал вложенный */
 }
 
+.fb2-cite .fb2-text-author {
+  font-family: 'Georgia', 'Times New Roman', serif;
+  @apply block text-right mt-2 font-bold not-italic text-sm;
+}
+
 
 .fb2-poem {
   position: relative;
   transition: all 0.2s ease-in-out;
   border-radius: 4px;
   text-align: center !important;
-  margin: 2rem 0;
-  /* Увеличил отступ, чтобы этикеткам было место */
+  margin: 2.5rem 0 2.5rem 5%; /* Чуть увеличил для меток */
+  padding: 4px;    /* Добавил внутренний отступ, чтобы рамки не липли к тексту */
 }
 
-/* Этикетка ПОЭМЫ — слева */
+/* Рамка ПОЭМЫ — теперь чуть шире и с отступом */
 .fb2-poem:hover {
   outline: 2px solid #6366f1;
+  outline-offset: 4px; /* Выносим рамку поэмы дальше от контента */
 }
 
 .fb2-poem:hover::before {
   content: 'Поэма';
-  /* Смещаем влево, чтобы не мешать строфе */
-  @apply absolute -top-7 left-0 bg-indigo-600 text-white text-[10px] px-2 py-0.5 rounded font-sans not-italic uppercase tracking-wider z-10;
+  @apply absolute -top-8 left-0 bg-indigo-600 text-white text-[10px] px-2 py-0.5 rounded font-sans not-italic uppercase tracking-wider z-10;
 }
-
+.fb2-poem .fb2-title {
+/* СИНХРОНИЗАЦИЯ: Добавляем такой же отступ, как у поэмы */
+  margin: 1.5rem 1.5rem 1rem 1.5rem; 
+}
 .fb2-stanza {
   position: relative;
   transition: all 0.2s ease-in-out;
   border-radius: 4px;
-  margin: 0.5rem 0;
+  margin: 1rem 0;   /* Увеличил отступ между строфами */
+  padding: 8px 0;   /* Чтобы рамка строфы была заметнее */
 }
 
-/* Этикетка СТРОФЫ — справа */
+/* Рамка СТРОФЫ — пунктирная и ВНУТРИ */
 .fb2-stanza:hover {
-  outline: 1px dashed #818cf8;
-  /* Сделал линию строфы пунктирной, чтобы не сливалась с поэмой */
+  /* Используем box-shadow вместо outline, чтобы не конфликтовать с внешней рамкой */
+  /* Либо классический outline, но с отрицательным смещением */
+  outline: 1px solid #818cf8;
+  outline-offset: 2px;
 }
 
 .fb2-stanza:hover::before {
   content: 'Строфа';
-  /* Оставляем справа */
-  @apply absolute -top-6 right-0 bg-indigo-400 text-white text-[9px] px-2 py-0.5 rounded font-sans not-italic uppercase z-20;
+  @apply absolute -top-7 right-0 bg-indigo-400 text-white text-[10px] px-2 py-1 rounded font-sans not-italic z-20;
 }
 
-/* Чтобы при наведении на строфу этикетка поэмы не мешала, 
-   можно чуть приглушить её яркость, если наведена именно строфа */
+/* Фикс наложения: при наведении на строфу делаем рамку поэмы полупрозрачной */
+.fb2-poem:has(.fb2-stanza:hover) {
+  outline-color: rgba(99, 102, 241, 0.3);
+}
+
 .fb2-poem:has(.fb2-stanza:hover)::before {
-  opacity: 0.5;
+  opacity: 0.4;
 }
-
 
 .fb2-v {
   white-space: pre-wrap;
@@ -518,4 +537,62 @@ section.fb2-section {
 .fb2-placeholder-editable:focus {
   background: rgba(59, 130, 246, 0.05);
   border-bottom: 1px solid #3b82f6;
+}
+
+.fb2-date-container {
+  display: flex;             /* Меняем на блочный flex для выравнивания */
+  justify-content: flex-end; /* Прижимаем всё содержимое к правому краю */
+  align-items: center;
+  gap: 8px;
+  background: transparent;   /* Убираем фон контейнера */
+  padding: 4px 0;            /* Немного отступа сверху/снизу */
+  margin: 1em 0;             /* Отступ от текста */
+}
+
+.fb2-date-text {
+  min-width: 1ch;
+  outline: none;
+  font-style: italic;        /* Обычно даты в FB2 пишутся курсивом */
+}
+
+/* Плашка с технической датой */
+.fb2-date-badge {
+  background: transparent;   /* Убираем фон плашки */
+  color: #94a3b8;            /* Делаем цвет даты более приглушенным */
+  padding: 0 4px;
+  font-size: 0.85em;
+  user-select: none;
+  white-space: nowrap;
+  font-family: monospace;    /* Моноширинный шрифт для YYYY-MM-DD */
+}
+
+.fb2-date-controls {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  opacity: 0.6;              /* Кнопка будет полупрозрачной, пока не навели */
+  transition: opacity 0.2s;
+}
+
+.fb2-date-controls:hover {
+  opacity: 1;                /* Проявляется при наведении */
+}
+
+.fb2-date-controls button {
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  padding: 0;
+  display: flex;
+  font-size: 1.1em;
+}
+
+.fb2-date-controls input[type="date"] {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
 }

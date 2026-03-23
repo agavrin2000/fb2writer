@@ -4,7 +4,7 @@ import { CommandProps } from "@tiptap/core";
 export const Fb2Poem = Node.create({
   name: "fb2Poem",
   group: "block",
-  content: "fb2Title? fb2Epigraph* fb2Stanza+ fb2TextAuthor* fb2Date",
+  content: "fb2Title? fb2Epigraph* fb2Stanza+ fb2TextAuthor* fb2Date?",
   defining: true, // Важно: сохраняет узел при вставке контента или нажатии Enter
   isolating: true,
   selectable: true,
@@ -36,13 +36,26 @@ export const Fb2Poem = Node.create({
                 type: "fb2Poem",
                 content: [
                   {
-                    type: "fb2Stanza", 
+                    type: "fb2Title", // Добавляем заголовок стиха
+                    content: [
+                      {
+                        type: "paragraph",
+                        content: [{ type: "text", text: "Заголовок стихотворения" }],
+                      },
+                    ],
+                  },
+                  {
+                    type: "fb2Stanza",
                     content: [
                       {
                         type: "fb2V",
-                        content: [{ type: "text", text: "Строфа" }],
+                        content: [{ type: "text", text: "Строка..." }],
                       },
                     ],
+                  },
+                  {
+                    type: "fb2Date",
+                        content: [{ type: "text", text: "Дата поэмы" }],
                   },
                 ],
               })

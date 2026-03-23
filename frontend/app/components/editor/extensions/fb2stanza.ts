@@ -2,8 +2,9 @@ import { Node, mergeAttributes } from "@tiptap/core";
 import { CommandProps } from "@tiptap/core";
 
 export const Fb2Stanza = Node.create({
-    name: 'fb2Stanza',
-    content: 'fb2Title? fb2Subtitle? fb2V+',
+  name: "fb2Stanza",
+  group: "block",
+  content: "fb2Title? fb2Subtitle? fb2V+",
   defining: true, // Важно: сохраняет узел при вставке контента или нажатии Enter
   isolating: true,
   selectable: true,

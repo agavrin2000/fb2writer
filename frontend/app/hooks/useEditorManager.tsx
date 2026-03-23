@@ -10,7 +10,7 @@ import { photino } from "@/api/photino";
 export function useEditorManager() {
   // --- РЕФЫ И СОСТОЯНИЕ ---
   const footnotesRef = useRef<Record<string, any>>({});
-  const setActiveNoteRef = useRef<(note: any) => void>(() => {});
+  const setActiveNoteRef = useRef<(note: any) => void>(() => { });
   const toastRef = useRef<ToastHandle>(null);
 
   const [metadata, setMetadata] = useState<Fb2Metadata | null>(null);
@@ -39,6 +39,10 @@ export function useEditorManager() {
 
     if (data.EditorContent) {
       fb2.editor.commands.setContent(data.EditorContent);
+
+      // Очищаем историю (сбрасываем стеки undo/redo)
+      const { dispatch, state } = fb2.editor.view;
+      dispatch(state.tr.setMeta('history$', null));
     }
 
     setIsLoading(false);
@@ -92,8 +96,9 @@ export function useEditorManager() {
     photino.send("open-file", { action: "select_new" });
   }, [isLoading]);
 
-  const selectImage = useCallback(() => {
-    photino.send("select-image");
+  const selectImage = useCallback((type: 'block' | 'inline' | 'section' = 'block') => {
+    // Отправляем объект с данными, чтобы бэкенд знал, какой тип вставки использовать
+    photino.send("select-image", { type });
   }, []);
 
   // --- ИТОГОВЫЙ ОБЪЕКТ ---
@@ -113,6 +118,6 @@ export function useEditorManager() {
       selectImage: selectImage,
       addFootnote: notes.addFootnote,
     },
-    scrollToHeading: fb2.scrollToHeading, 
+    scrollToHeading: fb2.scrollToHeading,
   };
 }
