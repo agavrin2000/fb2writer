@@ -3,7 +3,7 @@ import { isNodeSelection } from '@tiptap/react';
 import { Trash2, Heading, ListPlus, ListEnd, ListStart } from 'lucide-react'
 import { Editor } from '@tiptap/react';
 import { NodeSelection } from '@tiptap/pm/state';
-import { Fb2ActionIcon } from '../ui/fb2action-icon'
+import { Fb2ActionIcon } from '../ui/Fb2ActionIcon'
 import React, { useState, useEffect } from 'react'
 
 interface SectionBubbleMenuProps {

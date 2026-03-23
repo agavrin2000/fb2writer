@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
-import { Tag, Plus, X } from 'lucide-react';
-import { Section } from './section';
+import { Plus, X } from 'lucide-react';
 
 interface GenreListProps {
     genres: string[];

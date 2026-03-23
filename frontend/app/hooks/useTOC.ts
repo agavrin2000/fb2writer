@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { Editor } from '@tiptap/react';
-import { FlatNode, TocItem } from '../../types/types';
-import { buildTree, debounce } from '../../utils/utils';
+import { FlatNode, TocItem } from '../types/types';
+import { buildTree, debounce } from '../utils/utils';
 
 // useTOC.ts
 export const useTOC = () => {

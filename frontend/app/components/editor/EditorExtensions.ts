@@ -1,5 +1,4 @@
 import StarterKit from '@tiptap/starter-kit';
-import Image from '@tiptap/extension-image';
 import Superscript from '@tiptap/extension-superscript';
 import Subscript from '@tiptap/extension-subscript';
 import Link from '@tiptap/extension-link';

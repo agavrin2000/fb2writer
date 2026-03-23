@@ -3,8 +3,8 @@ import React from 'react';
 import { BookPlus, Bold, Italic, Strikethrough, Code, Quote, Superscript, Subscript, FileImage, Baseline, Asterisk, Feather, AlignLeft } from 'lucide-react';
 import { ALargeSmall, Heading1, TextQuote, Signature, PenTool } from 'lucide-react'
 import { useEditorState } from '@tiptap/react'
-import { Fb2ActionIcon } from '../ui/fb2action-icon'
-import { useFootnotes } from "../../editor/hooks/useFootnotes";
+import { Fb2ActionIcon } from '../ui/Fb2ActionIcon'
+import { useFootnotes } from "../../hooks/useFootnotes";
 
 interface ToolbarProps {
   editor: Editor | null;

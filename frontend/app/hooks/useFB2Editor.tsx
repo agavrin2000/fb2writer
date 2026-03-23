@@ -3,11 +3,11 @@
 import { useEditor, Editor } from "@tiptap/react";
 import { useRef, useMemo, RefObject, useCallback } from "react";
 import { Transaction } from "@tiptap/pm/state";
-import { EditorExtensions } from "../schema";
-import { collectNodes } from "../../utils/utils";
+import { EditorExtensions } from "@/components/editor/EditorExtensions";
+import { collectNodes } from "../utils/utils";
 import { useTOC } from "./useTOC";
-import { createEditorProps } from "../editor-props";
-import { Fb2Metadata, Fb2Data, TocItem } from "../../types/types";
+import { createEditorProps } from "../components/editor/createEditorProps";
+import { TocItem } from "@/types/types";
 
 export const useFB2Editor = (
   footnotesRef: RefObject<Record<string, any>>,

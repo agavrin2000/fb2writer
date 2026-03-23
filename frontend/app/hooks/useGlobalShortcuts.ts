@@ -3,7 +3,7 @@ import { useEffect } from "react";
 export function useGlobalShortcuts(actions: {
   save: () => void;
   open: () => void;
-  toggleSidebar: () => void;
+  toggleContentsSidebar: () => void;
   toggleMetadataSidebar: () => void;
   [key: string]: any; // Это позволит передавать доп. поля без ошибок
 }) {

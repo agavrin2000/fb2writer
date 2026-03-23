@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { photino } from "../../api/photino"; // Ваш объект класса PhotinoBridge
+import { photino } from "../api/photino"; // Ваш объект класса PhotinoBridge
 
 // Типизируем так, чтобы ключом могла быть любая строка
 type Handlers = Record<string, (payload: any) => void>;

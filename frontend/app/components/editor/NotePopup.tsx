@@ -6,7 +6,7 @@ import { useEffect, useState, useMemo, FC } from 'react';
 import { Bold, Italic, Quote, Strikethrough, Superscript as SuperscriptIcon, Subscript as SubscriptIcon, Hash, X, RotateCcw, Trash2 } from 'lucide-react';
 import Superscript from '@tiptap/extension-superscript';
 import Subscript from '@tiptap/extension-subscript';
-import { Fb2Title } from '../../editor/extensions/fb2title';
+import { Fb2Title } from './extensions/fb2title';
 import React from 'react';
 
 interface NotePopupProps {

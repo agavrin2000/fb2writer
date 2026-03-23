@@ -2,9 +2,9 @@ import { useState, useCallback, useMemo, useRef } from "react";
 import { useFB2Editor } from "./useFB2Editor";
 import { useFootnotes } from "./useFootnotes";
 import { usePhotinoEvents } from "./usePhotinoEvents";
-import { Fb2Metadata, Fb2Data, TocItem } from "../../types/types";
-import { ToastHandle } from "../../components/toast";
-import { photino } from "../../api/photino";
+import { Fb2Metadata, Fb2Data, TocItem } from "../types/types";
+import { ToastHandle } from "@/components/ui/Toast";
+import { photino } from "@/api/photino";
 
 
 export function useEditorManager() {

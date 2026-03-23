@@ -1,11 +1,9 @@
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import { Bold, Italic, Quote, Strikethrough, Superscript as SuperscriptIcon, Subscript as SubscriptIcon, } from 'lucide-react';
-import React, { useState, ReactNode, ElementType } from 'react';
+import React from 'react';
 import Superscript from '@tiptap/extension-superscript';
 import Subscript from '@tiptap/extension-subscript';
-import Strike from '@tiptap/extension-strike';
-import Blockquote from '@tiptap/extension-blockquote';
 import { Fb2Subtitle } from '../../editor/extensions/fb2subtitle';
 
 interface RichTextProps {

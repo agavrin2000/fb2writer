@@ -1,25 +1,17 @@
 "use client";
-import { Header } from "./components/layout/header";
-import { Sidebar } from "./components/navigation/sidebar";
-import { MetadataSidebar } from "./components/navigation/metadata-sidebar";
-import { EditorCanvas } from "./components/editor/canvas";
-import { StatusBar } from "./components/layout/statusbar";
-import { Toolbar } from "./components/editor/toolbar";
-import { Loader } from "./components/editor/loader";
-import { NotePopup } from "./components/editor/note-popup";
-import { useEditorManager } from "./editor/hooks/useEditorManager";
-import { useGlobalShortcuts } from "./editor/hooks/useGlobalShortcuts";
-import { ImageBubbleMenu } from "./components/editor/image-bubble-menu";
-import { Fb2SectionMenu } from "./components/ui/Fb2SectionMenu";
-//import { SectionBubbleMenu } from "./components/editor/section-bubble-menu";
-import {
-  useState,
-  useEffect,
-  useRef,
-  useMemo,
-  RefObject,
-  useCallback,
-} from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
+import { Header } from "@/components/layout/Header";
+import { ContentsSidebar } from "@/components/layout/ContentsSidebar";
+import { MetadataSidebar } from "@/components/layout/metadata-sidebar/MetadataSidebar";
+import { EditorCanvas } from "@/components/editor/EditorCanvas";
+import { StatusBar } from "./components/layout/Statusbar";
+import { Toolbar } from "@/components/editor/Toolbar";
+import { Loader } from "@/components/layout/Loader";
+import { NotePopup } from "@/components/editor/NotePopup";
+import { useEditorManager } from "@/hooks/useEditorManager";
+import { useGlobalShortcuts } from "@/hooks/useGlobalShortcuts";
+import { ImageBubbleMenu } from "@/components/editor/ImageBubbleMenu";
+import { Fb2SectionMenu } from "@/components/editor/Fb2SectionMenu";
 
 export default function Page() {
   // Добавляем локальное состояние сайдбара на уровне страницы
@@ -37,8 +29,8 @@ export default function Page() {
     scrollToHeading,
   } = useEditorManager();
 
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const toggleSidebar = useCallback(() => setIsSidebarOpen((v) => !v), []);
+  const [isContentsSidebarOpen, setIsContentsSidebarOpen] = useState(true);
+  const toggleContentsSidebar = useCallback(() => setIsContentsSidebarOpen((v) => !v), []);
   const [isMetadataSidebarOpen, setIsMetadataSidebarOpen] = useState(true);
   const toggleMetadataSidebar = useCallback(
     () => setIsMetadataSidebarOpen((v) => !v),
@@ -49,10 +41,10 @@ export default function Page() {
   const allActions = useMemo(
     () => ({
       ...actions,
-      toggleSidebar,
+      toggleContentsSidebar,
       toggleMetadataSidebar,
     }),
-    [actions, toggleSidebar, toggleMetadataSidebar],
+    [actions, toggleContentsSidebar, toggleMetadataSidebar],
   );
 
   // Регистрируем горячие клавиши здесь
@@ -60,22 +52,22 @@ export default function Page() {
 
   // Возвращаем фокус в редактор при закрытии через Alt+B
   useEffect(() => {
-    if (!isSidebarOpen && editor) {
+    if (!isContentsSidebarOpen && editor) {
       setTimeout(() => editor.commands.focus(), 50);
     }
-  }, [isSidebarOpen, editor]);
+  }, [isContentsSidebarOpen, editor]);
 
   return (
     <div className="flex flex-col h-screen overflow-hidden bg-white">
       <Header editor={editor} onSave={actions.save} onOpen={actions.open} />
 
       <div className="flex flex-1 overflow-hidden relative">
-        <Sidebar
+        <ContentsSidebar
           tree={tocTree}
           activePos={activeHeadingPos}
           onSelectHeading={scrollToHeading}
-          isOpen={isSidebarOpen}
-          onToggle={toggleSidebar}
+          isOpen={isContentsSidebarOpen}
+          onToggle={toggleContentsSidebar}
         />
 
         <main className="flex-1 flex flex-col min-w-0 bg-gray-100">
@@ -94,7 +86,7 @@ export default function Page() {
           onToggle={toggleMetadataSidebar}
         />
       </div>
-            {/* Всплывающее меню для картинок */}
+      {/* Всплывающее меню для картинок */}
       <ImageBubbleMenu editor={editor} />
       {/* Всплывающее меню для секций 
       <SectionBubbleMenu editor={editor} />

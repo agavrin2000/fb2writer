@@ -2,9 +2,9 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { Editor } from '@tiptap/react';
 import { X, Info, LogOut } from 'lucide-react'; // Импортируем иконки
-import { AboutModal } from './aboutmodal';
-import { ExitModal } from './exitmodal';
-import { photino } from '../../api/photino'; 
+import { AboutModal } from './AboutModal';
+import { ExitModal } from './ExitModal';
+import { photino } from '@/api/photino'; 
 
 export const Header = ({ editor, onSave, onOpen }: { editor: Editor | null, onSave: () => void, onOpen: () => void }) => {
     const [isMenuOpen, setIsMenuOpen] = useState(false);

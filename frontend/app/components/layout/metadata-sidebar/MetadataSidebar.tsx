@@ -1,9 +1,8 @@
 "use client";
-import React, { useState, ReactNode, ElementType } from "react";
+import React, { useState } from "react";
 import {
   ChevronRight,
   ChevronLeft,
-  ChevronDown,
   BookOpen,
   Printer,
   FileText,
@@ -17,18 +16,16 @@ import {
   Info,
   TextQuote,
   Languages,
-  RefreshCw,
   Dices,
 } from "lucide-react";
-import { EditableList } from "../ui/editable-list";
-import { Field } from "../ui/field";
-import { PersonList } from "../ui/person-list";
-import { Section } from "../ui/section";
-import { SequenceList } from "../ui/sequence-list";
-import { GenreList } from "../ui/genre-list";
-import { CustomInfoList } from "../ui/custom-info-list";
-import { RichTextEditor } from "../ui/richtext-editor";
-import { CoverPicker } from "../ui/cover-picker";
+import { Field } from "./Field";
+import { PersonList } from "./PersonList";
+import { Section } from "./Section";
+import { SequenceList } from "./SequenceList";
+import { GenreList } from "./GenreList";
+import { CustomInfoList } from "./CustomInfoList";
+import { RichTextEditor } from "./RichTextEditor";
+import { CoverPicker } from "./CoverPicker";
 
 interface MetadataSidebarProps {
   meta: any;

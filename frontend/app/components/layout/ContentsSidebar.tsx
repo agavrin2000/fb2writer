@@ -1,9 +1,9 @@
 "use client";
 import React from "react";
-import { TocItem } from "../../types/types";
 import { ChevronRight, ChevronLeft } from "lucide-react";
+import { TocItem } from "@/types/types";
 
-export const Sidebar = ({
+export const ContentsSidebar = ({
   tree,
   activePos,
   onSelectHeading,

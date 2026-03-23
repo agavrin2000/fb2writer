@@ -1,22 +1,14 @@
-import {
-  useState,
-  useCallback,
-  useEffect,
-  useRef,
-  useMemo,
-  RefObject,
-} from "react";
-import { Editor } from "@tiptap/react";
+import { useState, useCallback, useEffect, useRef, RefObject } from "react";
 import { Node as ProseMirrorNode } from "@tiptap/pm/model";
 
 // 1. Объявляем интерфейс (или импортируем его)
-export interface ActiveNote {
+/*export interface ActiveNote {
   id: string;
   x: number;
   y: number;
   isNew?: boolean;
   pos?: number;
-}
+}*/
 
 export const useFootnotes = (
   editor: any,
@@ -40,13 +32,13 @@ export const useFootnotes = (
   }, [footnotes, externalFootnotesRef]);
 
   // Синхронизируем функцию установки активной заметки
-  
+
   useEffect(() => {
-  // Связываем функцию из рефа (которую дергает handleClick) со стейтом хука
-  externalSetActiveNoteRef.current = (note: any) => {
-    setActiveNote(note);
-  };
-}, [externalSetActiveNoteRef]);
+    // Связываем функцию из рефа (которую дергает handleClick) со стейтом хука
+    externalSetActiveNoteRef.current = (note: any) => {
+      setActiveNote(note);
+    };
+  }, [externalSetActiveNoteRef]);
 
   // Функция для закрытия попапа сноски
   const closeNotePopup = useCallback(() => {

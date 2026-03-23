@@ -1,7 +1,7 @@
 import React from 'react';
 import { User, Mail, Plus, X, Globe } from 'lucide-react';
-import { Field } from './field'; // Путь к твоему компоненту Field
-import { EditableList } from './editable-list';
+import { Field } from './Field'; // Путь к твоему компоненту Field
+import { EditableList } from './EditableList';
 
 interface Person {
     FirstName?: string;

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Plus, X } from 'lucide-react';
-import { Field } from './field';
+import { Field } from './Field';
 
 interface Sequence {
     name?: string;

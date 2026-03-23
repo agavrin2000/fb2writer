@@ -1,6 +1,6 @@
 import React from 'react';
 import { FileCode, Plus, X, Type, AlignLeft } from 'lucide-react';
-import { Section } from './section';
+import { Section } from './Section';
 
 interface CustomItem {
     infoType: string;
