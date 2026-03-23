@@ -340,6 +340,14 @@ section.fb2-section {
   @apply block text-right mt-2 font-bold not-italic text-sm;
 }
 
+.fb2-poem .fb2-text-author {
+  @apply block text-right mt-2 font-bold not-italic text-sm;
+}
+
+.fb2-cite .fb2-text-author {
+  @apply block text-right mt-2 font-bold not-italic text-sm;
+}
+
 /* Базовое состояние (невидимое) */
 .fb2-subtitle {
   position: relative;

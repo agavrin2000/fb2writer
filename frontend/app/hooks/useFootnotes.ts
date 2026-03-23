@@ -116,7 +116,7 @@ export const useFootnotes = (
 
   // Добавить ссылку
   const addFootnote = () => {
-    if (!editor || !editor.isActive("paragraph")) return;
+    if (!editor || (!editor.isActive("paragraph") && !editor.isActive("fb2V"))) return;
 
     const { from } = editor.state.selection;
     const coords = editor.view.coordsAtPos(from);

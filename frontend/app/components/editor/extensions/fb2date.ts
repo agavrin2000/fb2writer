@@ -5,6 +5,7 @@ export const Fb2Date = Node.create({
   name: "fb2Date",
   group: "block",
   content: "inline*",
+  marks: "",
   defining: true,
   selectable: true,
   addAttributes() {
@@ -27,7 +28,7 @@ export const Fb2Date = Node.create({
   addNodeView() {
     return ({ node, editor, getPos }) => {
       const dom = document.createElement("span");
-      dom.classList.add("fb2-date-container");
+      dom.classList.add("fb2-date", "fb2-date-container");
 
       const contentDOM = document.createElement("span");
       contentDOM.classList.add("fb2-date-text");
@@ -101,7 +102,7 @@ export const Fb2Date = Node.create({
 
           // 1. Ищем родительский узел 'poem' вверх по дереву
           for (let d = $from.depth; d > 0; d--) {
-            if (state.doc.nodeAt($from.before(d))?.type.name === "poem") {
+            if (state.doc.nodeAt($from.before(d))?.type.name === "fb2Poem") {
               poemNode = state.doc.nodeAt($from.before(d));
               poemPos = $from.before(d);
               break;
@@ -140,21 +141,32 @@ export const Fb2Date = Node.create({
 
       removeFb2Date:
         () =>
-        ({ state, commands }: any) => {
+        ({ state, dispatch, chain }: CommandProps) => {
           const { $from } = state.selection;
+          let datePos = -1;
+          let dateNodeSize = 0;
 
-          // Ищем, есть ли среди родительских узлов узел с типом fb2Date
-          const isInsideFb2Date =
-            $from.after($from.depth) &&
-            state.doc.nodeAt($from.before($from.depth))?.type.name ===
-              "fb2Date";
 
-          // Если мы внутри fb2Date, выделяем весь узел и удаляем его
-          if (isInsideFb2Date) {
-            return commands.deleteSelection();
+            for (let d = $from.depth; d > 0; d--) {
+              const node = $from.node(d);
+              if (node.type.name === "fb2Date") {
+                datePos = $from.before(d);
+                dateNodeSize = node.nodeSize;
+                break;
+              }
+            }
+
+                   // Если заголовок не найден, команда "не может" быть выполнена
+          if (datePos === -1) return false;
+
+          if (dispatch) {
+            return chain()
+              .deleteRange({ from: datePos, to: datePos + dateNodeSize })
+              .focus()
+              .run();
           }
 
-          return false; // Если курсор не в дате, команда ничего не делает
+          return true;
         },
     };
   },

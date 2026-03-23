@@ -4,7 +4,7 @@ import { Header } from "@/components/layout/Header";
 import { ContentsSidebar } from "@/components/layout/ContentsSidebar";
 import { MetadataSidebar } from "@/components/layout/metadata-sidebar/MetadataSidebar";
 import { EditorCanvas } from "@/components/editor/EditorCanvas";
-import { StatusBar } from "./components/layout/Statusbar";
+import { StatusBar } from "@/components/layout/StatusBar";
 import { Toolbar } from "@/components/editor/Toolbar";
 import { Loader } from "@/components/layout/Loader";
 import { NotePopup } from "@/components/editor/NotePopup";

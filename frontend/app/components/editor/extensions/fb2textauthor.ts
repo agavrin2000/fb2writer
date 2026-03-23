@@ -17,30 +17,65 @@ export const Fb2TextAuthor = Node.create({
     return {
       insertFb2TextAuthor:
         () =>
-        ({ state, chain }: CommandProps) => {
-          const { selection } = state;
-          const $pos = selection.$from;
+        ({ state, chain }: any) => {
+          const { $from } = state.selection;
+          let parentNode: any = null;
+          let parentPos = -1;
 
-          // 1. Ищем глубину (depth) ближайшего родителя-эпиграфа или цитаты
-          let depth = $pos.depth;
-          while (depth > 0 && $pos.node(depth).type.name !== "fb2Epigraph" && $pos.node(depth).type.name !== "fb2Cite") {
-            depth--;
+          // 1. Ищем ближайший контейнер (Poem, Epigraph или Cite)
+          for (let d = $from.depth; d > 0; d--) {
+            const node = $from.node(d);
+            if (
+              ["fb2Poem", "fb2Epigraph", "fb2Cite"].includes(node.type.name)
+            ) {
+              parentNode = node;
+              parentPos = $from.before(d);
+              break;
+            }
           }
 
-          // Если мы не внутри эпиграфа — выходим
-          if (depth === 0) return false;
+          if (!parentNode || parentPos === -1) return false;
 
-          // 2. Позиция вставки — перед закрывающим тегом эпиграфа
-          const insertPos = $pos.after(depth) - 1;
+          // Начальная точка вставки (сразу после открытия тега родителя)
+          let insertPos = parentPos + 1;
+
+          if (parentNode.type.name === "fb2Poem") {
+            // 2. В Poem ищем конец последней Stanza ИЛИ последнего TextAuthor
+            parentNode.forEach((child: any, offset: number) => {
+              if (
+                child.type.name === "fb2Stanza" ||
+                child.type.name === "fb2TextAuthor"
+              ) {
+                insertPos = parentPos + 1 + offset + child.nodeSize;
+              }
+            });
+          } else {
+            // 3. В Epigraph/Cite ищем конец последнего TextAuthor
+            // Если авторов нет, вставим в самый конец блока
+            let lastAuthorEnd = -1;
+            parentNode.forEach((child: any, offset: number) => {
+              if (child.type.name === "fb2TextAuthor") {
+                lastAuthorEnd = parentPos + 1 + offset + child.nodeSize;
+              }
+            });
+
+            if (lastAuthorEnd !== -1) {
+              insertPos = lastAuthorEnd;
+            } else {
+              // Если авторов еще нет, ставим в конец перед закрывающим тегом
+              insertPos = parentPos + parentNode.nodeSize - 1;
+            }
+          }
 
           return chain()
             .insertContentAt(insertPos, {
               type: "fb2TextAuthor",
               content: [{ type: "text", text: "Автор текста" }],
             })
-            .focus(insertPos + 1) // Смещение +1, так как структуры стало меньше
+            .focus(insertPos + 1)
             .run();
         },
+
       removeFb2TextAuthor:
         () =>
         ({ state, dispatch, chain }: CommandProps) => {
