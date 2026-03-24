@@ -2,7 +2,6 @@ import StarterKit from "@tiptap/starter-kit";
 import Superscript from "@tiptap/extension-superscript";
 import Subscript from "@tiptap/extension-subscript";
 import Link from "@tiptap/extension-link";
-import { Fb2Table, Fb2TableRow, Fb2TableCell } from "./extensions/fb2table";
 import { Fb2BodySection } from "./extensions/fb2bodysection";
 import { Fb2Section } from "./extensions/fb2section";
 import { Fb2Title } from "./extensions/fb2title";
@@ -19,11 +18,12 @@ import { Fb2BlockImage } from "./extensions/fb2blockimage";
 import { Fb2InlineImage } from "./extensions/fb2inlineimage";
 import { Fb2Placeholder } from "./extensions/fb2placeholder";
 import { Fb2Annotation } from "./extensions/fb2annotation";
-import { Node, mergeAttributes } from "@tiptap/core";
+import { mergeAttributes } from "@tiptap/core";
 
 export const EditorExtensions = [
   StarterKit.configure({
     gapcursor: false,
+    link:false,
     // Заголовки разных уровней
     heading: { levels: [1, 2, 3, 4] },
     // Настройка цитат
@@ -42,29 +42,25 @@ export const EditorExtensions = [
   }),
   Superscript, // Верхний индекс <sup>
   Subscript, // Нижний индекс <sub>
-  Link.configure({
-    openOnClick: false,
-    HTMLAttributes: {
-      target: null,
-      rel: "noopener noreferrer", // дефолт
-    },
-    // Позволяем динамически менять rel для сносок
-    validate: (href) => /^https?:\/\/|^\#/.test(href), // разрешаем ссылки на #id
-  }),
   Link.extend({
+    // Переопределяем рендер
     renderHTML({ HTMLAttributes }) {
-      const href = HTMLAttributes.href || "";
-      // Рендерим ссылку как span, чтобы не срабатывал внешний переход
       return [
         "span",
-        mergeAttributes(HTMLAttributes, {
-          class: "fb2-footnote", // Стилизуем под ссылку в CSS
+        mergeAttributes(this.options.HTMLAttributes, HTMLAttributes, {
+          class: "fb2-footnote",
           target: null,
-          //"data-href": href, // Сохраняем адрес
         }),
         0,
       ];
     },
+  }).configure({
+    // Добавляем настройки здесь
+    openOnClick: false,
+    HTMLAttributes: {
+      rel: "noopener noreferrer",
+    },
+    validate: (href) => /^https?:\/\/|^\#/.test(href),
   }),
   Fb2InlineImage,
   Fb2BlockImage,

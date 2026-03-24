@@ -1,13 +1,14 @@
 "use client";
 
-import { useRef, useMemo, RefObject, useCallback,useEffect } from "react";
+import { useRef, useMemo, RefObject, useCallback, useEffect } from "react";
 import { useEditor, Editor } from "@tiptap/react";
 import { Transaction } from "@tiptap/pm/state";
 import { EditorExtensions } from "@/components/editor/EditorExtensions";
 import { collectNodes } from "@/utils/utils";
 import { useTOC } from "./useTOC";
 import { createEditorProps } from "../components/editor/createEditorProps";
-import {TocItem, ActiveNote, FootnotesMap} from "@/types/types"
+import { TocItem, ActiveNote, FootnotesMap } from "@/types/types";
+import { Selection } from "@tiptap/pm/state";
 
 export const useFB2Editor = (
   footnotesRef: RefObject<FootnotesMap>,
@@ -78,10 +79,21 @@ export const useFB2Editor = (
 
   const scrollToHeading = useCallback(
     (item: TocItem) => {
+      if (!editor || !item.id) return;
 
-        if (!editor || !item.id) return;
+      const { state, view } = editor;
+      const { doc } = state;
 
-      editor.chain().focus().setTextSelection(item.pos).run();
+      // Пытаемся найти ближайшую валидную позицию для курсора
+      // Используем статический метод Selection.near
+      const resolvedPos = doc.resolve(item.pos);
+      const selection = Selection.near(resolvedPos);
+
+      // Применяем выделение через транзакцию
+      editor.view.dispatch(state.tr.setSelection(selection));
+
+      // Фокусируем редактор
+      editor.commands.focus();
 
       let attempts = 0;
       const maxAttempts = 15;
@@ -102,7 +114,6 @@ export const useFB2Editor = (
       };
 
       requestAnimationFrame(stabilize);
-      editor?.commands.focus();
     },
     [editor],
   );

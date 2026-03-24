@@ -300,6 +300,11 @@ section.fb2-section {
   @apply font-bold mb-4 my-6 tracking-wide;
 }
 
+.fb2-title, 
+.fb2-title * {
+  text-align: center !important;
+}
+
 /* Эффект при наведении */
 .fb2-title:hover {
   outline-color: #6366f1;

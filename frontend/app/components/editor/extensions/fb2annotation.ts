@@ -52,10 +52,7 @@ export const Fb2Annotation = Node.create({
             const child = sectionNode.child(i);
             const type = child.type.name;
 
-            if (type === "fb2Annotation") {
-              hasAnnotation = true;
-              break; // Аннотация уже есть, дальше искать нет смысла
-            }
+            if (type === "fb2Annotation") return false; // Аннотация уже есть, дальше искать нет смысла
 
             // Если встретили "структурный" узел, который должен быть ПЕРЕД аннотацией
             if (
@@ -70,8 +67,6 @@ export const Fb2Annotation = Node.create({
               break;
             }
           }
-
-          if (hasAnnotation) return false;
 
           if (dispatch) {
             const finalPos = sectionPos + 1 + insertOffset;

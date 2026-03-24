@@ -145,9 +145,14 @@ return (
       <button type="button" title="Subscript" onClick={() => editor.chain().focus().toggleSubscript().run()} className={btnClass("subscript")}>
         <Subscript size={18} />
       </button>
-      
+
       <div className="w-px h-4 bg-gray-200 mx-1" />
 
+      {/* Цитата и Код */}
+      <button
+        type="button" title="Blockquote" onClick={() => editor.chain().focus().toggleBlockquote().run()} className={btnClass("blockquote")}>
+        <Quote size={20} />
+      </button>
       <button type="button" title="Code" onClick={() => editor.chain().focus().toggleCode().run()} className={btnClass("code")}>
         <Code size={18} />
       </button>
