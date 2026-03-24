@@ -1,9 +1,8 @@
 import { useState, useCallback, useEffect, useRef, RefObject } from "react";
 import { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import { Editor } from "@tiptap/react";
-import {ActiveNote, FootnotesMap, TiptapContent} from "@/types/types"
+import { ActiveNote, FootnotesMap, TiptapContent } from "@/types/types";
 // 1. Объявляем интерфейс (или импортируем его)
-
 
 export const useFootnotes = (
   editor: Editor | null,
@@ -116,13 +115,13 @@ export const useFootnotes = (
 
   // Добавить ссылку
   const addFootnote = () => {
-    if (!editor || (!editor.isActive("paragraph") && !editor.isActive("fb2V"))) return;
+    const allowedTypes = ["paragraph", "fb2V", "fb2TextAuthor", "fb2Subtitle"];
+    if (!editor || !allowedTypes.some((type) => editor.isActive(type))) return;
 
     const { from } = editor.state.selection;
-    const coords = editor.view.coordsAtPos(from);
-
+    const { left: x, top: y } = editor.view.coordsAtPos(from);
     // Генерируем ID
-    const newNoteId = `n_${Date.now().toString(36).slice(-4)}`;
+    const id = `n_${Date.now().toString(36).slice(-4)}`;
 
     // Формируем шаблон с текущим ID
     const initialContent = [
@@ -131,7 +130,7 @@ export const useFootnotes = (
         content: [
           {
             type: "paragraph",
-            content: [{ type: "text", text: `${newNoteId.substring(2)}` }],
+            content: [{ type: "text", text: `${id.substring(2)}` }],
           },
         ],
       },
@@ -142,15 +141,9 @@ export const useFootnotes = (
     ];
 
     // Сохраняем в стейт под временным ID
-    setFootnotes((prev) => ({ ...prev, [newNoteId]: initialContent }));
-
-    setActiveNote({
-      id: newNoteId,
-      x: coords.left,
-      y: coords.top,
-      isNew: true,
-      pos: from,
-    });
+    // 4. Обновляем стейты
+    setFootnotes((prev) => ({ ...prev, [id]: initialContent }));
+    setActiveNote({ id, x, y, isNew: true, pos: from });
   };
 
   // УДАЛИТЬ ССЫЛКУ

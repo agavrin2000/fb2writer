@@ -266,7 +266,8 @@ public class Fb2Service
                 }
             },
             EditorContent = new { type = "doc", content = contentNodes }, // Контент, включая картинки
-            Footnotes = footnotesList // Передаем список сносок отдельно
+            Footnotes = footnotesList, // Передаем список сносок отдельно
+            FilePath = fileName, // Полный путь к файлу для сохранения
         });
     }
 
@@ -412,12 +413,18 @@ public class Fb2Service
             string val = textNode.Value;
             if (!string.IsNullOrEmpty(val))
             {
-                container.Add(new
+                var textElement = new Dictionary<string, object>
                 {
-                    type = "text",
-                    text = val,
-                    marks = activeMarks.Count > 0 ? activeMarks.ToArray() : null
-                });
+                    { "type", "text" },
+                    { "text", val }
+                };
+
+                if (activeMarks.Count > 0)
+                {
+                    textElement.Add("marks", activeMarks.ToArray());
+                }
+
+                container.Add(textElement);
             }
         }
         else if (node is XElement el)
@@ -457,8 +464,9 @@ public class Fb2Service
                 },
                 _ => null
             };
-            var nextMarks = mark != null ? activeMarks.Concat(new[] { mark }).ToList() : activeMarks;
-
+            //            var nextMarks = mark != null ? activeMarks.Concat(new[] { mark }).ToList() : activeMarks;
+            // Если нашли марку — создаем новый список, если нет — используем текущий
+            var nextMarks = mark != null ? [.. activeMarks, mark] : activeMarks;
             // Идем глубже по дереву
             foreach (var child in el.Nodes())
             {

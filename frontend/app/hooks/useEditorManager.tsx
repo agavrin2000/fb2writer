@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, useRef } from "react";
+import { useState, useCallback, useMemo, useRef, useEffect } from "react";
 import { useFB2Editor } from "./useFB2Editor";
 import { useFootnotes } from "./useFootnotes";
 import { usePhotinoEvents } from "./usePhotinoEvents";
@@ -16,7 +16,7 @@ export function useEditorManager() {
   const [metadata, setMetadata] = useState<Fb2Metadata | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [loadingFileName, setLoadingFileName] = useState("");
-
+  const [currentFilePath, setCurrentFilePath] = useState<string>("");
   // 1. Сначала инициализируем Редактор (ему больше не нужны actions)
   const fb2 = useFB2Editor(footnotesRef, setActiveNoteRef);
 
@@ -42,10 +42,15 @@ export function useEditorManager() {
 
       // Очищаем историю (сбрасываем стеки undo/redo)
       const { dispatch, state } = fb2.editor.view;
+
+      
       dispatch(state.tr.setMeta('history$', null));
     }
 
     setIsLoading(false);
+    if (data.FilePath) {
+      setCurrentFilePath(data.FilePath);
+    }
     setLoadingFileName("");
   }, [fb2.editor, notes]);
 
@@ -67,6 +72,35 @@ export function useEditorManager() {
     toastRef.current?.show("Изменения сохранены");
   }, []);
 
+  /*useEffect(() => {
+  if (!fb2.editor) return;
+
+  const handleLinkClick = (event: MouseEvent) => {
+    const target = event.target as HTMLElement;
+    const link = target.closest('a');
+
+    if (link) {
+      const href = link.getAttribute('href');
+      
+      // Если это внутренняя ссылка (сноска)
+      if (href?.startsWith('#')) {
+        event.preventDefault(); // ГЛАВНОЕ: отменяем открытие нового окна
+        event.stopPropagation();
+
+        const noteId = href.slice(1);
+        console.log("Клик по сноске:", noteId);
+        
+        // Здесь вызываем вашу логику открытия сноски
+        // notes.openNote(noteId); 
+      }
+    }
+  };
+
+  // Слушаем клики внутри контейнера редактора
+  document.addEventListener('click', handleLinkClick);
+  return () => document.removeEventListener('click', handleLinkClick);
+}, [fb2.editor]);
+*/
   // Регистрация событий Photino
   const eventHandlers = useMemo(() => ({
     "fb2-content": onFb2Content,
@@ -101,6 +135,24 @@ export function useEditorManager() {
     photino.send("select-image", { type });
   }, []);
 
+  const addLink = useCallback(() => {
+    if (!fb2.editor) return;
+    const { empty } = fb2.editor.state.selection;
+    if (empty) return;
+
+    // Устанавливаем "пустую" ссылку. 
+    // Это активирует марку link, и BubbleMenu тут же всплывет для ввода URL.
+    fb2.editor.chain()
+      .extendMarkRange('link') // Чтобы не плодить вложенные ссылки
+      .setLink({
+        href: '', // Пустое значение, чтобы заполнил пользователь в BubbleMenu
+        target: null,
+        rel: 'noopener noreferrer'
+      })
+      .run();
+    window.dispatchEvent(new CustomEvent('fb2-force-link-focus'));
+  }, [fb2.editor]);
+
   // --- ИТОГОВЫЙ ОБЪЕКТ ---
   return {
     editor: fb2.editor,
@@ -108,6 +160,7 @@ export function useEditorManager() {
     setMetadata,
     isLoading,
     loadingFileName,
+    currentFilePath,
     tocTree: fb2.tocTree,
     activeHeadingPos: fb2.activeHeadingPos,
     toastRef,
@@ -117,6 +170,7 @@ export function useEditorManager() {
       open: openFile,
       selectImage: selectImage,
       addFootnote: notes.addFootnote,
+      addLink,
     },
     scrollToHeading: fb2.scrollToHeading,
   };

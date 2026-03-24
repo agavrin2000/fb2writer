@@ -145,7 +145,7 @@ body,
   scroll-behavior: smooth;
 }*/
 
-.tiptap a[rel="footnote"] {
+.tiptap span[rel="footnote"] {
   color: #3b82f6;
   vertical-align: super;
   /* Поднимаем как индекс */
@@ -203,7 +203,7 @@ section.fb2-section {
   transition: border-color 0.2s, box-shadow 0.2s;
   /* Сильно ускоряет рендер длинных списков */
   content-visibility: auto; 
-  contain-intrinsic-size: 1px 5000px;
+  contain-intrinsic-size: 1px 2000px;
   scroll-margin-top: 80px !important;/* ЭТО ЗАМЕНИТ ВАШ ТРЯСУЩИЙСЯ JS РАСЧЕТ */
 }
 
@@ -297,13 +297,9 @@ section.fb2-section {
   outline: 2px solid transparent;
   outline-offset: 4px;
   font-size: x-large;
-  @apply text-center font-bold mb-4 my-6 tracking-wide;
+  @apply font-bold mb-4 my-6 tracking-wide;
 }
 
-.fb2-title, 
-.fb2-title * {
-  text-align: center !important;
-}
 /* Эффект при наведении */
 .fb2-title:hover {
   outline-color: #6366f1;
@@ -602,5 +598,65 @@ section.fb2-section {
   width: 100%;
   height: 100%;
   opacity: 0;
+  cursor: pointer;
+}
+
+.fb2-bubble-menu {
+  display: flex;
+  background: #ffffff;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  padding: 4px;
+  z-index: 1000;
+}
+
+.menu-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.menu-row button {
+  background: transparent;
+  border: none;
+  padding: 4px 10px;
+  font-size: 14px;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: background 0.2s;
+}
+
+.menu-row button:hover {
+  background: #f3f4f6;
+}
+
+.menu-row button.is-active {
+  color: #2563eb;
+  background: #eff6ff;
+  font-weight: 500;
+}
+
+.delete-btn {
+  color: #dc2626;
+}
+
+.edit-mode input {
+  border: 1px solid #3b82f6;
+  border-radius: 4px;
+  padding: 3px 8px;
+  font-size: 13px;
+  width: 180px;
+  outline: none;
+}
+
+.confirm-btn { color: #059669; font-weight: bold; }
+.cancel-btn { color: #6b7280; }
+
+.fb2-footnote {
+  pointer-events: auto;
+  user-select: none;
+  color: blue; 
+  text-decoration: underline; 
   cursor: pointer;
 }

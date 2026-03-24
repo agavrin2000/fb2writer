@@ -1,4 +1,5 @@
-import { FlatNode, TocItem } from "../types/types";
+import { FlatNode, TocItem } from "@/types/types";
+import { Node as PMNode } from "@tiptap/pm/model";
 
 export const buildTree = (
   nodes: { pos: number; text: string; level: number; id: string }[],
@@ -27,7 +28,7 @@ export function debounce<T extends (...args: any[]) => any>(fn: T, ms: number) {
 
 export const collectNodes = (doc: any) => {
   const nodes: FlatNode[] = [];
-  doc.descendants((node, pos) => {
+  doc.descendants((node: PMNode, pos: number) => {
     if (
       node.type.name === "fb2Section" ||
       node.type.name === "fb2BodySection"
@@ -60,4 +61,9 @@ export const collectNodes = (doc: any) => {
     return false;
   });
   return nodes;
+};
+
+// Хелпер для получения только имени файла из пути (Windows/Linux/macOS)
+export const getFileName = (path: string) => {
+  return path.split(/[\\/]/).pop() || "";
 };

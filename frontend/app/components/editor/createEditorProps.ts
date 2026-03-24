@@ -9,29 +9,42 @@ export const createEditorProps = (
   footnotesRef: RefObject<Record<string, any>>,
   setActiveNoteRef: RefObject<(note: any) => void>
 ) => ({
-  handleClick: (view: EditorView, pos: number, event: MouseEvent) => {
+handleClick: (view: EditorView, pos: number, event: MouseEvent) => {
+    // 1. СТРОГИЙ ПЕРЕХВАТ ДЛЯ PHOTINO
+    // Ищем ближайшую ссылку в DOM дереве от места клика
+    const target = event.target as HTMLElement;
+    const anchor = target.closest('a');
+    const domHref = anchor?.getAttribute('href') || "";
+
+    // 2. ВАША ЛОГИКА PROSEMIRROR
     const { schema } = view.state;
+    // Проверяем узел в позиции клика
     const node = view.state.doc.nodeAt(pos);
-    
     const mark = node?.marks.find((m) => m.type === schema.marks.link);
-    const href = (mark?.attrs.href as string) || "";
+    const markHref = (mark?.attrs.href as string) || "";
 
-    if (mark && href.startsWith("#")) {
-      const noteId = href.replace("#", "");
-      const noteContent = footnotesRef.current ? footnotesRef.current[noteId] : undefined;
+    // Приоритет отдаем ссылке из атрибута (она причина открытия окон)
+    const finalHref = domHref || markHref;
 
-      if (noteContent !== undefined) {
+    if (finalHref.startsWith("#")) {
+        // ОСТАНАВЛИВАЕМ нативную навигацию WebView2 немедленно
         event.preventDefault();
-        setActiveNoteRef.current?.({
-          id: noteId,
-          x: event.clientX,
-          y: event.clientY,
-        });
-        return true; 
-      }
-    }
+        event.stopPropagation();
 
-    setActiveNoteRef.current?.(null);
-    return false;
-  },
+        const noteId = finalHref.replace("#", "");
+        const noteContent = footnotesRef.current ? footnotesRef.current[noteId] : undefined;
+
+        if (noteContent !== undefined) {
+            setActiveNoteRef.current?.({
+                id: noteId,
+                x: event.clientX,
+                y: event.clientY,
+            });
+            // Возвращаем true, чтобы ProseMirror не пробрасывал клик дальше
+            return true; 
+        }
+    }
+    
+    return false; // Для обычных ссылок или текста позволяем стандартное поведение
+}
 });

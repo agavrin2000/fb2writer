@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useMemo, RefObject, useCallback } from "react";
+import { useRef, useMemo, RefObject, useCallback,useEffect } from "react";
 import { useEditor, Editor } from "@tiptap/react";
 import { Transaction } from "@tiptap/pm/state";
 import { EditorExtensions } from "@/components/editor/EditorExtensions";

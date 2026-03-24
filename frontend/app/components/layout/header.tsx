@@ -6,7 +6,7 @@ import { AboutModal } from './AboutModal';
 import { ExitModal } from './ExitModal';
 import { photino } from '@/api/photino'; 
 
-export const Header = ({ editor, onSave, onOpen }: { editor: Editor | null, onSave: () => void, onOpen: () => void }) => {
+export const Header = ({ editor, onSave, onOpen, fileName }: { editor: Editor | null, onSave: () => void, onOpen: () => void, fileName: string }) => {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [isAboutOpen, setIsAboutOpen] = useState(false); // Стейт для модалки
     const [isExitModalOpen, setIsExitModalOpen] = useState(false);
@@ -70,7 +70,7 @@ export const Header = ({ editor, onSave, onOpen }: { editor: Editor | null, onSa
                     )}
                 </div>
 
-                <div className="flex-grow text-center text-[10px] font-black text-gray-300 tracking-[0.4em] uppercase">FB2 Editor</div>
+                <div className="flex-grow text-center text-[10px] font-black text-gray-300 tracking-[0.4em] uppercase">{!fileName ? "FB2 Editor" : fileName}</div>
             </header>
             <AboutModal isOpen={isAboutOpen} onClose={() => setIsAboutOpen(false)} />
             <ExitModal

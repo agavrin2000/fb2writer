@@ -76,6 +76,7 @@ export interface Fb2Data {
     Meta: Fb2Metadata;
     EditorContent: any;
     Footnotes: Record<string, any>;
+    FilePath: string;
 }
 
 // Элемент оглавления

@@ -11,7 +11,9 @@ import { NotePopup } from "@/components/editor/NotePopup";
 import { useEditorManager } from "@/hooks/useEditorManager";
 import { useGlobalShortcuts } from "@/hooks/useGlobalShortcuts";
 import { ImageBubbleMenu } from "@/components/editor/ImageBubbleMenu";
+import { LinkBubbleMenu } from "@/components/editor/LinkBubbleMenu";
 import { Fb2SectionMenu } from "@/components/editor/Fb2SectionMenu";
+import { getFileName } from "@/utils/utils";
 
 export default function Page() {
   // Добавляем локальное состояние сайдбара на уровне страницы
@@ -23,6 +25,7 @@ export default function Page() {
     notes,
     isLoading,
     loadingFileName,
+    currentFilePath,
     tocTree,
     activeHeadingPos,
     actions,
@@ -59,7 +62,7 @@ export default function Page() {
 
   return (
     <div className="flex flex-col h-screen overflow-hidden bg-white">
-      <Header editor={editor} onSave={actions.save} onOpen={actions.open} />
+      <Header editor={editor} onSave={actions.save} onOpen={actions.open} fileName={getFileName(currentFilePath)}/>
 
       <div className="flex flex-1 overflow-hidden relative">
         <ContentsSidebar
@@ -75,6 +78,7 @@ export default function Page() {
             editor={editor}
             onSelectImage={actions.selectImage}
             onAddFootnote={notes.addFootnote}
+            onAddLink = {actions.addLink}
           />
           <EditorCanvas editor={editor} />
         </main>
@@ -88,6 +92,8 @@ export default function Page() {
       </div>
       {/* Всплывающее меню для картинок */}
       <ImageBubbleMenu editor={editor} />
+      <LinkBubbleMenu editor={editor} />
+      
       {/* Всплывающее меню для секций 
       <SectionBubbleMenu editor={editor} />
 */}
