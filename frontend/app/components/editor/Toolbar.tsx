@@ -98,6 +98,7 @@ useEffect(() => {
     editor.off('transaction', updateState);
   };
 }, [editor]);
+
   const handleImageSelect = (type: "block" | "inline" | "section") => {
     // Здесь вызываем ваш диалог выбора файла, передавая тип
     onSelectImage(type);
@@ -127,7 +128,7 @@ return (
     
     {/* ПЕРВЫЙ РЯД: Базовое форматирование и ссылки */}
     <div className="w-full flex justify-center items-center gap-1 p-1 border-b border-gray-50">
-      <button type="button" title="Bold" onClick={() => editor.chain().focus().toggleBold().run()} className={btnClass("bold")}>
+      <button type="button" title="Bold" onClick={() => editor.chain().focus().toggleBold().run()} className={btnClass("bold")} onMouseDown={(e) => e.preventDefault()}>
         <Bold size={18} />
       </button>
       <button type="button" title="Italic" onClick={() => editor.chain().focus().toggleItalic().run()} className={btnClass("italic")}>
@@ -169,7 +170,7 @@ return (
       
       <div className="w-px h-4 bg-gray-200 mx-1" />
       
-      <ImageDropdown onSelect={handleImageSelect} />
+      <ImageDropdown onSelect={handleImageSelect} editor={editor} />
     </div>
 
     {/* ВТОРОЙ РЯД: Структурные элементы FB2 (Секции, Эпиграфы, Поэмы) */}

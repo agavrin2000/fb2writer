@@ -12,7 +12,7 @@ const EditorCanvasRender = React.forwardRef<HTMLDivElement, { editor: Editor | n
     return (
       <div ref={ref} className="grow overflow-y-auto bg-gray-200 py-2 custom-scrollbar">
         <div className="w-[90%] min-w-[80%] max-w-[800px] mx-auto bg-white shadow-2xl rounded-sm border border-gray-300 relative">
-          <div className="p-[60px_10%] pb-[70vh]">
+          <div className="p-[60px_10%] pb-[70vh]" onClick={() => editor?.chain().focus().run()}>
             <EditorContent 
               editor={editor} 
               className="prose prose-slate max-w-none focus:outline-none" 
