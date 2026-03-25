@@ -73,7 +73,7 @@ public class Fb2Service
             doc = XDocument.Load(fileStream);
         }
 
-        //ValidateFb2(doc);
+        ValidateFb2(doc);
         ns = doc.Root?.GetDefaultNamespace() ?? XNamespace.None; ;
         XNamespace xlink = "http://www.w3.org/1999/xlink";
 
@@ -152,7 +152,8 @@ public class Fb2Service
             .Where(x => x.Name.LocalName == "binary")
             .Select(x => new
             {
-                Id = x.Attribute("id")?.Value?.ToLower() ?? "",
+                Id = x.Attribute("id")?.Value ?? "",
+                Title = x.Attribute("title")?.Value ?? "",
                 Mime = x.Attribute("content-type")?.Value ?? "image/jpeg",
                 // Эффективная очистка от всех пробельных символов
                 Data = string.Concat(x.Value.Where(c => !char.IsWhiteSpace(c)))
@@ -268,10 +269,14 @@ public class Fb2Service
             EditorContent = new { type = "doc", content = contentNodes }, // Контент, включая картинки
             Footnotes = footnotesList, // Передаем список сносок отдельно
             FilePath = fileName, // Полный путь к файлу для сохранения
+        }, new JsonSerializerSettings
+        {
+            // Игнорировать свойства со значением null
+            NullValueHandling = NullValueHandling.Ignore,
         });
     }
 
-    private static readonly Lazy<XmlSchemaSet> _schemaCache = new Lazy<XmlSchemaSet>(() =>
+    private static readonly Lazy<XmlSchemaSet> _schemaCache = new(() =>
         {
             var schemas = new XmlSchemaSet();
             try
@@ -280,11 +285,11 @@ public class Fb2Service
                 string schemaPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Schemas");
 
                 // 1. Добавляем XLink (обязателен для валидации атрибутов изображений)
-                schemas.Add("http://www.w3.org/1999/xlink", Path.Combine(schemaPath, "xlink.xsd"));
-
+                schemas.Add(null, Path.Combine(schemaPath, "xlink.xsd"));
+                schemas.Add("http://www.w3.org/XML/1998/namespace", Path.Combine(schemaPath, "FictionBookLang.xsd"));
+                schemas.Add("http://www.gribuser.ru/xml/fictionbook/2.0/genres", Path.Combine(schemaPath, "FictionBookGenres.xsd"));
                 // 2. Добавляем обе версии FB2. Валидатор сам выберет нужную по xmlns в файле.
-                schemas.Add("http://www.gribuser.ru/xml/fictionbook/2.0", Path.Combine(schemaPath, "FictionBook2.0.xsd"));
-                schemas.Add("http://www.gribuser.ru/xml/fictionbook/2.1", Path.Combine(schemaPath, "FictionBook2.1.xsd"));
+                schemas.Add(null, Path.Combine(schemaPath, "FictionBook2.1.xsd"));
 
                 schemas.Compile();
                 return schemas;
@@ -301,7 +306,7 @@ public class Fb2Service
     /// <exception cref="Exception"></exception>
     private static void ValidateFb2(XDocument doc)
     {
-        var errors = new List<string>();
+        List<string> errors = [];
 
         // Валидация через кэшированный набор схем
         doc.Validate(_schemaCache.Value, (o, e) =>
@@ -346,7 +351,7 @@ public class Fb2Service
                 nodes.Add(new
                 {
                     type = "fb2Section",
-                    attrs = new { level = level + 1, sectionId = el.Attribute("id")?.Value ?? Guid.NewGuid().ToString() },
+                    attrs = new { level = level + 1, sectionId = Guid.NewGuid().ToString(), elementId = el.Attribute("id")?.Value },
                     content = sectionContent
                 });
             }
@@ -398,7 +403,7 @@ public class Fb2Service
                     string base64 = GetImage(hrefAttr.Value);
                     if (!string.IsNullOrEmpty(base64))
                     {
-                        nodes.Add(new { type = "fb2BlockImage", attrs = new { src = base64 } });
+                        nodes.Add(new { type = "fb2BlockImage", attrs = new { src = base64, title = el.Attribute(ns + "title")?.Value, id = el.Attribute(ns + "id")?.Value, href=hrefAttr.Value } });
                     }
                 }
             }
@@ -440,7 +445,7 @@ public class Fb2Service
                     string base64 = GetImage(hrefAttr.Value);
                     if (!string.IsNullOrEmpty(base64))
                     {
-                        container.Add(new { type = "fb2InlineImage", attrs = new { src = base64 }, display = "inline" });
+                        container.Add(new { type = "fb2InlineImage", attrs = new { src = base64 }, display = "inline", href=hrefAttr.Value });
                     }
                 }
                 return; // Изображения не имеют вложенных узлов в FB2
@@ -476,7 +481,7 @@ public class Fb2Service
     }
 
     public void SaveJsonToFb2(Stream outputStream, string fileName, string jsonPayload)
-    {
+    {/*
         // 1. Десериализуем данные из React
         dynamic? data = JsonConvert.DeserializeObject(jsonPayload);
         if (data == null)
@@ -517,7 +522,7 @@ public class Fb2Service
                     string src = (string)node.attrs.src;
                     if (src.Contains("base64,"))
                     {
-                        string base64Data = src.Split(new[] { "base64," }, StringSplitOptions.None)[1];
+                        string base64Data = src.Split(["base64,"], StringSplitOptions.None)[1];
                         string imgId = $"img_{imgCounter++}.jpg";
 
                         // Добавляем ссылку на картинку в текст
@@ -527,6 +532,7 @@ public class Fb2Service
                         binaryElements.Add(new XElement(ns + "binary",
                             new XAttribute("id", imgId),
                             new XAttribute("content-type", "image/jpeg"),
+                            
                             base64Data
                         ));
                     }
@@ -568,6 +574,6 @@ public class Fb2Service
         {
             // Обычное сохранение в .fb2
             doc.Save(outputStream);
-        }
+        }*/
     }
 }

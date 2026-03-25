@@ -376,7 +376,7 @@
 </xs:complexType>
 <xs:complexType name="annotationType">
   <xs:annotation>
-  <xs:documentation>A cut-down version of <section> used in annotations</xs:documentation>
+  <xs:documentation>A cut-down version of &lt;section&gt; used in annotations</xs:documentation>
   </xs:annotation>
   <xs:choice minOccurs="0" maxOccurs="unbounded">
   <xs:element name="p" type="pType"/>

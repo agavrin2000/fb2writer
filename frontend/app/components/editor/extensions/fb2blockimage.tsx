@@ -10,6 +10,16 @@ export const Fb2BlockImage = Image.extend({
     addAttributes() {
         return {
             ...this.parent?.(),
+            href: {
+                default: null,
+                parseHTML: (element) => element.getAttribute("elementId"),
+                renderHTML: (attributes) => ({ href: attributes.href }),
+            },
+            title: {
+                default: null,
+                parseHTML: (element) => element.getAttribute("title"),
+                renderHTML: (attributes) => ({ title: attributes.title }),
+            },
             class: { default: 'block mx-auto my-4 rounded-lg shadow-md max-w-full' }
         }
     }

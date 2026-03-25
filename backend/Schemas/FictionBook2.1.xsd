@@ -1,4 +1,4 @@
- <?xml version="1.0" encoding="UTF-8"?>
+<?xml version="1.0" encoding="UTF-8"?>
  <!-- edited with XML Spy v4.4 U (http://www.xmlspy.com) by GribUser (Moscow) -->
  <xs:schema targetNamespace="http://www.gribuser.ru/xml/fictionbook/2.0" xmlns:genre="http://www.gribuser.ru/xml/fictionbook/2.0/genres" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns="http://www.gribuser.ru/xml/fictionbook/2.0" elementFormDefault="qualified" attributeFormDefault="unqualified">
  <xs:import namespace="http://www.w3.org/1999/xlink" schemaLocation="FictionBookLinks.xsd"/>
@@ -53,7 +53,7 @@
        </xs:element>
        <xs:element name="date" type="dateType">
        <xs:annotation>
-         <xs:documentation>Date this document was created, same guidelines as in the <title-info> section apply</xs:documentation>
+         <xs:documentation>Date this document was created, same guidelines as in the &lt;title-info&gt; apply</xs:documentation>
        </xs:annotation>
        </xs:element>
        <xs:element name="src-url" type="xs:string" minOccurs="0" maxOccurs="unbounded">
@@ -144,7 +144,7 @@
      </xs:element>
      <xs:element name="title" type="titleType" minOccurs="0">
      <xs:annotation>
-       <xs:documentation>A fancy title for the entire book, should be used if the simple text version in <description> is not adequate, e.g. the book title has multiple paragraphs and/or character styles</xs:documentation>
+       <xs:documentation>A fancy title for the entire book, should be used if the simple text version in &lt;description&gt; is not adequate, e.g. the book title has multiple paragraphs and/or character styles</xs:documentation>
      </xs:annotation>
      </xs:element>
      <xs:element name="epigraph" type="epigraphType" minOccurs="0" maxOccurs="unbounded">
@@ -329,7 +329,7 @@
 
  <xs:complexType name="annotationType">
  <xs:annotation>
-   <xs:documentation>A cut-down version of <section> used in annotations</xs:documentation>
+   <xs:documentation>A cut-down version of &lt;section&gt; used in annotations</xs:documentation>
  </xs:annotation>
  <xs:choice minOccurs="0" maxOccurs="unbounded">
    <xs:element name="p" type="pType"/>
@@ -439,6 +439,7 @@
  </xs:complexType>
 
  <xs:complexType name="linkType" mixed="true">
+ <xs:annotation>
    <xs:documentation>Generic hyperlinks. Cannot be nested. Footnotes should be implemented by links referring to additional bodies in the same document</xs:documentation>
  </xs:annotation>
  <xs:choice minOccurs="0" maxOccurs="unbounded">

@@ -71,7 +71,7 @@ public class FileService
     /// Open image file
     /// </summary>
     /// <returns></returns>
-    public async Task SelectImageAsync()
+    public async Task SelectImageAsync(string DiplayType)
     {
         var topLevel = GetTopLevel();
         if (topLevel?.StorageProvider == null) return;
@@ -81,7 +81,7 @@ public class FileService
             Title = "Выберите изображение",
             FileTypeFilter =
             [
-                new FilePickerFileType("Изображения") { Patterns = ["*.jpg", "*.jpeg", "*.png", "*.gif"] }
+                new FilePickerFileType("Изображения") { Patterns = ["*.jpg", "*.jpeg", "*.png"] }
             ],
             AllowMultiple = false
         });
@@ -105,10 +105,15 @@ public class FileService
 
             string dataUrl = $"data:image/{ext};base64,{base64Image}";
 
-            // Генерируем уникальный ID для бинарного объекта FB2 (опционально, если нужно для XML)
-            // string binaryId = $"{Guid.NewGuid()}.{ext}";
+            // Формируем JSON-строку для payload вручную
+            var imageInfo = JsonConvert.SerializeObject(new
+            {
+                data = dataUrl,
+                display = DiplayType,
+                href = $"#{Guid.NewGuid()}"
+            });
 
-            Emit("insert-image", dataUrl);
+            Emit("image-selected", imageInfo);
         }
         catch (Exception ex)
         {

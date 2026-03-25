@@ -4,6 +4,8 @@ using System.Text;
 using Avalonia;
 using Avalonia.Controls;
 using FB2Editor.Services;
+using Newtonsoft.Json.Linq;
+
 namespace FB2Editor;
 //NOTE: To hide the console window, go to the project properties and change the Output Type to Windows Application.
 // Or edit the .csproj file and change the <OutputType> tag from "WinExe" to "Exe".
@@ -61,11 +63,11 @@ class Program
                     "));
             });
 
-            window.RegisterWebMessageReceivedHandler((sender, message) =>
-            {
-                if (sender is not PhotinoWindow w) return;
-                ProcessMessage(message, fileService, window);
-            });
+        window.RegisterWebMessageReceivedHandler((sender, message) =>
+        {
+            if (sender is not PhotinoWindow w) return;
+            ProcessMessage(message, fileService, window);
+        });
         fileService.OnMessageEmitted += (json) => window.SendWebMessage(json);
 
         window.Load(appUrl).WaitForClose(); // Starts the application event loop
@@ -112,7 +114,13 @@ class Program
                 break;
 
             case "select-image":
-                _ = fileService.SelectImageAsync();
+                string type = "block"; ;
+                if (!string.IsNullOrEmpty(payload))
+                {
+                    var obj = JObject.Parse(payload);
+                    type = obj["type"]?.ToString() ?? "block"; ;
+                }
+                _ = fileService.SelectImageAsync(type);
                 break;
 
             case "close-app":

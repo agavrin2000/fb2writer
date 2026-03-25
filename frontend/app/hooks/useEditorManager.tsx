@@ -2,16 +2,16 @@ import { useState, useCallback, useMemo, useRef, useEffect } from "react";
 import { useFB2Editor } from "./useFB2Editor";
 import { useFootnotes } from "./useFootnotes";
 import { usePhotinoEvents } from "./usePhotinoEvents";
-import { Fb2Metadata, Fb2Data, TocItem } from "../types/types";
+import { Fb2Metadata, Fb2Data, TocItem, Fb2ImageData } from "../types/types";
 import { ToastHandle } from "@/components/ui/Toast";
 import { photino } from "@/api/photino";
+import { NodeSelection } from "@tiptap/pm/state";
 
 
-export function useEditorManager() {
+export function useEditorManager(toastRef: React.RefObject<ToastHandle | null>) {
   // --- РЕФЫ И СОСТОЯНИЕ ---
   const footnotesRef = useRef<Record<string, any>>({});
   const setActiveNoteRef = useRef<(note: any) => void>(() => { });
-  const toastRef = useRef<ToastHandle>(null);
 
   const [metadata, setMetadata] = useState<Fb2Metadata | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -26,6 +26,7 @@ export function useEditorManager() {
   // --- ОБРАБОТЧИКИ СОБЫТИЙ (Incoming) ---
 
   const onFb2Content = useCallback((payload: Fb2Data) => {
+
     const data = typeof payload === "string" ? JSON.parse(payload) : payload;
     if (!fb2.editor || !data) return;
 
@@ -43,7 +44,7 @@ export function useEditorManager() {
       // Очищаем историю (сбрасываем стеки undo/redo)
       const { dispatch, state } = fb2.editor.view;
 
-      
+
       dispatch(state.tr.setMeta('history$', null));
     }
 
@@ -54,9 +55,110 @@ export function useEditorManager() {
     setLoadingFileName("");
   }, [fb2.editor, notes]);
 
-  const onImageSelected = useCallback((base64: string) => {
-    fb2.editor?.chain().focus().setImage({ src: base64 }).run();
-  }, [fb2.editor]);
+  const onImageSelected = useCallback((payload: string) => {
+    const imageData = typeof payload === 'string' ? JSON.parse(payload) : payload;
+    const chain = fb2.editor.chain().focus();
+
+    if (imageData.display === 'block') {
+
+      // Вставляем как блочный узел
+      chain.insertContent({
+        type: 'fb2BlockImage',
+        attrs: { src: imageData.data, href: imageData.href }
+      })
+        .focus()
+        .run();
+    }
+    else if (imageData.display === 'inline') {
+      // Вставляем как строчный узел
+      chain.focus().insertContent({
+        type: 'fb2InlineImage',
+        attrs: { src: imageData.data, href: imageData.href }
+      })
+        .focus()
+        .run();
+
+    }
+    else if (imageData.display === 'section') {
+      const { state } = fb2.editor;
+      const { $from } = state.selection;
+
+      let sectionNode = null;
+      let sectionPos = -1;
+      let depth = -1;
+
+      // 1. Проверяем: выделена ли сама секция?
+      if (
+        state.selection instanceof NodeSelection &&
+        (state.selection.node.type.name === "fb2Section" || state.selection.node.type.name === "fb2BodySection")
+      ) {
+        sectionPos = state.selection.from;
+        sectionNode = state.selection.node;
+      }
+      // 2. Если нет — ищем родительскую секцию вверх по дереву
+      else {
+        // 1. Ищем ближайшего подходящего родителя вверх по дереву
+        for (let d = $from.depth; d >= 0; d--) {
+          const node = $from.node(d);
+          if (node.type.name === "fb2BodySection" || node.type.name === "fb2Section") {
+            sectionNode = node;
+            sectionPos = $from.before(d);
+            depth = d;
+            break;
+          }
+        }
+      }
+
+      if (!sectionNode) return;
+
+      // 2. Определяем позицию вставки внутри найденной секции
+      let insertRelativePos = 0; // Позиция относительно начала контента секции
+
+      if (sectionNode.type.name === "fb2BodySection") {
+        // Для BodySection: всегда в самое начало (первым элементом после заглушки)
+        insertRelativePos = 1;
+      }
+      else if (sectionNode.type.name === "fb2Section") {
+        // Для Section: после Title и всех Epigraph
+        let lastHeaderElementIndex = -1;
+
+        sectionNode.forEach((child, offset, index) => {
+          if (child.type.name === "fb2Title" || child.type.name === "fb2Epigraph") {
+            lastHeaderElementIndex = offset + child.nodeSize;
+          }
+        });
+
+        insertRelativePos = lastHeaderElementIndex !== -1 ? lastHeaderElementIndex : 0;
+      }
+
+      let existingNode = null;
+
+      if (sectionNode.type.name === "fb2BodySection") {
+        // В BodySection плейсхолдер — это child(0). Изображение должно быть child(1).
+        existingNode = sectionNode.childCount > 1 ? sectionNode.child(1) : null;
+      } else {
+        // Для обычной секции используем ваш проверенный метод через childAfter
+        const { node } = sectionNode.childAfter(insertRelativePos);
+        existingNode = node;
+      }
+
+      if (existingNode && existingNode.type.name === "fb2Blockimage") {
+        toastRef?.current?.show("Изображение уже есть", "error");
+        return;
+      }
+
+      // 4. Выполняем вставку по абсолютной позиции в документе
+      const absoluteInsertPos = sectionPos + 1 + insertRelativePos;
+
+      fb2.editor.chain()
+        .insertContentAt(absoluteInsertPos, {
+          type: "fb2BlockImage",
+          attrs: { src: imageData.data, href: imageData.href }
+        })
+        .focus(absoluteInsertPos + 1)
+        .run();
+    }
+  }, [fb2.editor, toastRef]);
 
   const onStartLoading = useCallback((name: string) => {
     setIsLoading(true);
@@ -69,7 +171,7 @@ export function useEditorManager() {
   }, []);
 
   const onSaveSuccess = useCallback(() => {
-    toastRef.current?.show("Изменения сохранены");
+    toastRef?.current?.show("Изменения сохранены", "success");
   }, []);
 
   /*useEffect(() => {
@@ -163,7 +265,6 @@ export function useEditorManager() {
     currentFilePath,
     tocTree: fb2.tocTree,
     activeHeadingPos: fb2.activeHeadingPos,
-    toastRef,
     notes,
     actions: {
       save: saveFile,

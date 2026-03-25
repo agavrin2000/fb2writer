@@ -115,3 +115,10 @@ export interface TiptapContent {
 
 // Ссловарь сносок
 export type FootnotesMap = Record<string, TiptapContent[]>;
+
+// Корневой объект, который приходит с бэкенда
+export interface Fb2ImageData {
+    data: string;
+    href: string;
+    display: 'block' | 'inline' | 'section';
+}

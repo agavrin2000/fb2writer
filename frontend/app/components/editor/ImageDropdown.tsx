@@ -22,7 +22,7 @@ export const ImageDropdown: React.FC<{
   const items = [
     { id: 'block' as const, label: 'Блочное фото', icon: Image, desc: 'Между абзацами' },
     { id: 'inline' as const, label: 'В тексте', icon: ImageDown, desc: 'Внутри строки' },
-    { id: 'section' as const, label: 'В заголовок секции', icon: PanelTop, desc: 'Виньетка главы' },
+    { id: 'section' as const, label: 'В заголовок секции', icon: PanelTop, desc: 'Виньетка раздела' },
   ];
 
   return (

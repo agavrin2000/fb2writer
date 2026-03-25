@@ -1,5 +1,6 @@
 "use client";
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { Toast, ToastHandle } from "@/components/ui/Toast";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { Header } from "@/components/layout/Header";
 import { ContentsSidebar } from "@/components/layout/ContentsSidebar";
 import { MetadataSidebar } from "@/components/layout/metadata-sidebar/MetadataSidebar";
@@ -17,7 +18,10 @@ import { getFileName } from "@/utils/utils";
 
 export default function Page() {
   // Добавляем локальное состояние сайдбара на уровне страницы
+  const toastRef = useRef<ToastHandle>(null);;
 
+  // Передаем реф (теперь типы совпадут)
+  const fb2 = useEditorManager(toastRef);
   const {
     editor,
     metadata,
@@ -30,7 +34,7 @@ export default function Page() {
     activeHeadingPos,
     actions,
     scrollToHeading,
-  } = useEditorManager();
+  } = fb2;
 
   const [isContentsSidebarOpen, setIsContentsSidebarOpen] = useState(true);
   const toggleContentsSidebar = useCallback(() => setIsContentsSidebarOpen((v) => !v), []);
@@ -62,7 +66,7 @@ export default function Page() {
 
   return (
     <div className="flex flex-col h-screen overflow-hidden bg-white">
-      <Header editor={editor} onSave={actions.save} onOpen={actions.open} fileName={getFileName(currentFilePath)}/>
+      <Header editor={editor} onSave={actions.save} onOpen={actions.open} fileName={getFileName(currentFilePath)} />
 
       <div className="flex flex-1 overflow-hidden relative">
         <ContentsSidebar
@@ -78,7 +82,7 @@ export default function Page() {
             editor={editor}
             onSelectImage={actions.selectImage}
             onAddFootnote={notes.addFootnote}
-            onAddLink = {actions.addLink}
+            onAddLink={actions.addLink}
           />
           <EditorCanvas editor={editor} />
         </main>
@@ -93,13 +97,13 @@ export default function Page() {
       {/* Всплывающее меню для картинок */}
       <ImageBubbleMenu editor={editor} />
       <LinkBubbleMenu editor={editor} />
-      
+
       {/* Всплывающее меню для секций 
       <SectionBubbleMenu editor={editor} />
 */}
-      <Fb2SectionMenu editor={editor} 
-                  onSelectImage={actions.selectImage}
-/>
+      <Fb2SectionMenu editor={editor}
+        onSelectImage={actions.selectImage}
+      />
       {isLoading && <Loader fileName={loadingFileName} />}
 
       {notes.activeNote && (
@@ -112,7 +116,7 @@ export default function Page() {
           onDelete={notes.deleteFootnote}
         />
       )}
-
+      <Toast ref={toastRef} />
       <StatusBar fileName={loadingFileName} loading={isLoading} />
     </div>
   );

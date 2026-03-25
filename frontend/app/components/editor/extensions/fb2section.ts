@@ -3,13 +3,19 @@ import { Node, mergeAttributes } from "@tiptap/core";
 export const Fb2Section = Node.create({
   name: "fb2Section",
   group: "block",
-  content: "fb2Title? fb2Epigraph* fb2BlockImage? fb2Annotation? (block | fb2Section)+",
+  content:
+    "fb2Title? fb2Epigraph* fb2BlockImage? fb2Annotation? (block | fb2Section)+",
   defining: true,
   selectable: true,
   isolating: true,
   addAttributes() {
     return {
       level: { default: 2 },
+      elementId: {
+        default: null,
+        parseHTML: (element) => element.getAttribute("elementId"),
+        renderHTML: (attributes) => ({ elementId: attributes.elementId }),
+      },
       sectionId: {
         default: null,
         // Убираем здесь renderHTML, чтобы Tiptap не вешал id на внешний div
@@ -22,13 +28,13 @@ export const Fb2Section = Node.create({
     return ({ node, editor, getPos }) => {
       const dom = document.createElement("div");
       dom.className = "section-node-wrapper";
-    const content = document.createElement("section");
-    content.className = "fb2-section";
-    
-    // Ручная установка ID строго на внутренний тег
-    if (node.attrs.sectionId) {
-      content.id = node.attrs.sectionId;
-    }
+      const content = document.createElement("section");
+      content.className = "fb2-section";
+
+      // Ручная установка ID строго на внутренний тег
+      if (node.attrs.sectionId) {
+        content.id = node.attrs.sectionId;
+      }
       const handle = document.createElement("div");
       handle.className = "section-handle";
       handle.innerText = "⠿";
@@ -46,7 +52,7 @@ export const Fb2Section = Node.create({
       }
 
       dom.append(handle, content);
-      return { dom, contentDOM: content,  };
+      return { dom, contentDOM: content };
     };
   },
 });
