@@ -62,9 +62,8 @@ export const Fb2Title = Node.create({
           if (!sectionNode) return false;
 
           const firstChild = sectionNode.firstChild;
-          const hasTitle = firstChild?.type.name === "fb2Title";
 
-          if (hasTitle) return false;
+          if (firstChild?.type.name === "fb2Title") return false;
 
           if (dispatch) {
             return chain()
@@ -86,7 +85,7 @@ export const Fb2Title = Node.create({
       removeFb2Title:
         () =>
         ({ state, dispatch, chain }: CommandProps) => {
-          const { selection, doc } = state;
+          const { selection } = state;
           let titlePos = -1;
           let titleNodeSize = 0;
 
@@ -94,7 +93,9 @@ export const Fb2Title = Node.create({
           if (
             selection instanceof NodeSelection &&
             (selection.node.type.name === "fb2Section" ||
-              selection.node.type.name === "fb2BodySection")
+              selection.node.type.name === "fb2BodySection" ||
+              selection.node.type.name === "fb2Poem" ||
+              selection.node.type.name === "fb2Stanza")
           ) {
             selection.node.forEach((child, offset) => {
               if (child.type.name === "fb2Title") {

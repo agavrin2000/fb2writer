@@ -289,6 +289,89 @@ section.fb2-section {
   border-color: #e2e8f0 !important;
 }
 
+/* ПОЭМА */
+.fb2-poem {
+  @apply block relative border-2 border-dashed border-[#e0e0e0] rounded bg-white p-[30px] transition-all duration-200 ease-in-out;
+  transition-property: border-color, box-shadow;
+}
+
+.fb2-poem {
+  @apply block relative 
+         bg-white rounded-xl 
+         border-2 border-dashed border-slate-200 
+         p-8 md:p-10
+         shadow-sm
+         transition-all duration-300 ease-in-out;
+}
+
+.fb2-poem:hover::before {
+  content: 'Поэма';
+  @apply absolute top-0 right-3 bg-indigo-400 text-white text-[10px] px-2 py-0.5 rounded font-sans not-italic tracking-wider z-10;
+}
+
+/* Базовое состояние ручки */
+.poem-handle {
+  /* 1. Позиционирование */
+  position: sticky;
+  top: 20px;
+  float: right;
+  margin-right: -30px;
+  /* Вынос вправо за пределы рамки */
+  z-index: 100;
+
+  /* 2. Размеры и центрирование */
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  /* 3. Оформление */
+  cursor: pointer;
+  border-radius: 6px;
+  background-color: #ffffff;
+  color: #94a3b8;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+
+  /* 4. Плавность */
+  transition: all 0.2s ease-in-out;
+  /* 4. Запрет выделения текста внутри ручки */
+  -webkit-user-select: none;
+  /* Safari 3+, Safari on iOS */
+  -moz-user-select: none;
+  /* Firefox */
+  -ms-user-select: none;
+  /* IE 10+ */
+  user-select: none;
+  /* Chrome, Edge, Opera */
+
+  /* Убираем эффект подсвечивания тапа на iOS (серый квадрат при клике) */
+  -webkit-tap-highlight-color: transparent;
+
+}
+
+/* Состояние при наведении */
+.poem-handle:hover {
+  background-color: #f8fafc !important;
+  border-color: #3b82f6 !important;
+  color: #3b82f6 !important;
+}
+
+/* 2. ПОДСВЕТКА ТОЛЬКО ПРЯМОЙ РУЧКИ */
+/* Заменяем .is-selected на системный класс ProseMirror */
+.poem-node-wrapper.ProseMirror-selectednode > .poem-handle {
+  background-color: #3b82f6 !important;
+  color: #ffffff !important;
+  border-color: #2563eb !important;
+}
+
+/* 3. ТО ЖЕ САМОЕ ДЛЯ РАМКИ СЕКЦИИ */
+.poem-node-wrapper.ProseMirror-selectednode > poem.fb2-poem {
+  border-color: #3b82f6 !important;
+  background-color: rgba(59, 130, 246, 0.02);
+}
+
 /* Базовое состояние (невидимое) */
 .fb2-title {
   position: relative;
@@ -411,29 +494,7 @@ section.fb2-section {
 }
 
 
-.fb2-poem {
-  position: relative;
-  transition: all 0.2s ease-in-out;
-  border-radius: 4px;
-  text-align: center !important;
-  margin: 2.5rem 0 2.5rem 5%; /* Чуть увеличил для меток */
-  padding: 4px;    /* Добавил внутренний отступ, чтобы рамки не липли к тексту */
-}
 
-/* Рамка ПОЭМЫ — теперь чуть шире и с отступом */
-.fb2-poem:hover {
-  outline: 2px solid #6366f1;
-  outline-offset: 4px; /* Выносим рамку поэмы дальше от контента */
-}
-
-.fb2-poem:hover::before {
-  content: 'Поэма';
-  @apply absolute -top-8 left-0 bg-indigo-600 text-white text-[10px] px-2 py-0.5 rounded font-sans not-italic uppercase tracking-wider z-10;
-}
-.fb2-poem .fb2-title {
-/* СИНХРОНИЗАЦИЯ: Добавляем такой же отступ, как у поэмы */
-  margin: 1.5rem 1.5rem 1rem 1.5rem; 
-}
 .fb2-stanza {
   position: relative;
   transition: all 0.2s ease-in-out;

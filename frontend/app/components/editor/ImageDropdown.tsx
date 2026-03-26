@@ -1,7 +1,5 @@
 import React from "react";
 import { Image, ImageDown, PanelTop, ChevronDown } from "lucide-react";
-import { Editor } from "@tiptap/react";
-import { Command, Extension } from "@tiptap/core";
 
 // 1. Описываем типы для TypeScript
 declare module "@tiptap/core" {
@@ -9,21 +7,23 @@ declare module "@tiptap/core" {
     fb2Commands: {
       // название группы команд
       canAddfb2BlockImage: () => ReturnType;
+      canAddfb2InlineImage: () => ReturnType;
     };
   }
 }
 
-  const INLINE_ACTIVE_NODES = [
-    "paragraph",
-    "fb2V",
-    "fb2TextAuthor",
-    "fb2Subtitle",
-  ];
+const INLINE_ACTIVE_NODES = [
+  "paragraph",
+  "fb2V",
+  "fb2TextAuthor",
+  "fb2Subtitle",
+];
 
 export const ImageDropdown: React.FC<{
   onSelect: (type: "block" | "inline" | "section") => void;
-  editor: Editor;
-}> = ({ onSelect, editor }) => {
+  canInlineImage: boolean;
+  canBlockImage: boolean;
+}> = ({ onSelect, canInlineImage, canBlockImage }) => {
   const [isOpen, setIsOpen] = React.useState(false);
   const dropdownRef = React.useRef<HTMLDivElement>(null);
 
@@ -40,13 +40,7 @@ export const ImageDropdown: React.FC<{
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
   }, []);
-  if (!editor) return null;
 
-  const canInsertInlineImage = INLINE_ACTIVE_NODES.some((name) =>
-    editor.isActive(name),
-  );
-
-  const canInsertBlockImage = editor.can().canAddfb2BlockImage();
   // Общий стиль для кнопок, чтобы не дублировать
   const itemClass = "w-full flex items-center gap-3 px-3 py-2 hover:bg-indigo-50 text-left transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:pointer-events-none";
 
@@ -70,7 +64,7 @@ export const ImageDropdown: React.FC<{
           <button
             key="block"
             type="button"
-            disabled={!canInsertBlockImage}
+            disabled={!canBlockImage}
             onClick={() => {
               onSelect("block");
               setIsOpen(false);
@@ -89,7 +83,7 @@ export const ImageDropdown: React.FC<{
           <button
             key="inline"
             type="button"
-            disabled={!canInsertInlineImage}
+            disabled={!canInlineImage}
             onClick={() => {
               onSelect("inline");
               setIsOpen(false);

@@ -20,8 +20,7 @@ export const Fb2Annotation = Node.create({
           // 1. Проверяем: выделена ли сама секция?
           if (
             selection instanceof NodeSelection &&
-            (selection.node.type.name === "fb2Section" ||
-              selection.node.type.name === "fb2BodySection")
+            (selection.node.type.name === "fb2Section" || selection.node.type.name === "fb2BodySection")
           ) {
             sectionPos = selection.from;
             sectionNode = selection.node;
@@ -31,10 +30,7 @@ export const Fb2Annotation = Node.create({
             const { $from } = selection;
             for (let d = $from.depth; d > 0; d--) {
               const node = $from.node(d);
-              if (
-                node.type.name === "fb2Section" ||
-                node.type.name === "fb2BodySection"
-              ) {
+              if (node.type.name === "fb2Section" || node.type.name === "fb2BodySection") {
                 sectionPos = $from.before(d);
                 sectionNode = node;
                 break;
@@ -45,7 +41,6 @@ export const Fb2Annotation = Node.create({
           // Если не нашли секцию или аннотация уже есть — блокируем команду
           if (!sectionNode) return false;
 
-          let hasAnnotation = false;
           let insertOffset = 0; // По умолчанию 0 (в самое начало контента секции)
 
           for (let i = 0; i < sectionNode.childCount; i++) {
@@ -58,7 +53,7 @@ export const Fb2Annotation = Node.create({
             if (
               type === "fb2Title" ||
               type === "fb2Epigraph" ||
-              type === "image"
+              type === "fb2BlockImage"
             ) {
               insertOffset += child.nodeSize;
             } else {
@@ -117,7 +112,6 @@ export const Fb2Annotation = Node.create({
                 child.type.name === "fb2Section"
               )
                 break;
-
               currentOffset += child.nodeSize;
             }
           }

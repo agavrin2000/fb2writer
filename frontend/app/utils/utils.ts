@@ -1,5 +1,7 @@
 import { FlatNode, TocItem } from "@/types/types";
 import { Node as PMNode } from "@tiptap/pm/model";
+import { NodeSelection, TextSelection } from "@tiptap/pm/state";
+import { Selection } from "@tiptap/pm/state";
 
 export const buildTree = (
   nodes: { pos: number; text: string; level: number; id: string }[],
@@ -66,4 +68,34 @@ export const collectNodes = (doc: any) => {
 // Хелпер для получения только имени файла из пути (Windows/Linux/macOS)
 export const getFileName = (path: string) => {
   return path.split(/[\\/]/).pop() || "";
+};
+
+
+// Хелпер для поиска родительского узла заданного типа
+export const findParentNodeByType = (
+  selection: Selection,
+  targetTypes: string[],
+) => {
+  // Проверяем, есть ли у выделения свойство $from (оно есть у TextSelection и NodeSelection)
+  if (!("$from" in selection)) {
+    return { node: null, pos: -1, depth: null, nodeSize: 0 };
+  }
+
+  // TypeScript теперь понимает, что у selection есть $from
+  const { $from } = selection as unknown as TextSelection | NodeSelection;
+
+  for (let d = $from.depth; d >= 0; d--) {
+    const node = $from.node(d);
+
+    if (targetTypes.includes(node.type.name)) {
+      return {
+        node,
+        pos: $from.before(d),
+        depth: d,
+        nodeSize: node.nodeSize
+      };
+    }
+  }
+
+  return { node: null, pos: -1, depth: null, nodeSize: 0 };
 };

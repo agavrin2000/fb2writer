@@ -216,7 +216,7 @@ export function useEditorManager(toastRef: React.RefObject<ToastHandle | null>) 
 
   // --- МЕТОДЫ ДЕЙСТВИЙ (Outgoing) ---
 
-  const saveFile = useCallback(() => {
+  const saveFile = useCallback((saveAs: boolean = false) => {
     if (!fb2.editor || isLoading) return;
 
     const actualFootnotes = notes.cleanupOrphanNotes();
@@ -224,6 +224,7 @@ export function useEditorManager(toastRef: React.RefObject<ToastHandle | null>) 
       content: fb2.editor.getJSON(),
       footnotes: actualFootnotes,
       metadata: metadata,
+      FilePath: saveAs ? "" : currentFilePath,
     });
   }, [fb2.editor, isLoading, metadata, notes]);
 

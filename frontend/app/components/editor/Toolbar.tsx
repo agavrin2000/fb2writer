@@ -1,5 +1,5 @@
 import { Editor } from "@tiptap/react";
-import React, {useEffect, useState} from "react";
+import React, { useEffect, useState } from "react";
 import {
   Bold,
   Italic,
@@ -32,18 +32,20 @@ const COMMAND_NAMES = [
   "Stanza",
   "Annotation",
   "Date",
+  "InlineImage",
+  "BlockImage"
 ] as const;
 
 type Capabilities = {
-  [K in (typeof COMMAND_NAMES)[number] as
-    | `canInsert${K}`
-    | `canRemove${K}`]: boolean;
+  [K in (typeof COMMAND_NAMES)[number]as
+  | `canInsert${K}`
+  | `canRemove${K}`]: boolean;
 };
 
 type Fb2Commands = {
-  [K in (typeof COMMAND_NAMES)[number] as
-    | `insertFb2${K}`
-    | `removeFb2${K}`]: () => any;
+  [K in (typeof COMMAND_NAMES)[number]as
+  | `insertFb2${K}`
+  | `removeFb2${K}`]: () => any;
 };
 
 declare module "@tiptap/core" {
@@ -81,23 +83,23 @@ export const Toolbar: React.FC<ToolbarProps> = ({
 
   const [isSelectionEmpty, setIsSelectionEmpty] = useState(true);
 
-useEffect(() => {
-  if (!editor) return;
+  useEffect(() => {
+    if (!editor) return;
 
-  const updateState = () => {
-    // Обновляем наше локальное состояние React
-    setIsSelectionEmpty(editor.state.selection.empty);
-  };
+    const updateState = () => {
+      // Обновляем наше локальное состояние React
+      setIsSelectionEmpty(editor.state.selection.empty);
+    };
 
-  // Слушаем каждое движение курсора и выделение
-  editor.on('selectionUpdate', updateState);
-  editor.on('transaction', updateState); // На всякий случай для всех изменений
+    // Слушаем каждое движение курсора и выделение
+    editor.on('selectionUpdate', updateState);
+    editor.on('transaction', updateState); // На всякий случай для всех изменений
 
-  return () => {
-    editor.off('selectionUpdate', updateState);
-    editor.off('transaction', updateState);
-  };
-}, [editor]);
+    return () => {
+      editor.off('selectionUpdate', updateState);
+      editor.off('transaction', updateState);
+    };
+  }, [editor]);
 
   const handleImageSelect = (type: "block" | "inline" | "section") => {
     // Здесь вызываем ваш диалог выбора файла, передавая тип
@@ -108,11 +110,10 @@ useEffect(() => {
 
   const btnClass = (type: string, attrs?: Record<string, any>) => {
     const isActive = editor.isActive(type, attrs);
-    return `p-1.5 px-3 rounded text-xs font-bold transition-colors ${
-      isActive
-        ? "bg-indigo-600 text-white shadow-inner"
-        : "text-gray-600 hover:bg-gray-100 border border-transparent hover:border-gray-200"
-    }`;
+    return `p-1.5 px-3 rounded text-xs font-bold transition-colors ${isActive
+      ? "bg-indigo-600 text-white shadow-inner"
+      : "text-gray-600 hover:bg-gray-100 border border-transparent hover:border-gray-200"
+      }`;
   };
 
   const btnCustomClass =
@@ -120,110 +121,124 @@ useEffect(() => {
     "hover:bg-gray-100 hover:border-gray-200 active:bg-gray-200 " +
     "disabled:opacity-40 disabled:bg-gray-50 disabled:text-gray-300 disabled:border-gray-100 disabled:cursor-not-allowed disabled:shadow-none disabled:pointer-events-none";
 
-    const isInsideParagraph =
-    editor.isActive("paragraph") || editor.isActive("fb2V")|| editor.isActive("fb2TextAuthor")|| editor.isActive("fb2Subtitle");
+  const isInsideParagraph =
+    editor.isActive("paragraph") || editor.isActive("fb2V") || editor.isActive("fb2TextAuthor") || editor.isActive("fb2Subtitle");
 
-return (
-  <div className="bg-white border-b shadow-sm sticky top-0 z-20 flex flex-col items-center">
-    
-    {/* ПЕРВЫЙ РЯД: Базовое форматирование и ссылки */}
-    <div className="w-full flex justify-center items-center gap-1 p-1 border-b border-gray-50">
-      <button type="button" title="Bold" onClick={() => editor.chain().focus().toggleBold().run()} className={btnClass("bold")} onMouseDown={(e) => e.preventDefault()}>
-        <Bold size={18} />
-      </button>
-      <button type="button" title="Italic" onClick={() => editor.chain().focus().toggleItalic().run()} className={btnClass("italic")}>
-        <Italic size={18} />
-      </button>
-      <button type="button" title="Strike" onClick={() => editor.chain().focus().toggleStrike().run()} className={btnClass("strike")}>
-        <Strikethrough size={18} />
-      </button>
-      
-      <div className="w-px h-4 bg-gray-200 mx-1" />
-      
-      <button type="button" title="Superscript" onClick={() => editor.chain().focus().toggleSuperscript().run()} className={btnClass("superscript")}>
-        <Superscript size={18} />
-      </button>
-      <button type="button" title="Subscript" onClick={() => editor.chain().focus().toggleSubscript().run()} className={btnClass("subscript")}>
-        <Subscript size={18} />
-      </button>
+  return (
+    <div className="bg-white border-b shadow-sm sticky top-0 z-20 flex flex-col items-center">
 
-      <div className="w-px h-4 bg-gray-200 mx-1" />
+      {/* ПЕРВЫЙ РЯД: Базовое форматирование и ссылки */}
+      <div className="w-full flex justify-center items-center gap-1 p-1 border-b border-gray-50">
+        <button type="button" title="Bold" onClick={() => editor.chain().focus().toggleBold().run()} className={btnClass("bold")} onMouseDown={(e) => e.preventDefault()}>
+          <Bold size={18} />
+        </button>
+        <button type="button" title="Italic" onClick={() => editor.chain().focus().toggleItalic().run()} className={btnClass("italic")}>
+          <Italic size={18} />
+        </button>
+        <button type="button" title="Strike" onClick={() => editor.chain().focus().toggleStrike().run()} className={btnClass("strike")}>
+          <Strikethrough size={18} />
+        </button>
 
-      {/* Цитата и Код */}
-      <button
-        type="button" title="Blockquote" onClick={() => editor.chain().focus().toggleBlockquote().run()} className={btnClass("blockquote")}>
-        <Quote size={20} />
-      </button>
-      <button type="button" title="Code" onClick={() => editor.chain().focus().toggleCode().run()} className={btnClass("code")}>
-        <Code size={18} />
-      </button>
+        <div className="w-px h-4 bg-gray-200 mx-1" />
 
-      <div className="w-px h-4 bg-gray-200 mx-1" />
+        <button type="button" title="Superscript" onClick={() => editor.chain().focus().toggleSuperscript().run()} className={btnClass("superscript")}>
+          <Superscript size={18} />
+        </button>
+        <button type="button" title="Subscript" onClick={() => editor.chain().focus().toggleSubscript().run()} className={btnClass("subscript")}>
+          <Subscript size={18} />
+        </button>
 
-      {/* Ссылка и Сноска (Inlines) */}
-      <button type="button" title="Вставить ссылку" onClick={onAddLink} disabled={isSelectionEmpty} className={btnCustomClass}>
-        <Fb2ActionIcon icon={Link} mode="add" />
-      </button>
-      <button type="button" title="Вставить сноску" onClick={onAddFootnote} disabled={!isInsideParagraph} className={btnCustomClass}>
-        <Fb2ActionIcon icon={Asterisk} mode="add" />
-      </button>
-      
-      <div className="w-px h-4 bg-gray-200 mx-1" />
-      
-      <ImageDropdown onSelect={handleImageSelect} editor={editor} />
+        <div className="w-px h-4 bg-gray-200 mx-1" />
+
+        {/* Цитата и Код */}
+        <button
+          type="button" title="Цитата" onClick={() => editor.chain().focus().toggleBlockquote().run()} className={btnClass("blockquote")}>
+          <Quote size={20} />
+        </button>
+        <button type="button" title="Код" onClick={() => editor.chain().focus().toggleCode().run()} className={btnClass("code")}>
+          <Code size={18} />
+        </button>
+
+        <div className="w-px h-4 bg-gray-200 mx-1" />
+
+        {/* Ссылка и Сноска (Inlines) */}
+        <button type="button" title="Вставить ссылку" onClick={onAddLink}
+          className={`${btnCustomClass} ${isSelectionEmpty ? 'opacity-50 pointer-events-auto' : ''}`}
+        >
+          <Fb2ActionIcon icon={Link} mode="add" />
+        </button>
+        <button type="button" title="Вставить сноску" onClick={onAddFootnote} disabled={!isInsideParagraph} className={btnCustomClass}>
+          <Fb2ActionIcon icon={Asterisk} mode="add" />
+        </button>
+
+        <div className="w-px h-4 bg-gray-200 mx-1" />
+
+        <ImageDropdown onSelect={handleImageSelect} canBlockImage={editorCapabilities.canInsertBlockImage} canInlineImage={editorCapabilities.canInsertInlineImage} />
+      </div>
+
+      {/* ВТОРОЙ РЯД: Структурные элементы FB2 (Секции, Эпиграфы, Поэмы) */}
+      <div className="w-full flex justify-center items-center gap-1 p-1 bg-gray-50/50">
+
+        {/* Группа: Заголовок и Подзаголовок */}
+        <button type="button" onClick={() => editorCapabilities.canRemoveTitle ? editor.chain().focus().removeFb2Title().run() : editor.chain().focus().insertFb2Title().run()}
+          className={`${btnCustomClass} ${(!editorCapabilities.canRemoveTitle && !editorCapabilities.canInsertTitle) ? 'opacity-50 pointer-events-auto' : ''}`}
+          title={editorCapabilities.canRemoveTitle ? "Удалить заголовок" : "Добавить заголовок"}>
+          <Fb2ActionIcon icon={Heading1} mode={editorCapabilities.canRemoveTitle ? "remove" : "add"} />
+        </button>
+
+        <button type="button" onClick={() => editorCapabilities.canRemoveSubtitle ? editor.chain().focus().removeFb2Subtitle().run() : editor.chain().focus().insertFb2Subtitle().run()}
+          className={`${btnCustomClass} ${(!editorCapabilities.canRemoveSubtitle && !editorCapabilities.canInsertSubtitle) ? 'opacity-50 pointer-events-auto' : ''}`}
+          title={editorCapabilities.canRemoveSubtitle ? "Удалить подзаголовок" : "Добавить подзаголовок"}>
+          <Fb2ActionIcon icon={Baseline} mode={editorCapabilities.canRemoveSubtitle ? "remove" : "add"} />
+        </button>
+
+        <div className="w-px h-4 bg-gray-200 mx-1" />
+
+        {/* Группа: Эпиграф и Аннотация */}
+        <button type="button" onClick={() => editor.chain().focus().insertFb2Epigraph().run()}
+          className={`${btnCustomClass} ${(!editorCapabilities.canInsertEpigraph) ? 'opacity-50 pointer-events-auto' : ''}`}
+          title="Добавить эпиграф">
+          <Fb2ActionIcon icon={TextQuote} mode="add" />
+        </button>
+        <button type="button" onClick={() => editorCapabilities.canRemoveAnnotation ? editor.chain().focus().removeFb2Annotation().run() : editor.chain().focus().insertFb2Annotation().run()}
+          className={`${btnCustomClass} ${(!editorCapabilities.canRemoveAnnotation && !editorCapabilities.canInsertAnnotation) ? 'opacity-50 pointer-events-auto' : ''}`}
+          title={editorCapabilities.canRemoveAnnotation ? "Удалить аннотацию" : "Добавить аннотацию"}>
+          <Fb2ActionIcon icon={FileText} mode={editorCapabilities.canRemoveAnnotation ? "remove" : "add"} />
+        </button>
+
+        <div className="w-px h-4 bg-gray-200 mx-1" />
+
+        {/* Группа: Поэзия */}
+        <button type="button" onClick={() => editorCapabilities.canRemovePoem ? editor.chain().focus().removeFb2Poem().run() : editor.chain().focus().insertFb2Poem().run()}
+          className={`${btnCustomClass} ${(!editorCapabilities.canRemovePoem && !editorCapabilities.canInsertPoem) ? 'opacity-50 pointer-events-auto' : ''}`}
+          title={editorCapabilities.canRemovePoem ? "Удалить поэму" : "Добавить поэму"}>
+          <Fb2ActionIcon icon={Feather} mode={editorCapabilities.canRemovePoem ? "remove" : "add"} />
+        </button>
+        <button type="button" onClick={() => editor.chain().focus().insertFb2Stanza().run()} disabled={!editorCapabilities.canInsertStanza} className={btnCustomClass} title="Добавить строфу">
+          <Fb2ActionIcon icon={AlignLeft} mode="add" />
+        </button>
+
+        <div className="w-px h-4 bg-gray-200 mx-1" />
+
+        {/* Группа: Автор и Дата */}
+        <button type="button" onClick={() => editor.chain().focus().insertFb2TextAuthor().run()}
+          className={`${btnCustomClass} ${(!editorCapabilities.canInsertTextAuthor) ? 'opacity-50 pointer-events-auto' : ''}`}
+          title="Добавить подпись автора">
+          <Fb2ActionIcon icon={Signature} mode="add" />
+        </button>
+        <button type="button" onClick={() => editor.chain().focus().removeFb2TextAuthor().run()}
+          className={`${btnCustomClass} ${(!editorCapabilities.canRemoveTextAuthor) ? 'opacity-50 pointer-events-auto' : ''}`}
+          title="Удалить подпись автора">
+          <Fb2ActionIcon icon={Signature} mode="remove" />
+        </button>
+
+        <button type="button" onClick={() => editorCapabilities.canRemoveDate ? editor.chain().focus().removeFb2Date().run() : editor.chain().focus().insertFb2Date().run()}
+          className={`${btnCustomClass} ${(!editorCapabilities.canRemoveDate && !editorCapabilities.canInsertDate) ? 'opacity-50 pointer-events-auto' : ''}`}
+          title={editorCapabilities.canRemoveDate ? "Удалить дату написания" : "Добавить дату написания"}>
+          <Fb2ActionIcon icon={CalendarDays} mode={editorCapabilities.canRemoveDate ? "remove" : "add"} />
+        </button>
+      </div>
     </div>
-
-    {/* ВТОРОЙ РЯД: Структурные элементы FB2 (Секции, Эпиграфы, Поэмы) */}
-    <div className="w-full flex justify-center items-center gap-1 p-1 bg-gray-50/50">
-      
-      {/* Группа: Заголовок и Подзаголовок */}
-      <button type="button" onClick={() => editorCapabilities.canRemoveTitle ? editor.chain().focus().removeFb2Title().run() : editor.chain().focus().insertFb2Title().run()}
-        disabled={!editorCapabilities.canRemoveTitle && !editorCapabilities.canInsertTitle} className={btnCustomClass} 
-        title={editorCapabilities.canRemoveTitle ? "Удалить заголовок" : "Добавить заголовок"}>
-        <Fb2ActionIcon icon={Heading1} mode={editorCapabilities.canRemoveTitle ? "remove" : "add"} />
-      </button>
-      
-      <button type="button" onClick={() => editorCapabilities.canRemoveSubtitle ? editor.chain().focus().removeFb2Subtitle().run() : editor.chain().focus().insertFb2Subtitle().run()}
-        disabled={!editorCapabilities.canRemoveSubtitle && !editorCapabilities.canInsertSubtitle} className={btnCustomClass}
-        title={editorCapabilities.canRemoveSubtitle ? "Удалить подзаголовок" : "Добавить подзаголовок"}>
-        <Fb2ActionIcon icon={Baseline} mode={editorCapabilities.canRemoveSubtitle ? "remove" : "add"} />
-      </button>
-
-      <div className="w-px h-4 bg-gray-200 mx-1" />
-
-      {/* Группа: Эпиграф и Аннотация */}
-      <button type="button" onClick={() => editor.chain().focus().insertFb2Epigraph().run()} disabled={!editorCapabilities.canInsertEpigraph} className={btnCustomClass} title="Добавить эпиграф">
-        <Fb2ActionIcon icon={TextQuote} mode="add" />
-      </button>
-      <button type="button" onClick={() => editorCapabilities.canRemoveAnnotation ? editor.chain().focus().removeFb2Annotation().run() : editor.chain().focus().insertFb2Annotation().run()}
-        disabled={!editorCapabilities.canRemoveAnnotation && !editorCapabilities.canInsertAnnotation} className={btnCustomClass}
-        title={editorCapabilities.canRemoveAnnotation ? "Удалить аннотацию" : "Добавить аннотацию"}>
-        <Fb2ActionIcon icon={FileText} mode={editorCapabilities.canRemoveAnnotation ? "remove" : "add"} />
-      </button>
-
-      <div className="w-px h-4 bg-gray-200 mx-1" />
-
-      {/* Группа: Поэзия */}
-      <button type="button" onClick={() => editorCapabilities.canRemovePoem ? editor.chain().focus().removeFb2Poem().run() : editor.chain().focus().insertFb2Poem().run()}
-        disabled={!editorCapabilities.canRemovePoem && !editorCapabilities.canInsertPoem} className={btnCustomClass} title={editorCapabilities.canRemovePoem ? "Удалить поэму" : "Добавить поэму"}>
-        <Fb2ActionIcon icon={Feather} mode={editorCapabilities.canRemovePoem ? "remove" : "add"} />
-      </button>
-      <button type="button" onClick={() => editor.chain().focus().insertFb2Stanza().run()} disabled={!editorCapabilities.canInsertStanza} className={btnCustomClass} title="Добавить строфу">
-        <Fb2ActionIcon icon={AlignLeft} mode="add" />
-      </button>
-
-      <div className="w-px h-4 bg-gray-200 mx-1" />
-
-      {/* Группа: Автор и Дата */}
-      <button type="button" onClick={() => editor.chain().focus().insertFb2TextAuthor().run()} disabled={!editorCapabilities.canInsertTextAuthor} className={btnCustomClass} title="Добавить подпись автора">
-        <Fb2ActionIcon icon={Signature} mode="add" />
-      </button>
-      <button type="button" onClick={() => editorCapabilities.canRemoveDate ? editor.chain().focus().removeFb2Date().run() : editor.chain().focus().insertFb2Date().run()}
-        disabled={!editorCapabilities.canRemoveDate && !editorCapabilities.canInsertDate} className={btnCustomClass} title={editorCapabilities.canRemoveDate ? "Удалить дату написания" : "Добавить дату написания"}>
-        <Fb2ActionIcon icon={CalendarDays} mode={editorCapabilities.canRemoveDate ? "remove" : "add"} />
-      </button>
-    </div>
-  </div>
-);
+  );
 
 };

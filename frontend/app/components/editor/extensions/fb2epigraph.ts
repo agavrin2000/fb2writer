@@ -1,6 +1,7 @@
 import { Node, mergeAttributes } from "@tiptap/core";
 import { CommandProps } from "@tiptap/core";
-import { NodeSelection } from "@tiptap/pm/state";
+import { NodeSelection, TextSelection } from "@tiptap/pm/state";
+import { findParentNodeByType } from "@/utils/utils";
 
 export const Fb2Epigraph = Node.create({
   name: "fb2Epigraph",
@@ -25,22 +26,22 @@ export const Fb2Epigraph = Node.create({
           let sectionPos = -1;
           let sectionNode = null;
 
-          // 1. Находим секцию (через выделение или по родителям)
+          // 1. Проверяем: выделена ли сама секция?
           if (
             selection instanceof NodeSelection &&
-            selection.node.type.name === "fb2Section"
+            ["fb2Section", "fb2BodySection", "fb2Poem"].includes(
+              selection.node.type.name,
+            )
           ) {
             sectionPos = selection.from;
             sectionNode = selection.node;
-          } else {
-            const { $from } = selection;
-            for (let d = $from.depth; d > 0; d--) {
-              if ($from.node(d).type.name === "fb2Section") {
-                sectionPos = $from.before(d);
-                sectionNode = $from.node(d);
-                break;
-              }
-            }
+          }
+          // 2. Если нет — ищем родительскую секцию вверх по дереву
+          else {
+            ({ node: sectionNode, pos: sectionPos } = findParentNodeByType(
+              selection,
+              ["fb2Section", "fb2BodySection", "fb2Poem"],
+            ));
           }
 
           if (!sectionNode) return false;
@@ -78,29 +79,17 @@ export const Fb2Epigraph = Node.create({
       removeFb2Epigraph:
         () =>
         ({ state, dispatch, chain }: CommandProps) => {
-          const { $from } = state.selection;
-          let textEpigraphPos = -1;
-          let textEpigraphNodeSize = 0;
+          const { pos: epigraphPos, nodeSize: epigraphNodeSize } = findParentNodeByType(state.selection, ["fb2Epigraph"]);
 
-          for (let d = $from.depth; d > 0; d--) {
-            const node = $from.node(d);
-            if (node.type.name === "fb2Epigraph") {
-              textEpigraphPos = $from.before(d);
-              textEpigraphNodeSize = node.nodeSize;
-              break;
-            }
-          }
-
-          if (textEpigraphPos === -1) return false;
+          if (epigraphPos === -1) return false;
 
           if (dispatch) {
-            const focusPos = textEpigraphPos - 1;
             return chain()
               .deleteRange({
-                from: textEpigraphPos,
-                to: textEpigraphPos + textEpigraphNodeSize,
+                from: epigraphPos,
+                to: epigraphPos + epigraphNodeSize,
               })
-              .focus(focusPos)
+              .focus(epigraphPos - 1)
               .run();
           }
           return true;

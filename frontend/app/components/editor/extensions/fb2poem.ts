@@ -5,17 +5,48 @@ export const Fb2Poem = Node.create({
   name: "fb2Poem",
   group: "block",
   content: "fb2Title? fb2Epigraph* fb2Stanza+ fb2TextAuthor* fb2Date?",
-  defining: true, // Важно: сохраняет узел при вставке контента или нажатии Enter
+  defining: true,
   isolating: true,
   selectable: true,
-  parseHTML: () => [{ tag: "div.fb2-poem" }, { tag: "poem" }],
+  /*parseHTML: () => [{ tag: "div.fb2-poem" }, { tag: "poem" }],
   renderHTML: ({ HTMLAttributes }) => [
     "div",
     mergeAttributes(HTMLAttributes, {
       class: "fb2-poem",
     }),
     0,
-  ],
+  ],*/
+  addNodeView() {
+    return ({ node, editor, getPos }) => {
+      const dom = document.createElement("div");
+      dom.className = "poem-node-wrapper";
+      const content = document.createElement("poem");
+      content.className = "fb2-poem";
+
+      // Ручная установка ID строго на внутренний тег
+      if (node.attrs.sectionId) {
+        content.id = node.attrs.sectionId;
+      }
+      const handle = document.createElement("div");
+      handle.className = "poem-handle";
+      handle.innerText = "⠿";
+      handle.contentEditable = "false";
+      handle.onclick = () => {
+        const pos = getPos();
+        if (typeof pos === "number") {
+          editor.commands.setNodeSelection(pos);
+        }
+      };
+
+      // КЛЮЧЕВОЕ ИЗМЕНЕНИЕ: вешаем ID прямо на тег <section>
+      if (node.attrs.sectionId) {
+        content.id = node.attrs.sectionId;
+      }
+
+      dom.append(handle, content);
+      return { dom, contentDOM: content };
+    };
+  },
   addCommands() {
     return {
       insertFb2Poem:
@@ -40,7 +71,9 @@ export const Fb2Poem = Node.create({
                     content: [
                       {
                         type: "paragraph",
-                        content: [{ type: "text", text: "Заголовок стихотворения" }],
+                        content: [
+                          { type: "text", text: "Заголовок стихотворения" },
+                        ],
                       },
                     ],
                   },
@@ -55,7 +88,7 @@ export const Fb2Poem = Node.create({
                   },
                   {
                     type: "fb2Date",
-                        content: [{ type: "text", text: "Дата поэмы" }],
+                    content: [{ type: "text", text: "Дата поэмы" }],
                   },
                 ],
               })

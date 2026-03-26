@@ -23,7 +23,6 @@ export const Fb2Section = Node.create({
       },
     };
   },
-
   addNodeView() {
     return ({ node, editor, getPos }) => {
       const dom = document.createElement("div");

@@ -1,5 +1,7 @@
 import { Node, mergeAttributes } from "@tiptap/core";
 import { CommandProps } from "@tiptap/core";
+import { NodeSelection, TextSelection } from "@tiptap/pm/state";
+import { findParentNodeByType } from "@/utils/utils";
 
 export const Fb2TextAuthor = Node.create({
   name: "fb2TextAuthor",
@@ -18,23 +20,27 @@ export const Fb2TextAuthor = Node.create({
       insertFb2TextAuthor:
         () =>
         ({ state, chain }: any) => {
-          const { $from } = state.selection;
+          const { selection } = state;
           let parentNode: any = null;
           let parentPos = -1;
 
-          // 1. Ищем ближайший контейнер (Poem, Epigraph или Cite)
-          for (let d = $from.depth; d > 0; d--) {
-            const node = $from.node(d);
-            if (
-              ["fb2Poem", "fb2Epigraph", "fb2Cite"].includes(node.type.name)
-            ) {
-              parentNode = node;
-              parentPos = $from.before(d);
-              break;
-            }
+          // 1. Проверяем: выделена ли сама секция?
+          if (
+            selection instanceof NodeSelection &&
+            selection.node.type.name === "fb2Poem"
+          ) {
+            parentPos = selection.from;
+            parentNode = selection.node;
+          }
+          // 2. Если нет — ищем родительскую секцию вверх по дереву
+          else {
+            ({ node: parentNode, pos: parentPos } = findParentNodeByType(
+              selection,
+              ["fb2Poem", "fb2Epigraph", "fb2Cite"],
+            ));
           }
 
-          if (!parentNode || parentPos === -1) return false;
+          if (!parentNode) return false;
 
           // Начальная точка вставки (сразу после открытия тега родителя)
           let insertPos = parentPos + 1;
@@ -79,18 +85,10 @@ export const Fb2TextAuthor = Node.create({
       removeFb2TextAuthor:
         () =>
         ({ state, dispatch, chain }: CommandProps) => {
-          const { $from } = state.selection;
-          let textAuthorPos = -1;
-          let textAuthorNodeSize = 0;
+          const { selection } = state;
 
-          for (let d = $from.depth; d > 0; d--) {
-            const node = $from.node(d);
-            if (node.type.name === "fb2TextAuthor") {
-              textAuthorPos = $from.before(d);
-              textAuthorNodeSize = node.nodeSize;
-              break;
-            }
-          }
+          const { nodeSize: textAuthorNodeSize, pos: textAuthorPos } =
+            findParentNodeByType(selection, ["fb2TextAuthor"]);
 
           if (textAuthorPos === -1) return false;
 

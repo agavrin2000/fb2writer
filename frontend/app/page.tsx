@@ -14,6 +14,7 @@ import { useGlobalShortcuts } from "@/hooks/useGlobalShortcuts";
 import { ImageBubbleMenu } from "@/components/editor/ImageBubbleMenu";
 import { LinkBubbleMenu } from "@/components/editor/LinkBubbleMenu";
 import { Fb2SectionMenu } from "@/components/editor/Fb2SectionMenu";
+import { Fb2PoemMenu } from "@/components/editor/Fb2PoemMenu";
 import { getFileName } from "@/utils/utils";
 
 export default function Page() {
@@ -104,6 +105,8 @@ export default function Page() {
       <Fb2SectionMenu editor={editor}
         onSelectImage={actions.selectImage}
       />
+      <Fb2PoemMenu editor={editor} />
+
       {isLoading && <Loader fileName={loadingFileName} />}
 
       {notes.activeNote && (

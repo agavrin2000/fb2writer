@@ -84,7 +84,6 @@ export const Fb2SectionMenu = ({ editor, onSelectImage }: Props) => {
 
   // Проверяем наличие элементов внутри выделенной секции
   const canRemoveTitle = editor.can().removeFb2Title();
-  const canRemoveEpigraph = editor.can().removeFb2Epigraph();
   const canRemoveAnnotation = editor.can().removeFb2Annotation();
 
   const addFb2Section = (position: "after" | "start" | "end") => {

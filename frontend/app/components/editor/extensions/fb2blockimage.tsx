@@ -35,7 +35,7 @@ export const Fb2BlockImage = Image.extend({
   },
   addCommands(): any {
     return {
-      canAddfb2BlockImage:
+      canInsertFb2BlockImage:
         () =>
         ({ state }: CommandProps) => {
           const { $from } = state.selection;
