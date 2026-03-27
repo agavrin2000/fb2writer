@@ -20,7 +20,7 @@ import { ConfirmDialog, ConfirmHandle } from '@/components/ui/ConfirmDialog';
 
 export default function Page() {
   // Добавляем локальное состояние сайдбара на уровне страницы
-  const toastRef = useRef<ToastHandle>(null);;
+  const toastRef = useRef<ToastHandle>(null);
   const confirmRef = useRef<ConfirmHandle>(null);
 
   // Передаем реф (теперь типы совпадут)
@@ -120,7 +120,7 @@ export default function Page() {
         />
       )}
       <Toast ref={toastRef} />
-      <StatusBar fileName={loadingFileName} loading={isLoading} />
+      <StatusBar fileName={getFileName(currentFilePath)} loading={isLoading} />
       <ConfirmDialog ref={confirmRef} />
     </div>
   );

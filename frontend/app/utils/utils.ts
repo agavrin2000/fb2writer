@@ -36,8 +36,12 @@ export const collectNodes = (doc: any) => {
       node.type.name === "fb2BodySection"
     ) {
       let title = "Без названия";
-      const titleNode =
-        node.type.name === "fb2Section" ? node.firstChild : node.child(1);
+      const isBody = node.type.name === "fb2BodySection";
+      const titleNode = isBody
+        ? node.childCount > 1
+          ? node.child(1)
+          : null
+        : node.firstChild;
       if (titleNode && titleNode.type.name === "fb2Title") {
         // 1. Собираем текст из всех параграфов внутри заголовка
         const parts: string[] = [];
@@ -70,19 +74,17 @@ export const getFileName = (path: string) => {
   return path.split(/[\\/]/).pop() || "";
 };
 
-
 // Хелпер для поиска родительского узла заданного типа
 export const findParentNodeByType = (
   selection: Selection,
   targetTypes: string[],
 ) => {
   // Проверяем, есть ли у выделения свойство $from (оно есть у TextSelection и NodeSelection)
-  if (!("$from" in selection)) {
+  const $from = (selection as any).$from;
+
+  if (!$from) {
     return { node: null, pos: -1, depth: null, nodeSize: 0 };
   }
-
-  // TypeScript теперь понимает, что у selection есть $from
-  const { $from } = selection as unknown as TextSelection | NodeSelection;
 
   for (let d = $from.depth; d >= 0; d--) {
     const node = $from.node(d);
@@ -92,7 +94,7 @@ export const findParentNodeByType = (
         node,
         pos: $from.before(d),
         depth: d,
-        nodeSize: node.nodeSize
+        nodeSize: node.nodeSize,
       };
     }
   }
