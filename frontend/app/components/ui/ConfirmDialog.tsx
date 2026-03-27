@@ -81,7 +81,7 @@ export const ConfirmDialog = forwardRef<ConfirmHandle, {}>((_, ref) => {
                 : 'bg-blue-600 hover:bg-blue-700 shadow-blue-100'
             }`}
           >
-            {isDanger ? 'Удалить' : 'Подтвердить'}
+            OK
           </button>
         </div>
       </div>

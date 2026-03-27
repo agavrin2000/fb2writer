@@ -16,19 +16,22 @@ import { LinkBubbleMenu } from "@/components/editor/LinkBubbleMenu";
 import { Fb2SectionMenu } from "@/components/editor/Fb2SectionMenu";
 import { Fb2PoemMenu } from "@/components/editor/Fb2PoemMenu";
 import { getFileName } from "@/utils/utils";
+import { ConfirmDialog, ConfirmHandle } from '@/components/ui/ConfirmDialog';
 
 export default function Page() {
   // Добавляем локальное состояние сайдбара на уровне страницы
   const toastRef = useRef<ToastHandle>(null);;
+  const confirmRef = useRef<ConfirmHandle>(null);
 
   // Передаем реф (теперь типы совпадут)
-  const fb2 = useEditorManager(toastRef);
+  const fb2 = useEditorManager(toastRef, confirmRef);
   const {
     editor,
     metadata,
-    setMetadata,
+    handleMetaChange,
     notes,
     isLoading,
+    loaderConfig,
     loadingFileName,
     currentFilePath,
     tocTree,
@@ -37,9 +40,9 @@ export default function Page() {
     scrollToHeading,
   } = fb2;
 
-  const [isContentsSidebarOpen, setIsContentsSidebarOpen] = useState(true);
+  const [isContentsSidebarOpen, setIsContentsSidebarOpen] = useState(false);
   const toggleContentsSidebar = useCallback(() => setIsContentsSidebarOpen((v) => !v), []);
-  const [isMetadataSidebarOpen, setIsMetadataSidebarOpen] = useState(true);
+  const [isMetadataSidebarOpen, setIsMetadataSidebarOpen] = useState(false);
   const toggleMetadataSidebar = useCallback(
     () => setIsMetadataSidebarOpen((v) => !v),
     [],
@@ -67,7 +70,7 @@ export default function Page() {
 
   return (
     <div className="flex flex-col h-screen overflow-hidden bg-white">
-      <Header editor={editor} onSave={actions.save} onOpen={actions.open} fileName={getFileName(currentFilePath)} />
+      <Header editor={editor} onSave={actions.save} onNew={actions.newFile} onOpen={actions.open} fileName={getFileName(currentFilePath)} />
 
       <div className="flex flex-1 overflow-hidden relative">
         <ContentsSidebar
@@ -90,7 +93,7 @@ export default function Page() {
 
         <MetadataSidebar
           meta={metadata}
-          onMetaChange={setMetadata}
+          onMetaChange={handleMetaChange}
           isOpen={isMetadataSidebarOpen}
           onToggle={toggleMetadataSidebar}
         />
@@ -99,15 +102,12 @@ export default function Page() {
       <ImageBubbleMenu editor={editor} />
       <LinkBubbleMenu editor={editor} />
 
-      {/* Всплывающее меню для секций 
-      <SectionBubbleMenu editor={editor} />
-*/}
       <Fb2SectionMenu editor={editor}
         onSelectImage={actions.selectImage}
       />
       <Fb2PoemMenu editor={editor} />
 
-      {isLoading && <Loader fileName={loadingFileName} />}
+      {isLoading && <Loader fileName={loadingFileName} title={loaderConfig?.title} subtitle={loaderConfig?.subtitle} />}
 
       {notes.activeNote && (
         <NotePopup
@@ -121,6 +121,7 @@ export default function Page() {
       )}
       <Toast ref={toastRef} />
       <StatusBar fileName={loadingFileName} loading={isLoading} />
+      <ConfirmDialog ref={confirmRef} />
     </div>
   );
 }

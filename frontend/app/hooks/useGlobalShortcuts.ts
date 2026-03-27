@@ -3,6 +3,7 @@ import { useEffect } from "react";
 export function useGlobalShortcuts(actions: {
   save: () => void;
   open: () => void;
+  newFile: () => void;
   toggleContentsSidebar: () => void;
   toggleMetadataSidebar: () => void;
   [key: string]: any; // Это позволит передавать доп. поля без ошибок
@@ -11,6 +12,14 @@ export function useGlobalShortcuts(actions: {
     const handleKeyDown = (event: KeyboardEvent) => {
       const isCtrl = event.ctrlKey || event.metaKey;
       const isAlt = event.altKey;
+
+      if (isCtrl && event.code === "KeyN") {
+        event.preventDefault();
+        event.stopImmediatePropagation(); // Предотвращаем всплытие к браузеру
+        actions.newFile();
+        return;
+      }
+
       if (isCtrl && event.code === "KeyO") {
         event.preventDefault();
         event.stopImmediatePropagation(); // Предотвращаем всплытие к браузеру

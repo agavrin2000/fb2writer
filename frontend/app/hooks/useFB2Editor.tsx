@@ -7,7 +7,7 @@ import { EditorExtensions } from "@/components/editor/EditorExtensions";
 import { collectNodes } from "@/utils/utils";
 import { useTOC } from "./useTOC";
 import { createEditorProps } from "../components/editor/createEditorProps";
-import { TocItem, ActiveNote, FootnotesMap } from "@/types/types";
+import { TocItem, ActiveNote, FootnotesMap, EMPTY_FB2_TEMPLATE } from "@/types/types";
 import { Selection } from "@tiptap/pm/state";
 
 export const useFB2Editor = (
@@ -39,7 +39,7 @@ export const useFB2Editor = (
   const editorOptions = useMemo(
     () => ({
       extensions: EditorExtensions,
-      content: "<p>Загрузка...</p>",
+      content: EMPTY_FB2_TEMPLATE.EditorContent,
       immediatelyRender: false,
       editorProps: editorProps,
 

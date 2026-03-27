@@ -1,7 +1,7 @@
 'use client';
 import React, { useEffect, useState, useRef } from 'react';
 import { Editor } from '@tiptap/react';
-import { Info, LogOut, Save, FolderOpen, Undo, Redo, FileCode } from 'lucide-react';
+import { Info, LogOut, Save, FolderOpen, Undo, Redo, FileCode, FilePlus } from 'lucide-react';
 import { AboutModal } from './AboutModal';
 import { ExitModal } from './ExitModal';
 import { photino } from '@/api/photino';
@@ -10,11 +10,13 @@ export const Header = ({
     editor,
     onSave,
     onOpen,
+    onNew,
     fileName
 }: {
     editor: Editor | null,
     onSave: (saveAs: boolean) => void,
     onOpen: () => void,
+    onNew: () => void,
     fileName: string
 }) => {
     const [activeMenu, setActiveMenu] = useState<string | null>(null);
@@ -54,6 +56,10 @@ export const Header = ({
                         </button>
                         {activeMenu === 'file' && (
                             <div className={dropdownClass}>
+                                <button type="button" onClick={() => handleAction(onNew)} className={itemClass}>
+                                    <span className="flex items-center gap-2"><FilePlus  size={14} /> Новый</span>
+                                    <span className="text-[10px] opacity-50">Ctrl+N</span>
+                                </button>
                                 <button type="button" onClick={() => handleAction(onOpen)} className={itemClass}>
                                     <span className="flex items-center gap-2"><FolderOpen size={14} /> Открыть...</span>
                                     <span className="text-[10px] opacity-50">Ctrl+O</span>

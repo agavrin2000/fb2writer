@@ -144,7 +144,15 @@ public class FileService
             SuggestedFileName = "book"
         });
 
-        if (file == null) return;
+        if (file == null)
+        {
+            // Cancel SaveFile dialog
+            Emit("cancel-loading", string.Empty);
+            return;
+        }
+
+        // Start of saving
+        Emit("start-saving", file.Name);
 
         try
         {

@@ -46,12 +46,13 @@ class Program
             .SetSize(new System.Drawing.Size(800, 600))
             // Center window in the middle of the screen
             .Center()
+            .SetMinWidth(600)
             // Users can resize windows by default.
             // Let's make this one fixed instead.
             .SetResizable(true)
             .SetDevToolsEnabled(true)
             .SetContextMenuEnabled(true)
-            .RegisterCustomSchemeHandler("app", (object sender, string scheme, string url, out string contentType) =>
+            .RegisterCustomSchemeHandler("app", (sender, scheme, url, out contentType) =>
             {
                 contentType = "text/javascript";
                 return new MemoryStream(Encoding.UTF8.GetBytes(@"
