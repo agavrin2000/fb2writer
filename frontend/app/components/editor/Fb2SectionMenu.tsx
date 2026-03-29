@@ -10,17 +10,25 @@ import {
   FloatingPortal,
 } from "@floating-ui/react";
 import {
-  ListPlus, ListStart, ListEnd,
-  Heading1, TextQuote, Image as ImageIcon, Plus, Minus, Layers,
+  ListPlus,
+  ListStart,
+  ListEnd,
+  Heading1,
+  TextQuote,
+  Image as ImageIcon,
+  Plus,
+  Minus,
+  Layers,
   List,
   BookImage,
-  FileText
+  FileText,
+  Rows2,
 } from "lucide-react";
-import { Fb2ActionIcon } from '../ui/Fb2ActionIcon'
+import { Fb2ActionIcon } from "../ui/Fb2ActionIcon";
 
 interface Props {
   editor: Editor | null;
-  onSelectImage: (type: 'block' | 'inline' | 'section') => void; // Добавляем проп для картинок
+  onSelectImage: (type: "block" | "inline" | "section") => void; // Добавляем проп для картинок
 }
 
 export const Fb2SectionMenu = ({ editor, onSelectImage }: Props) => {
@@ -38,7 +46,9 @@ export const Fb2SectionMenu = ({ editor, onSelectImage }: Props) => {
 
     const updateMenu = () => {
       const { selection } = editor.state;
-      const isSectionSelected = selection instanceof NodeSelection && selection.node.type.name === "fb2Section";
+      const isSectionSelected =
+        selection instanceof NodeSelection &&
+        selection.node.type.name === "fb2Section";
 
       if (isSectionSelected) {
         const dom = editor.view.nodeDOM(selection.from) as HTMLElement;
@@ -57,7 +67,10 @@ export const Fb2SectionMenu = ({ editor, onSelectImage }: Props) => {
     const handleClickOutside = (event: MouseEvent) => {
       if (!isOpen) return;
       const target = event.target as HTMLElement;
-      if (!refs.floating.current?.contains(target) && !target.closest('.section-handle')) {
+      if (
+        !refs.floating.current?.contains(target) &&
+        !target.closest(".section-handle")
+      ) {
         editor.commands.focus();
         setIsOpen(false);
       }
@@ -78,9 +91,8 @@ export const Fb2SectionMenu = ({ editor, onSelectImage }: Props) => {
 
   // Извлекаем уровень из текущей выделенной секции
   const { selection } = editor.state;
-  const currentLevel = (selection instanceof NodeSelection)
-    ? selection.node.attrs.level || 1
-    : 1;
+  const currentLevel =
+    selection instanceof NodeSelection ? selection.node.attrs.level || 1 : 1;
 
   // Проверяем наличие элементов внутри выделенной секции
   const canRemoveTitle = editor.can().removeFb2Title();
@@ -91,17 +103,34 @@ export const Fb2SectionMenu = ({ editor, onSelectImage }: Props) => {
     if (!(selection instanceof NodeSelection)) return;
 
     const currentLevel = selection.node.attrs.level || 1;
-    let insertPos = position === "start" ? selection.from + 1 : (position === "after" ? selection.to : selection.to - 1);
+    let insertPos =
+      position === "start"
+        ? selection.from + 1
+        : position === "after"
+          ? selection.to
+          : selection.to - 1;
     let targetLevel = position === "after" ? currentLevel : currentLevel + 1;
 
-    editor.chain().focus().insertContentAt(insertPos, {
-      type: "fb2Section",
-      attrs: { level: targetLevel },
-      content: [
-        { type: "fb2Title", content: [{ type: "paragraph", content: [{ type: "text", text: "Новый раздел" }] }] },
-        { type: "paragraph", content: [{ type: "text", text: "Текст..." }] },
-      ],
-    }).run();
+    editor
+      .chain()
+      .focus()
+      .insertContentAt(insertPos, {
+        type: "fb2Section",
+        attrs: { level: targetLevel },
+        content: [
+          {
+            type: "fb2Title",
+            content: [
+              {
+                type: "paragraph",
+                content: [{ type: "text", text: "Новый раздел" }],
+              },
+            ],
+          },
+          { type: "paragraph", content: [{ type: "text", text: "Текст..." }] },
+        ],
+      })
+      .run();
   };
 
   return (
@@ -123,25 +152,61 @@ export const Fb2SectionMenu = ({ editor, onSelectImage }: Props) => {
         </div>
         {/* Группа: Структура секций */}
         <div className="flex flex-col border-b pb-1 mb-1 gap-1">
-          <button type="button" onClick={() => addFb2Section("after")} className={twBtn} title="Добавить раздел ниже"><ListPlus size={16} /></button>
-          <button type="button" onClick={() => addFb2Section("start")} className={twBtn} title="Подраздел в начало"><ListStart size={16} /></button>
-          <button type="button" onClick={() => addFb2Section("end")} className={twBtn} title="Подраздел в конец"><ListEnd size={16} /></button>
+          <button
+            type="button"
+            onClick={() => addFb2Section("after")}
+            className={twBtn}
+            title="Добавить раздел ниже"
+          >
+            <Fb2ActionIcon icon={Rows2} mode="add" />
+          </button>
+          <button
+            type="button"
+            onClick={() => addFb2Section("start")}
+            className={twBtn}
+            title="Подраздел в начало"
+          >
+            <ListStart size={16} />
+          </button>
+          <button
+            type="button"
+            onClick={() => addFb2Section("end")}
+            className={twBtn}
+            title="Подраздел в конец"
+          >
+            <ListEnd size={16} />
+          </button>
           {/* Удаление */}
-          <button type="button" onClick={() => editor.commands.deleteSelection()} title="Удалить всю секцию"><Fb2ActionIcon icon={List} mode="remove" /></button>
-
+          <button
+            type="button"
+            onClick={() => editor.commands.deleteSelection()}
+            className={twBtn}
+            title="Удалить всю секцию"
+          >
+            <Fb2ActionIcon icon={Rows2} mode="remove" />
+          </button>
         </div>
 
         {/* Группа: Внутренние элементы (Title / Epigraph) */}
-        <div className="flex flex-col border-b pb-1 mb-1 gap-1">
-          <button type="button"
-            onClick={() => canRemoveTitle ? editor.chain().focus().removeFb2Title().run() : editor.chain().focus().insertFb2Title().run()}
+        <div className="flex flex-col mb-1 gap-1">
+          <button
+            type="button"
+            onClick={() =>
+              canRemoveTitle
+                ? editor.chain().focus().removeFb2Title().run()
+                : editor.chain().focus().insertFb2Title().run()
+            }
             className={twBtn}
             title={canRemoveTitle ? "Удалить заголовок" : "Добавить заголовок"}
           >
-            <Fb2ActionIcon icon={Heading1} mode={canRemoveTitle ? "remove" : "add"} />
+            <Fb2ActionIcon
+              icon={Heading1}
+              mode={canRemoveTitle ? "remove" : "add"}
+            />
           </button>
 
-          <button type="button"
+          <button
+            type="button"
             onClick={() => editor.chain().focus().insertFb2Epigraph().run()}
             className={twBtn}
             title="Добавить эпиграф"
@@ -149,20 +214,29 @@ export const Fb2SectionMenu = ({ editor, onSelectImage }: Props) => {
             <Fb2ActionIcon icon={TextQuote} mode="add" />
           </button>
 
-          <button type="button"
-            onClick={() => onSelectImage('section')}
+          <button
+            type="button"
+            onClick={() => onSelectImage("section")}
             className={twBtn}
             title="Картинка секции"
           >
             <BookImage size={16} />
           </button>
 
-          <button type="button"
-            onClick={() => canRemoveAnnotation ? editor.chain().focus().removeFb2Annotation().run() : editor.chain().focus().insertFb2Annotation().run()}
+          <button
+            type="button"
+            onClick={() =>
+              canRemoveAnnotation
+                ? editor.chain().focus().removeFb2Annotation().run()
+                : editor.chain().focus().insertFb2Annotation().run()
+            }
             className={twBtn}
             title={canRemoveTitle ? "Удалить аннотацию" : "Добавить аннотацию"}
           >
-            <Fb2ActionIcon icon={FileText} mode={canRemoveAnnotation ? "remove" : "add"} />
+            <Fb2ActionIcon
+              icon={FileText}
+              mode={canRemoveAnnotation ? "remove" : "add"}
+            />
           </button>
         </div>
       </div>
@@ -171,4 +245,5 @@ export const Fb2SectionMenu = ({ editor, onSelectImage }: Props) => {
 };
 
 // Tailwind-стиль для кнопок (вынесен для чистоты)
-const twBtn = "p-2 flex items-center justify-center rounded-md hover:bg-gray-100 transition-colors text-gray-600";
+const twBtn =
+  "p-2 flex items-center justify-center rounded-md hover:bg-gray-100 transition-colors text-gray-600";

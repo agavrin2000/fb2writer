@@ -1,5 +1,6 @@
-import { Node, mergeAttributes } from "@tiptap/core";
+import { Node } from "@tiptap/core";
 import { CommandProps } from "@tiptap/core";
+import { findParentNodeByType } from "@/utils/utils";
 
 export const Fb2Poem = Node.create({
   name: "fb2Poem",
@@ -8,14 +9,6 @@ export const Fb2Poem = Node.create({
   defining: true,
   isolating: true,
   selectable: true,
-  /*parseHTML: () => [{ tag: "div.fb2-poem" }, { tag: "poem" }],
-  renderHTML: ({ HTMLAttributes }) => [
-    "div",
-    mergeAttributes(HTMLAttributes, {
-      class: "fb2-poem",
-    }),
-    0,
-  ],*/
   addNodeView() {
     return ({ node, editor, getPos }) => {
       const dom = document.createElement("div");
@@ -52,14 +45,13 @@ export const Fb2Poem = Node.create({
       insertFb2Poem:
         () =>
         ({ state, dispatch, chain }: CommandProps) => {
-          const { $from } = state.selection;
-
           // Проверка контекста
-          for (let d = $from.depth; d > 0; d--) {
-            const name = $from.node(d).type.name;
-            if (["fb2Title", "fb2Subtitle", "fb2Poem"].includes(name))
-              return false;
-          }
+          const { pos: poemPos, node: poemNode } = findParentNodeByType(
+            state.selection,
+            ["fb2Title", "fb2Subtitle", "fb2Poem"],
+          );
+
+          if (poemNode) return false;
 
           if (dispatch) {
             return chain()
@@ -100,18 +92,10 @@ export const Fb2Poem = Node.create({
       removeFb2Poem:
         () =>
         ({ state, dispatch, chain }: CommandProps) => {
-          const { $from } = state.selection;
-          let poemPos = -1;
-          let poemNodeSize = 0;
-
-          for (let d = $from.depth; d > 0; d--) {
-            const node = $from.node(d);
-            if (node.type.name === "fb2Poem") {
-              poemPos = $from.before(d);
-              poemNodeSize = node.nodeSize;
-              break;
-            }
-          }
+          const { pos: poemPos, nodeSize: poemNodeSize } = findParentNodeByType(
+            state.selection,
+            ["fb2Epigraph"],
+          );
 
           if (poemPos === -1) return false;
 

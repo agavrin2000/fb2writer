@@ -1,6 +1,6 @@
-import { Node, mergeAttributes } from "@tiptap/core";
-import { CommandProps } from "@tiptap/core";
-import { NodeSelection } from "@tiptap/pm/state";
+import { Node, CommandProps } from "@tiptap/core";
+import { findParentNodeByType } from "@/utils/utils";
+import { Node as ProsemirrorNode } from "@tiptap/pm/model";
 
 export const Fb2Annotation = Node.create({
   name: "fb2Annotation",
@@ -13,55 +13,35 @@ export const Fb2Annotation = Node.create({
       insertFb2Annotation:
         () =>
         ({ state, dispatch, chain }: CommandProps) => {
-          const { selection } = state;
-          let sectionPos = -1;
-          let sectionNode = null;
+          // 1. Ищем подходящую секцию (автоматически для NodeSelection и курсора)
+          const found = findParentNodeByType(state.selection, [
+            "fb2Section",
+            "fb2BodySection",
+          ]);
+          if (!found) return false;
 
-          // 1. Проверяем: выделена ли сама секция?
-          if (
-            selection instanceof NodeSelection &&
-            (selection.node.type.name === "fb2Section" || selection.node.type.name === "fb2BodySection")
-          ) {
-            sectionPos = selection.from;
-            sectionNode = selection.node;
-          }
-          // 2. Если нет — ищем родительскую секцию вверх по дереву
-          else {
-            const { $from } = selection;
-            for (let d = $from.depth; d > 0; d--) {
-              const node = $from.node(d);
-              if (node.type.name === "fb2Section" || node.type.name === "fb2BodySection") {
-                sectionPos = $from.before(d);
-                sectionNode = node;
-                break;
-              }
-            }
-          }
+          const { node: section, pos: sectionPos } = found;
 
-          // Если не нашли секцию или аннотация уже есть — блокируем команду
-          if (!sectionNode) return false;
+          // 2. Ищем позицию для вставки и проверяем на дубликат
+          let insertOffset = 0;
+          let hasAnnotation = false;
 
-          let insertOffset = 0; // По умолчанию 0 (в самое начало контента секции)
+          section.forEach((child: ProsemirrorNode, offset: number) => {
+            if (hasAnnotation) return; // Если уже нашли, прерываем логику
 
-          for (let i = 0; i < sectionNode.childCount; i++) {
-            const child = sectionNode.child(i);
-            const type = child.type.name;
-
-            if (type === "fb2Annotation") return false; // Аннотация уже есть, дальше искать нет смысла
-
-            // Если встретили "структурный" узел, который должен быть ПЕРЕД аннотацией
-            if (
-              type === "fb2Title" ||
-              type === "fb2Epigraph" ||
-              type === "fb2BlockImage"
+            if (child.type.name === "fb2Annotation") {
+              hasAnnotation = true;
+            } else if (
+              ["fb2Title", "fb2Epigraph", "fb2BlockImage"].includes(
+                child.type.name,
+              )
             ) {
-              insertOffset += child.nodeSize;
-            } else {
-              // Как только встретили любой другой узел (p, poem и т.д.) —
-              // значит, блок заголовков закончился. Прерываемся.
-              break;
+              // Эти узлы должны идти ПЕРЕД аннотацией
+              insertOffset = offset + child.nodeSize;
             }
-          }
+          });
+
+          if (hasAnnotation) return false;
 
           if (dispatch) {
             const finalPos = sectionPos + 1 + insertOffset;
@@ -75,64 +55,48 @@ export const Fb2Annotation = Node.create({
                   },
                 ],
               })
-              .focus(finalPos + 2) // Фокус на текст внутри аннотации
+              .focus(finalPos + 2)
               .run();
           }
-
           return true;
         },
+
       removeFb2Annotation:
         () =>
         ({ state, dispatch, chain }: CommandProps) => {
-          const { selection } = state;
-          let nodePos = -1;
-          let nodeSize = 0;
+          // 1. Пытаемся найти аннотацию напрямую под курсором
+          let target = findParentNodeByType(state.selection, ["fb2Annotation"]);
 
-          // 1. Если выделена вся секция
-          if (
-            selection instanceof NodeSelection &&
-            (selection.node.type.name === "fb2Section" ||
-              selection.node.type.name === "fb2BodySection")
-          ) {
-            const section = selection.node;
-            let currentOffset = 0;
-
-            // Проверяем только первые узлы (обычно заголовок, эпиграф, аннотация)
-            // Прекращаем поиск, если встретили обычный текст (параграф)
-            for (let i = 0; i < section.childCount; i++) {
-              const child = section.child(i);
-              if (child.type.name === "fb2Annotation") {
-                nodePos = selection.from + 1 + currentOffset;
-                nodeSize = child.nodeSize;
-                break;
-              }
-              // Оптимизация: если дошли до контента, дальше аннотации быть не может
-              if (
-                child.type.name === "paragraph" ||
-                child.type.name === "fb2Section"
-              )
-                break;
-              currentOffset += child.nodeSize;
-            }
-          }
-          // 2. Если курсор уже внутри аннотации
-          else {
-            const { $from } = selection;
-            for (let d = $from.depth; d > 0; d--) {
-              const node = $from.node(d);
-              if (node.type.name === "fb2Annotation") {
-                nodePos = $from.before(d);
-                nodeSize = node.nodeSize;
-                break;
-              }
+          // 2. Если курсор не в аннотации, проверяем, не выделена ли секция, содержащая её
+          if (!target) {
+            const foundSection = findParentNodeByType(state.selection, [
+              "fb2Section",
+              "fb2BodySection",
+            ]);
+            if (foundSection) {
+              foundSection.node.forEach(
+                (child: ProsemirrorNode, offset: number) => {
+                  if (child.type.name === "fb2Annotation") {
+                    target = {
+                      node: child,
+                      pos: foundSection.pos + 1 + offset,
+                      nodeSize: child.nodeSize,
+                      depth: foundSection.depth + 1,
+                    };
+                  }
+                },
+              );
             }
           }
 
-          if (nodePos === -1) return false;
+          if (!target) return false;
 
           if (dispatch) {
             return chain()
-              .deleteRange({ from: nodePos, to: nodePos + nodeSize })
+              .deleteRange({
+                from: target.pos,
+                to: target.pos + target.nodeSize,
+              })
               .focus()
               .run();
           }

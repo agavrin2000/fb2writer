@@ -1,5 +1,7 @@
 import { Node, mergeAttributes } from "@tiptap/core";
 import { CommandProps } from "@tiptap/core";
+import { findParentNodeByType } from "@/utils/utils";
+import { Node as ProsemirrorNode } from "@tiptap/pm/model";
 
 export const Fb2Stanza = Node.create({
   name: "fb2Stanza",
@@ -21,23 +23,13 @@ export const Fb2Stanza = Node.create({
       insertFb2Stanza:
         () =>
         ({ state, dispatch, chain }: CommandProps) => {
-          const { $from } = state.selection;
-
-          // 1. Быстрый поиск текущей строфы (макс. 2 уровня вверх: строка -> строфа)
-          let stanzaDepth = -1;
-          for (let d = $from.depth; d > Math.max(0, $from.depth - 2); d--) {
-            if ($from.node(d).type.name === "fb2Stanza") {
-              stanzaDepth = d;
-              break;
-            }
-          }
-
-          // Если мы не в строфе (и значит не в poem), вставка запрещена
-          if (stanzaDepth === -1) return false;
+          // 1. Ищем текущую строфу (автоматически проверяет все уровни вверх)
+          const found = findParentNodeByType(state.selection, ["fb2Stanza"]);
+          if (!found) return false;
 
           if (dispatch) {
-            // 2. Вычисляем позицию СРАЗУ ПОСЛЕ текущей строфы
-            const insertPos = $from.after(stanzaDepth);
+            // Позиция СРАЗУ ПОСЛЕ текущей строфы
+            const insertPos = found.pos + found.node.nodeSize;
 
             return chain()
               .insertContentAt(insertPos, {
@@ -45,57 +37,47 @@ export const Fb2Stanza = Node.create({
                 content: [
                   {
                     type: "fb2V",
-                    content: [{ type: "text", text: "" }], // Пустая строка лучше, чем "Строка..."
+                    content: [{ type: "text", text: "" }],
                   },
                 ],
               })
-              .focus(insertPos + 2) // +1 (stanza) +1 (v) = внутри текстового поля
+              .focus(insertPos + 2) // Входим внутрь новой строфы и новой строки
               .run();
           }
-
           return true;
         },
+
       removeFb2Stanza:
         () =>
         ({ state, dispatch, chain }: CommandProps) => {
-          const { $from } = state.selection;
+          // 1. Ищем текущую строфу
+          const foundStanza = findParentNodeByType(state.selection, [
+            "fb2Stanza",
+          ]);
+          if (!foundStanza) return false;
 
-          // Оптимизация 1: Ищем строфу только на ближайших 3 уровнях (строка -> строфа -> поэма)
-          // Метод findParentNode ищет вверх по дереву только до указанной глубины
-          let stanzaDepth = -1;
-          for (let d = $from.depth; d > Math.max(0, $from.depth - 3); d--) {
-            if ($from.node(d).type.name === "fb2Stanza") {
-              stanzaDepth = d;
-              break;
-            }
-          }
+          // 2. Ищем родительскую поэму, чтобы проверить количество строф
+          const foundPoem = findParentNodeByType(state.selection, ["fb2Poem"]);
+          if (!foundPoem || !foundPoem.node) return false;
 
-          if (stanzaDepth === -1) return false;
-
-          const stanzaNode = $from.node(stanzaDepth);
-          const parentNode = $from.node(stanzaDepth - 1); // Обычно это fb2Poem
-
-          if (!parentNode) return false;
-
-          // Оптимизация 2: Считаем строфы через childCount (быстрее, чем forEach по всему документу)
+          // Считаем только детей типа fb2Stanza (используем childCount и фильтр для скорости)
           let stanzaCount = 0;
-          for (let i = 0; i < parentNode.childCount; i++) {
-            if (parentNode.child(i).type.name === "fb2Stanza") stanzaCount++;
-          }
+          foundPoem.node.content?.forEach((child: ProsemirrorNode) => {
+            if (child.type.name === "fb2Stanza") stanzaCount++;
+          });
 
+          // Запрещаем удаление, если это единственная строфа в поэме
           if (stanzaCount <= 1) return false;
 
           if (dispatch) {
-            const stanzaPos = $from.before(stanzaDepth);
             return chain()
               .deleteRange({
-                from: stanzaPos,
-                to: stanzaPos + stanzaNode.nodeSize,
+                from: foundStanza.pos,
+                to: foundStanza.pos + foundStanza.node.nodeSize,
               })
               .focus()
               .run();
           }
-
           return true;
         },
     };

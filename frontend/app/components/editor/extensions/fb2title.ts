@@ -1,6 +1,8 @@
-import { Node, mergeAttributes } from "@tiptap/core";
-import { CommandProps } from "@tiptap/core";
+import { Node, mergeAttributes, CommandProps } from "@tiptap/core";
 import { NodeSelection } from "@tiptap/pm/state";
+import { findParentNodeByType } from "@/utils/utils";
+
+const TARGET_TYPES = ["fb2Section", "fb2BodySection", "fb2Poem", "fb2Stanza"];
 
 export const Fb2Title = Node.create({
   name: "fb2Title",
@@ -15,7 +17,6 @@ export const Fb2Title = Node.create({
   renderHTML: ({ HTMLAttributes }) => [
     "div",
     mergeAttributes(HTMLAttributes, {
-      // text-center — по центру, font-bold — жирный, mb-4 — отступ снизу
       class: "fb2-title ",
     }),
     0,
@@ -25,49 +26,26 @@ export const Fb2Title = Node.create({
       insertFb2Title:
         () =>
         ({ state, dispatch, chain }: CommandProps) => {
-          const { selection } = state;
-          let sectionPos = -1;
-          let sectionNode = null;
+          // Ищем родителя (Tiptap сам обработает NodeSelection внутри helpers)
+          const found = findParentNodeByType(state.selection, TARGET_TYPES);
+          if (!found) return false;
 
-          // 1. Проверяем: выделена ли сама секция?
-          if (
-            selection instanceof NodeSelection &&
-            (selection.node.type.name === "fb2Section" ||
-              selection.node.type.name === "fb2BodySection" ||
-              selection.node.type.name === "fb2Poem" ||
-              selection.node.type.name === "fb2Stanza")
-          ) {
-            sectionPos = selection.from;
-            sectionNode = selection.node;
-          }
-          // 2. Если нет — ищем родительскую секцию вверх по дереву
-          else {
-            const { $from } = selection;
-            for (let d = $from.depth; d > 0; d--) {
-              const node = $from.node(d);
-              if (
-                node.type.name === "fb2Section" ||
-                node.type.name === "fb2BodySection" ||
-                node.type.name === "fb2Poem" ||
-                node.type.name === "fb2Stanza"
-              ) {
-                sectionPos = $from.before(d);
-                sectionNode = node;
-                break;
-              }
-            }
-          }
+          const { node: section, pos: sectionPos } = found;
+          const isBody = section.type.name === "fb2BodySection";
+          const targetIndex = isBody ? 1 : 0;
 
-          // Если не нашли секцию или заголовок уже есть — блокируем команду
-          if (!sectionNode) return false;
-
-          const firstChild = sectionNode.firstChild;
-
-          if (firstChild?.type.name === "fb2Title") return false;
+          // Проверяем наличие заголовка на нужной позиции
+          if (section.maybeChild(targetIndex)?.type.name === "fb2Title")
+            return false;
 
           if (dispatch) {
+            // Вычисляем позицию: начало секции + 1 (вход в ноду) + размер первого ребенка (если это Body)
+            const offset =
+              isBody && section.firstChild ? section.firstChild.nodeSize : 0;
+            const insertPos = sectionPos + 1 + offset;
+
             return chain()
-              .insertContentAt(sectionPos + 1, {
+              .insertContentAt(insertPos, {
                 type: "fb2Title",
                 content: [
                   {
@@ -76,10 +54,9 @@ export const Fb2Title = Node.create({
                   },
                 ],
               })
-              .focus(sectionPos + 2) // Фокусируемся внутри нового заголовка
+              .focus(insertPos + 2) // Прыгаем сразу в текст параграфа
               .run();
           }
-
           return true;
         },
       removeFb2Title:
@@ -92,10 +69,7 @@ export const Fb2Title = Node.create({
           // 1. Если выделена вся нода (fb2Section)
           if (
             selection instanceof NodeSelection &&
-            (selection.node.type.name === "fb2Section" ||
-              selection.node.type.name === "fb2BodySection" ||
-              selection.node.type.name === "fb2Poem" ||
-              selection.node.type.name === "fb2Stanza")
+            TARGET_TYPES.includes(selection.node.type.name)
           ) {
             selection.node.forEach((child, offset) => {
               if (child.type.name === "fb2Title") {
@@ -106,15 +80,10 @@ export const Fb2Title = Node.create({
           }
           // 2. Если курсор внутри (обычное выделение)
           else {
-            const { $from } = selection;
-            for (let d = $from.depth; d > 0; d--) {
-              const node = $from.node(d);
-              if (node.type.name === "fb2Title") {
-                titlePos = $from.before(d);
-                titleNodeSize = node.nodeSize;
-                break;
-              }
-            }
+            ({ pos: titlePos, nodeSize: titleNodeSize } = findParentNodeByType(
+              selection,
+              ["fb2Title"],
+            ));
           }
 
           // Если заголовок не найден, команда "не может" быть выполнена
@@ -126,7 +95,6 @@ export const Fb2Title = Node.create({
               .focus()
               .run();
           }
-
           return true;
         },
     };

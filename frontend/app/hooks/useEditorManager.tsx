@@ -2,28 +2,46 @@ import { useState, useCallback, useMemo, useRef, useEffect } from "react";
 import { useFB2Editor } from "./useFB2Editor";
 import { useFootnotes } from "./useFootnotes";
 import { usePhotinoEvents } from "./usePhotinoEvents";
-import { Fb2Metadata, Fb2Data, TocItem, Fb2ImageData, EMPTY_FB2_TEMPLATE } from "../types/types";
+import {
+  Fb2Metadata,
+  Fb2Data,
+  TocItem,
+  Fb2ImageData,
+  EMPTY_FB2_TEMPLATE,
+} from "../types/types";
 import { ToastHandle } from "@/components/ui/Toast";
 import { photino } from "@/api/photino";
 import { NodeSelection } from "@tiptap/pm/state";
-import { EditorState } from '@tiptap/pm/state'
-import { ConfirmHandle } from '@/components/ui/ConfirmDialog';
+import { EditorState } from "@tiptap/pm/state";
+import { ConfirmHandle } from "@/components/ui/ConfirmDialog";
 import { findParentNodeByType, getFileName } from "@/utils/utils";
+import { Node as ProsemirrorNode } from "@tiptap/pm/model";
 
-export function useEditorManager(toastRef: React.RefObject<ToastHandle | null>, confirmRef: React.RefObject<ConfirmHandle | null>) {
+export function useEditorManager(
+  toastRef: React.RefObject<ToastHandle | null>,
+  confirmRef: React.RefObject<ConfirmHandle | null>,
+) {
   // --- РЕФЫ И СОСТОЯНИЕ ---
   const footnotesRef = useRef<Record<string, any>>({});
-  const setActiveNoteRef = useRef<(note: any) => void>(() => { });
+  const setActiveNoteRef = useRef<(note: any) => void>(() => {});
 
-  const [metadata, setMetadata] = useState<Fb2Metadata | null>(EMPTY_FB2_TEMPLATE.Meta);
-  const [savedMeta, setSavedMeta] = useState(JSON.stringify(EMPTY_FB2_TEMPLATE.Meta)); // Эталон в виде строки
+  const [metadata, setMetadata] = useState<Fb2Metadata | null>(
+    EMPTY_FB2_TEMPLATE.Meta,
+  );
+  const [savedMeta, setSavedMeta] = useState(
+    JSON.stringify(EMPTY_FB2_TEMPLATE.Meta),
+  ); // Эталон в виде строки
 
   const [isLoading, setIsLoading] = useState(false);
   const [loadingFileName, setLoadingFileName] = useState("");
-  const [currentFilePath, setCurrentFilePath] = useState<string>(EMPTY_FB2_TEMPLATE.FilePath);
+  const [currentFilePath, setCurrentFilePath] = useState<string>(
+    EMPTY_FB2_TEMPLATE.FilePath,
+  );
   const [isDirty, setIsDirty] = useState(false);
-  const [loaderConfig, setLoaderConfig] = useState<{ title?: string; subtitle?: string } | null>(null);
-
+  const [loaderConfig, setLoaderConfig] = useState<{
+    title?: string;
+    subtitle?: string;
+  } | null>(null);
 
   // 1. Сначала инициализируем Редактор (ему больше не нужны actions)
   const fb2 = useFB2Editor(footnotesRef, setActiveNoteRef);
@@ -31,125 +49,141 @@ export function useEditorManager(toastRef: React.RefObject<ToastHandle | null>, 
   // 2. Инициализируем Сноски
   const notes = useFootnotes(fb2.editor, footnotesRef, setActiveNoteRef);
 
-
   // --- ОБРАБОТЧИКИ СОБЫТИЙ (Incoming) ---
 
-  const onFb2Content = useCallback((payload: string) => {
+  const onFb2Content = useCallback(
+    (payload: string) => {
+      const data = typeof payload === "string" ? JSON.parse(payload) : payload;
+      if (!fb2.editor || !data) return;
 
-    const data = typeof payload === "string" ? JSON.parse(payload) : payload;
-    if (!fb2.editor || !data) return;
+      setMetadata(data.Meta || {});
+      setSavedMeta(JSON.stringify(data.Meta || {}));
 
-    setMetadata(data.Meta || {});
-    setSavedMeta(JSON.stringify(data.Meta || {}));
-
-    if (data.Footnotes) {
-      notes.setFootnotes(data.Footnotes);
-      if (footnotesRef.current) footnotesRef.current = data.Footnotes;
-    } else {
-      notes.setFootnotes({});
-    }
-
-    if (data.EditorContent) {
-      fb2.editor.commands.setContent(data.EditorContent);
-
-      // Очищаем историю (сбрасываем стеки undo/redo)
-      clearHistory();
-    }
-
-    if (data.FilePath) {
-      setCurrentFilePath(data.FilePath);
-    }
-    setLoadingFileName("");
-    setIsDirty(false);
-    setIsLoading(false);
-    setLoaderConfig(null);
-  }, [fb2.editor, notes]);
-
-  const onImageSelected = useCallback((payload: string) => {
-    const imageData = typeof payload === 'string' ? JSON.parse(payload) : payload;
-    const chain = fb2.editor.chain().focus();
-
-    if (imageData.display === 'block') {
-
-      // Вставляем как блочный узел
-      chain.insertContent({
-        type: 'fb2BlockImage',
-        attrs: { src: imageData.data, href: imageData.href }
-      })
-        .focus()
-        .run();
-    }
-    else if (imageData.display === 'inline') {
-      // Вставляем как строчный узел
-      chain.focus().insertContent({
-        type: 'fb2InlineImage',
-        attrs: { src: imageData.data, href: imageData.href }
-      })
-        .focus()
-        .run();
-
-    }
-    else if (imageData.display === 'section') {
-      const { state } = fb2.editor;
-
-      let sectionNode = null;
-      let sectionPos = -1;
-
-      // 1. Проверяем: выделена ли сама секция?
-      if (
-        state.selection instanceof NodeSelection &&
-        (state.selection.node.type.name === "fb2Section" || state.selection.node.type.name === "fb2BodySection")
-      ) {
-        sectionPos = state.selection.from;
-        sectionNode = state.selection.node;
-      }
-      // 2. Если нет — ищем родительскую секцию вверх по дереву
-      else {
-        // 1. Ищем ближайшего подходящего родителя вверх по дереву
-        ({ node: sectionNode, pos: sectionPos } = findParentNodeByType(state.selection, ["fb2BodySection", "fb2Section"]));
+      if (data.Footnotes) {
+        notes.setFootnotes(data.Footnotes);
+        if (footnotesRef.current) footnotesRef.current = data.Footnotes;
+      } else {
+        notes.setFootnotes({});
       }
 
-      if (!sectionNode) return;
+      if (data.EditorContent) {
+        fb2.editor.commands.setContent(data.EditorContent);
 
-      // 2. Определяем позицию вставки внутри найденной секции
-      let insertRelativePos = 0;
+        // Очищаем историю (сбрасываем стеки undo/redo)
+        clearHistory();
+      }
 
-      // Находим индекс первого узла, который не является Title или Epigraph
-      sectionNode.forEach((child, offset) => {
-        if (child.type.name === "fb2Title" || child.type.name === "fb2Epigraph") {
-          insertRelativePos = offset + child.nodeSize;
+      if (data.FilePath) {
+        setCurrentFilePath(data.FilePath);
+      }
+      setLoadingFileName("");
+      setIsDirty(false);
+      setIsLoading(false);
+      setLoaderConfig(null);
+    },
+    [fb2.editor, notes],
+  );
+
+  const onImageSelected = useCallback(
+    (payload: string) => {
+      const imageData =
+        typeof payload === "string" ? JSON.parse(payload) : payload;
+      const chain = fb2.editor.chain().focus();
+
+      if (imageData.display === "block") {
+        // Вставляем как блочный узел
+        chain
+          .insertContent({
+            type: "fb2BlockImage",
+            attrs: { src: imageData.data, href: imageData.href },
+          })
+          .focus()
+          .run();
+      } else if (imageData.display === "inline") {
+        // Вставляем как строчный узел
+        chain
+          .focus()
+          .insertContent({
+            type: "fb2InlineImage",
+            attrs: { src: imageData.data, href: imageData.href },
+          })
+          .focus()
+          .run();
+      } else if (imageData.display === "section") {
+        const { state } = fb2.editor;
+
+        let sectionNode = null;
+        let sectionPos = -1;
+
+        // 1. Проверяем: выделена ли сама секция?
+        if (
+          state.selection instanceof NodeSelection &&
+          (state.selection.node.type.name === "fb2Section" ||
+            state.selection.node.type.name === "fb2BodySection")
+        ) {
+          sectionPos = state.selection.from;
+          sectionNode = state.selection.node;
         }
-      });
+        // 2. Если нет — ищем родительскую секцию вверх по дереву
+        else {
+          // 1. Ищем ближайшего подходящего родителя вверх по дереву
+          ({ node: sectionNode, pos: sectionPos } = findParentNodeByType(
+            state.selection,
+            ["fb2BodySection", "fb2Section"],
+          ));
+        }
 
-      // Специальный случай для BodySection: если там есть плейсхолдер/заглушка в начале
-      if (sectionNode.type.name === "fb2BodySection") {
-        insertRelativePos = Math.max(insertRelativePos, 1);
+        if (!sectionNode) return;
+
+        // 2. Определяем позицию вставки внутри найденной секции
+        let insertRelativePos = 0;
+
+        // Находим индекс первого узла, который не является Title или Epigraph
+        sectionNode.forEach((child: ProsemirrorNode, offset: number) => {
+          if (
+            child.type.name === "fb2Title" ||
+            child.type.name === "fb2Epigraph"
+          ) {
+            insertRelativePos = offset + child.nodeSize;
+          }
+        });
+
+        // Специальный случай для BodySection: если там есть плейсхолдер/заглушка в начале
+        if (sectionNode.type.name === "fb2BodySection") {
+          insertRelativePos = Math.max(insertRelativePos, 1);
+        }
+
+        // Проверяем, что находится по этой позиции
+        const { node: existingNode } =
+          sectionNode.childAfter(insertRelativePos);
+
+        if (existingNode?.type.name === "fb2Blockimage") {
+          toastRef?.current?.show("Изображение уже есть", "error");
+          return;
+        }
+
+        // Выполняем вставку по абсолютной позиции в документе
+        const absoluteInsertPos = sectionPos + 1 + insertRelativePos;
+
+        fb2.editor
+          .chain()
+          .insertContentAt(absoluteInsertPos, {
+            type: "fb2BlockImage",
+            attrs: { src: imageData.data, href: imageData.href },
+          })
+          .focus(absoluteInsertPos + 1)
+          .run();
       }
-
-      // Проверяем, что находится по этой позиции
-      const { node: existingNode } = sectionNode.childAfter(insertRelativePos);
-
-      if (existingNode?.type.name === "fb2Blockimage") {
-        toastRef?.current?.show("Изображение уже есть", "error");
-        return;
-      }
-
-      // Выполняем вставку по абсолютной позиции в документе
-      const absoluteInsertPos = sectionPos + 1 + insertRelativePos;
-
-      fb2.editor.chain()
-        .insertContentAt(absoluteInsertPos, {
-          type: "fb2BlockImage",
-          attrs: { src: imageData.data, href: imageData.href }
-        })
-        .focus(absoluteInsertPos + 1)
-        .run();
-    }
-  }, [fb2.editor, toastRef]);
+    },
+    [fb2.editor, toastRef],
+  );
 
   const onStartLoading = useCallback((name: string) => {
     setIsLoading(true);
-    setLoaderConfig({ title: "Загрузка книги", subtitle: "Парсинг XML и извлечение Binary" });
+    setLoaderConfig({
+      title: "Загрузка книги",
+      subtitle: "Парсинг XML и извлечение Binary",
+    });
     setLoadingFileName(name || "Загрузка...");
   }, []);
 
@@ -182,15 +216,24 @@ export function useEditorManager(toastRef: React.RefObject<ToastHandle | null>, 
   }, []);
 
   // Регистрация событий Photino
-  const eventHandlers = useMemo(() => ({
-    "fb2-content": onFb2Content,
-    "image-selected": onImageSelected,
-    "start-loading": onStartLoading,
-    "cancel-loading": onCancelLoading,
-    "start-saving": onStartSaving,
-    "save-success": onSaveSuccess,
-    "error": onError,
-  }), [onFb2Content, onImageSelected, onStartLoading, onCancelLoading, onSaveSuccess]);
+  const eventHandlers = useMemo(
+    () => ({
+      "fb2-content": onFb2Content,
+      "image-selected": onImageSelected,
+      "start-loading": onStartLoading,
+      "cancel-loading": onCancelLoading,
+      "start-saving": onStartSaving,
+      "save-success": onSaveSuccess,
+      error: onError,
+    }),
+    [
+      onFb2Content,
+      onImageSelected,
+      onStartLoading,
+      onCancelLoading,
+      onSaveSuccess,
+    ],
+  );
 
   usePhotinoEvents(eventHandlers);
 
@@ -203,14 +246,16 @@ export function useEditorManager(toastRef: React.RefObject<ToastHandle | null>, 
       setIsDirty(fb2.editor.can().undo());
     };
 
-    fb2.editor.on('update', updateDirty);
-    return () => { fb2.editor.off('update', updateDirty); };
+    fb2.editor.on("update", updateDirty);
+    return () => {
+      fb2.editor.off("update", updateDirty);
+    };
   }, [fb2.editor]); // Зависим только от экземпляра редактора
 
   // --- МЕТОДЫ ДЕЙСТВИЙ (Outgoing) ---
   // Очистка истории UndoRedo
   const clearHistory = useCallback(() => {
-    const { view, state } = fb2.editor
+    const { view, state } = fb2.editor;
 
     // Создаем новое состояние, сохраняя текущий документ, выделение и плагины.
     // Это инициализирует плагины (включая UndoRedo) с нуля.
@@ -219,27 +264,33 @@ export function useEditorManager(toastRef: React.RefObject<ToastHandle | null>, 
       plugins: state.plugins,
       selection: state.selection,
       storedMarks: state.storedMarks,
-    })
+    });
 
     // Обновляем состояние в представлении
-    view.updateState(newState)
+    view.updateState(newState);
   }, [fb2.editor]);
 
   // Сохранение книги в файл
-  const saveFile = useCallback((saveAs: boolean = false) => {
-    if (!fb2.editor || isLoading) return;
+  const saveFile = useCallback(
+    (saveAs: boolean = false) => {
+      if (!fb2.editor || isLoading) return;
 
-    setLoaderConfig({ title: "Сохранение...", subtitle: "Выбор файла" });
-    setIsLoading(true);
+      setLoaderConfig({ title: "Сохранение...", subtitle: "Выбор файла" });
+      setIsLoading(true);
 
-    const actualFootnotes = notes.cleanupOrphanNotes();
-    photino.send("save-file", {
-      content: fb2.editor.getJSON(),
-      footnotes: actualFootnotes,
-      metadata: metadata,
-      FilePath: saveAs ? "" : currentFilePath,
-    });
-  }, [fb2.editor, isLoading, metadata, notes]);
+      const actualFootnotes = notes.cleanupOrphanNotes();
+      const payload = {
+        content: fb2.editor.getJSON(),
+        footnotes: actualFootnotes,
+        metadata: metadata,
+        FilePath: saveAs ? "" : currentFilePath,
+      };
+
+      // Сериализуем в строку перед отправкой
+      photino.send("save-file", JSON.stringify(payload));
+    },
+    [fb2.editor, isLoading, metadata, notes],
+  );
 
   const openFile = useCallback(async () => {
     if (isLoading) return;
@@ -248,7 +299,7 @@ export function useEditorManager(toastRef: React.RefObject<ToastHandle | null>, 
       const confirmed = await confirmRef?.current?.ask(
         "Несохраненные изменения",
         "У вас есть несохраненные изменения. Продолжить без сохранения?",
-        "danger"
+        "danger",
       );
 
       // 2. Если пользователь нажал "Отмена" или закрыл окно — прерываем выполнение
@@ -262,29 +313,32 @@ export function useEditorManager(toastRef: React.RefObject<ToastHandle | null>, 
     photino.send("open-file", { action: "select_new" });
   }, [isLoading, isDirty, photino, confirmRef, loaderConfig]);
 
-  const selectImage = useCallback((type: 'block' | 'inline' | 'section' = 'block') => {
-    // Отправляем объект с данными, чтобы бэкенд знал, какой тип вставки использовать
-    photino.send("select-image", { type });
-  }, []);
+  const selectImage = useCallback(
+    (type: "block" | "inline" | "section" = "block") => {
+      // Отправляем объект с данными, чтобы бэкенд знал, какой тип вставки использовать
+      photino.send("select-image", { type });
+    },
+    [],
+  );
 
   const addLink = useCallback(() => {
     if (!fb2.editor) return;
     const { empty } = fb2.editor.state.selection;
     if (empty) return;
 
-    // Устанавливаем "пустую" ссылку. 
+    // Устанавливаем "пустую" ссылку.
     // Это активирует марку link, и BubbleMenu тут же всплывет для ввода URL.
-    fb2.editor.chain()
-      .extendMarkRange('link') // Чтобы не плодить вложенные ссылки
+    fb2.editor
+      .chain()
+      .extendMarkRange("link") // Чтобы не плодить вложенные ссылки
       .setLink({
-        href: '', // Пустое значение, чтобы заполнил пользователь в BubbleMenu
+        href: "", // Пустое значение, чтобы заполнил пользователь в BubbleMenu
         target: null,
-        rel: 'noopener noreferrer'
+        rel: "noopener noreferrer",
       })
       .run();
-    window.dispatchEvent(new CustomEvent('fb2-force-link-focus'));
+    window.dispatchEvent(new CustomEvent("fb2-force-link-focus"));
   }, [fb2.editor, photino]);
-
 
   const createNewFile = useCallback(async () => {
     // 1. Спрашиваем подтверждение, если есть несохраненные изменения
@@ -293,7 +347,7 @@ export function useEditorManager(toastRef: React.RefObject<ToastHandle | null>, 
       const confirmed = await confirmRef?.current?.ask(
         "Несохраненные изменения",
         "У вас есть несохраненные изменения. Продолжить без сохранения?",
-        "danger" // или 'default'
+        "danger", // или 'default'
       );
 
       // Если пользователь нажал "Отмена", прерываем выполнение

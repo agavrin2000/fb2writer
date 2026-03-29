@@ -46,4 +46,14 @@ export const useTOC = () => {
       if ((debouncedSetToc as any).cancel) (debouncedSetToc as any).cancel();
     };
   }, [debouncedSetToc]);
+
+  return {
+    tocTree,
+    setTocTree,
+    activeHeadingPos,
+    setActiveHeadingPos,
+    flatNodesRef,
+    updateActiveHeading,
+    debouncedSetToc,
+  };
 };

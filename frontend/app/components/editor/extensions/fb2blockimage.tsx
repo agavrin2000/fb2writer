@@ -39,12 +39,10 @@ export const Fb2BlockImage = Image.extend({
         () =>
         ({ state }: CommandProps) => {
           const { $from } = state.selection;
-            console.log("Node name:",state.selection)
 
           for (let d = $from.depth; d > 0; d--) {
             const node = $from.node(d);
             const nodeName = node.type.name;
-            console.log("Node name:",nodeName)
             if (FORBIDDEN_FB2_IMAGE_PARENTS.includes(nodeName)) return false;
             else if (nodeName === "fb2Section" || nodeName === "fb2BodySection")
               return true;

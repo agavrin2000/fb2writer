@@ -3,11 +3,13 @@ using System.Text;
 using Newtonsoft.Json;
 using System.IO.Compression;
 using System.Xml.Schema;
+using Newtonsoft.Json.Linq;
 
 namespace FB2Editor.Services;
 
 public class Fb2Service
 {
+
     private readonly Dictionary<string, string> _binaryCache = [];
     private XNamespace ns = "http://www.gribuser.ru/xml/fictionbook/2.0";
     private readonly XNamespace xlink = "http://www.w3.org/1999/xlink";
@@ -403,7 +405,7 @@ public class Fb2Service
                     string base64 = GetImage(hrefAttr.Value);
                     if (!string.IsNullOrEmpty(base64))
                     {
-                        nodes.Add(new { type = "fb2BlockImage", attrs = new { src = base64, title = el.Attribute(ns + "title")?.Value, id = el.Attribute(ns + "id")?.Value, href=hrefAttr.Value } });
+                        nodes.Add(new { type = "fb2BlockImage", attrs = new { src = base64, title = el.Attribute(ns + "title")?.Value, id = el.Attribute(ns + "id")?.Value, href = hrefAttr.Value } });
                     }
                 }
             }
@@ -445,7 +447,7 @@ public class Fb2Service
                     string base64 = GetImage(hrefAttr.Value);
                     if (!string.IsNullOrEmpty(base64))
                     {
-                        container.Add(new { type = "fb2InlineImage", attrs = new { src = base64 }, display = "inline", href=hrefAttr.Value });
+                        container.Add(new { type = "fb2InlineImage", attrs = new { src = base64 }, display = "inline", href = hrefAttr.Value });
                     }
                 }
                 return; // Изображения не имеют вложенных узлов в FB2
@@ -479,101 +481,163 @@ public class Fb2Service
             }
         }
     }
+    /// <summary>
+    /// Convert json to FB2-content
+    /// </summary>
+    /// <param name="stream"></param>
+    /// <param name="fileName"></param>
+    /// <param name="jsonContent"></param>
+    public void SaveJsonToFb2(Stream outputStream, string fileName, string jsonContent)
+    {
+        // 1. Используем StringReader и JsonTextReader для потоковой обработки
+        using var sr = new StringReader(jsonContent);
+        using var reader = new JsonTextReader(sr);
 
-    public void SaveJsonToFb2(Stream outputStream, string fileName, string jsonPayload)
-    {/*
-        // 1. Десериализуем данные из React
-        dynamic? data = JsonConvert.DeserializeObject(jsonPayload);
-        if (data == null)
+        // 2. Читаем JSON как JToken (это быстрее и безопаснее JObject.Parse для строк)
+        var data = JToken.ReadFrom(reader);
+
+        // Если данные пришли как строка внутри строки (двойная сериализация), парсим еще раз
+        if (data.Type == JTokenType.String)
         {
-            return;
+            using var innerSr = new StringReader(data.ToString());
+            using var innerReader = new JsonTextReader(innerSr);
+            data = JToken.ReadFrom(innerReader);
         }
 
-        // Определение пространств имен (стандарт FB2)
-        XNamespace ns = "http://www.gribuser.ru";
-        XNamespace xlink = "http://www.w3.org";
+        var content = data["content"];
+        var metadata = data["metadata"];
+        var footnotes = data["footnotes"] as JObject;
 
-        // Список для хранения бинарных данных (картинок)
-        var binaryElements = new List<XElement>();
-        int imgCounter = 1;
-
-        // 2. Формируем тело книги (body -> section)
-        var sectionElement = new XElement(ns + "section");
-
-        if (data.EditorContent?.content != null)
-        {
-            foreach (var node in data.EditorContent.content)
-            {
-                string type = node.type;
-
-                if (type == "paragraph")
-                {
-                    string text = node.content?[0]?.text ?? "";
-                    sectionElement.Add(new XElement(ns + "p", text));
-                }
-                else if (type == "heading")
-                {
-                    string text = node.content?[0]?.text ?? "";
-                    sectionElement.Add(new XElement(ns + "title", new XElement(ns + "p", text)));
-                }
-                else if (type == "image")
-                {
-                    // Извлекаем Base64 из data-url (например, data:image/jpeg;base64,xxxx)
-                    string src = (string)node.attrs.src;
-                    if (src.Contains("base64,"))
-                    {
-                        string base64Data = src.Split(["base64,"], StringSplitOptions.None)[1];
-                        string imgId = $"img_{imgCounter++}.jpg";
-
-                        // Добавляем ссылку на картинку в текст
-                        sectionElement.Add(new XElement(ns + "image", new XAttribute(xlink + "href", "#" + imgId)));
-
-                        // Добавляем сами данные в список binary
-                        binaryElements.Add(new XElement(ns + "binary",
-                            new XAttribute("id", imgId),
-                            new XAttribute("content-type", "image/jpeg"),
-                            
-                            base64Data
-                        ));
-                    }
-                }
-            }
-        }
-
-        // 3. Собираем финальный документ
-        var doc = new XDocument(
+        // 3. Формируем XML
+        XDocument doc = new XDocument(
             new XDeclaration("1.0", "utf-8", null),
             new XElement(ns + "FictionBook",
-                new XAttribute(XNamespace.Xmlns + "xlink", xlink.NamespaceName), // Регистрируем xlink
-                new XElement(ns + "description",
-                    new XElement(ns + "title-info",
-                        new XElement(ns + "book-title", (string)data.Meta.Title),
-                        new XElement(ns + "author",
-                            new XElement(ns + "last-name", (string)data.Meta.Author)
-                        )
-                    )
-                ),
-                new XElement(ns + "body", sectionElement),
-                binaryElements // Секции <binary> идут строго в конце
+                new XAttribute(XNamespace.Xml + "lang", "ru"),
+                BuildDescription(metadata),
+                BuildBody(content, "main"),
+                footnotes != null ? BuildNotesBody(footnotes) : null
             )
         );
 
-        if (fileName.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
+        // 4. Сохраняем напрямую в выходной поток
+        using var writer = new StreamWriter(outputStream, System.Text.Encoding.UTF8);
+        doc.Save(writer);
+    }
+
+    private XElement BuildDescription(JToken? meta)
+    {
+        // 1. title-info
+        var titleInfoNode = meta?["TitleInfo"];
+        var titleInfo = new XElement(ns + "title-info");
+
+        // Жанры (массив)
+        foreach (var g in titleInfoNode?["Genres"] ?? new JArray("prose"))
+            titleInfo.Add(new XElement(ns + "genre", g.ToString()));
+
+        // Авторы (массив объектов)
+        foreach (var a in titleInfoNode?["Authors"] ?? new JArray())
         {
-            using var archive = new ZipArchive(outputStream, ZipArchiveMode.Create, leaveOpen: true);
-            // Берем имя, которое ввел пользователь (например, "WarAndPeace.zip")
-            // и меняем его на "WarAndPeace.fb2" для файла ВНУТРИ архива
-            string internalFileName = Path.GetFileNameWithoutExtension(fileName) + ".fb2";
-
-            var entry = archive.CreateEntry(internalFileName, CompressionLevel.Optimal);
-
-            using var entryStream = entry.Open();
-            doc.Save(entryStream);
+            titleInfo.Add(new XElement(ns + "author",
+                new XElement(ns + "first-name", a["FirstName"]?.ToString() ?? ""),
+                new XElement(ns + "middle-name", a["MiddleName"]?.ToString() ?? ""),
+                new XElement(ns + "last-name", a["LastName"]?.ToString() ?? "")
+            ));
         }
-        else
+
+        titleInfo.Add(new XElement(ns + "book-title", titleInfoNode?["BookTitle"]?.ToString() ?? "Без названия"));
+
+        if (titleInfoNode?["annotation"] != null)
+            titleInfo.Add(new XElement(ns + "annotation", new XElement(ns + "p", titleInfoNode["Annotation"].ToString())));
+
+        titleInfo.Add(new XElement(ns + "lang", titleInfoNode?["Lang"]?.ToString() ?? "ru"));
+
+        // 2. document-info
+        var docInfoNode = meta?["document-info"];
+        var docInfo = new XElement(ns + "document-info",
+            new XElement(ns + "author", new XElement(ns + "nickname", docInfoNode?["author"]?["nickname"]?.ToString() ?? "FB2-Editor")),
+            new XElement(ns + "program-used", "Photino-Editor"),
+            new XElement(ns + "date", DateTime.Now.ToString("yyyy-MM-dd")),
+            new XElement(ns + "id", docInfoNode?["id"]?.ToString() ?? Guid.NewGuid().ToString()),
+            new XElement(ns + "version", docInfoNode?["version"]?.ToString() ?? "1.0")
+        );
+
+        // 3. publish-info (опционально)
+        XElement? publishInfo = null;
+        if (meta?["publish-info"] != null)
         {
-            // Обычное сохранение в .fb2
-            doc.Save(outputStream);
-        }*/
+            var p = meta["publish-info"];
+            publishInfo = new XElement(ns + "publish-info",
+                new XElement(ns + "book-name", p["book-name"]?.ToString()),
+                new XElement(ns + "publisher", p["publisher"]?.ToString()),
+                new XElement(ns + "city", p["city"]?.ToString()),
+                new XElement(ns + "year", p["year"]?.ToString())
+            );
+        }
+
+        return new XElement(ns + "description", titleInfo, docInfo, publishInfo);
+    }
+
+
+    private XElement BuildBody(JToken? content, string name)
+    {
+        var body = new XElement(ns + "body");
+        if (name != "main") body.Add(new XAttribute("name", name));
+
+        if (content?["content"] is JArray nodes)
+        {
+            foreach (var node in nodes)
+            {
+                body.Add(ConvertNode(node));
+            }
+        }
+        return body;
+    }
+
+    private XObject ConvertNode(JToken node)
+    {
+        string type = node["type"]?.ToString() ?? "";
+
+        // Вместо null используем пустой массив, чтобы удовлетворить XElement
+        var children = node["content"] is JArray childNodes
+            ? childNodes.Select(ConvertNode).ToArray()
+            : Array.Empty<object>(); // Исправлено здесь
+
+        return type switch
+        {
+            "fb2Section" => new XElement(ns + "section", children),
+            "fb2Title" => new XElement(ns + "title", children),
+            "paragraph" => new XElement(ns + "p", GetText(node)),
+            "fb2Poem" => new XElement(ns + "poem", children),
+            "fb2Stanza" => new XElement(ns + "stanza", children),
+            "fb2V" => new XElement(ns + "v", GetText(node)),
+            "fb2Cite" => new XElement(ns + "cite", children),
+            "fb2Epigraph" => new XElement(ns + "epigraph", children),
+            "fb2TextAuthor" => new XElement(ns + "text-author", GetText(node)),
+            "text" => new XText(node["text"]?.ToString() ?? ""),
+            _ => new XComment($"Unknown type: {type}")
+        };
+    }
+    private string GetText(JToken node)
+    {
+        // Собираем весь текст из вложенных элементов типа 'text'
+        return string.Join("", node.SelectTokens("..[?(@.type == 'text')].text"));
+    }
+
+    private XElement BuildNotesBody(JObject footnotes)
+    {
+        var notesBody = new XElement(ns + "body", new XAttribute("name", "notes"));
+
+        foreach (var property in footnotes.Properties())
+        {
+            string id = property.Name;
+            string text = property.Value.ToString();
+
+            notesBody.Add(new XElement(ns + "section",
+                new XAttribute("id", id),
+                new XElement(ns + "title", new XElement(ns + "p", id)),
+                new XElement(ns + "p", text)
+            ));
+        }
+        return notesBody;
     }
 }

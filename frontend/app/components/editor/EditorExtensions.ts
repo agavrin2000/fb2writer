@@ -1,3 +1,4 @@
+import { mergeAttributes } from "@tiptap/core";
 import StarterKit from "@tiptap/starter-kit";
 import Superscript from "@tiptap/extension-superscript";
 import Subscript from "@tiptap/extension-subscript";
@@ -18,12 +19,11 @@ import { Fb2BlockImage } from "./extensions/fb2blockimage";
 import { Fb2InlineImage } from "./extensions/fb2inlineimage";
 import { Fb2Placeholder } from "./extensions/fb2placeholder";
 import { Fb2Annotation } from "./extensions/fb2annotation";
-import { mergeAttributes } from "@tiptap/core";
 
 export const EditorExtensions = [
   StarterKit.configure({
     gapcursor: false,
-    link:false,
+    link: false,
     // Заголовки разных уровней
     heading: { levels: [1, 2, 3, 4] },
     // Настройка цитат
