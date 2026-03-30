@@ -43,12 +43,32 @@ class PhotinoBridge extends EventEmitter {
 
   private handleMessage(data: any) {
     try {
-      // Photino/WebView2 может прислать как строку, так и готовый объект
-      const message: PhotinoEvent =
-        typeof data === "string" ? JSON.parse(data) : data;
-      this.emit(message.type, message.payload);
+      // 1. Если это уже объект (Photino часто делает JSON.parse за тебя), используем его
+      // 2. Если это строка, парсим один раз
+      let message: PhotinoEvent;
+
+      if (typeof data === "object" && data !== null) {
+        message = data as PhotinoEvent;
+      } else if (typeof data === "string") {
+        // Проверяем, не пустая ли строка, прежде чем парсить
+        const trimmed = data.trim();
+        if (trimmed.startsWith("{") || trimmed.startsWith("[")) {
+          message = JSON.parse(trimmed);
+        } else {
+          // Это просто строка, а не JSON-объект
+          console.warn("Получена строка, которая не является JSON:", data);
+          return;
+        }
+      } else {
+        return;
+      }
+
+      // Эмитим событие, если у нас есть тип
+      if (message && message.type) {
+        this.emit(message.type, message.payload);
+      }
     } catch (e) {
-      console.warn("Не удалось распарсить сообщение:", data);
+      console.error("Ошибка парсинга Photino:", e, "Данные:", data);
     }
   }
 

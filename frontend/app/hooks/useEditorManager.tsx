@@ -199,15 +199,22 @@ export function useEditorManager(
     setLoadingFileName("");
   }, []);
 
-  const onSaveSuccess = useCallback(() => {
-    setSavedMeta(JSON.stringify(metadata)); // Теперь текущие мета — это эталон
-    clearHistory();
-    setIsLoading(false);
-    setLoaderConfig(null);
+  const onSaveSuccess = useCallback(
+    (payload: any) => {
+      // payload уже содержит "book.fb2", парсить его не нужно
+      const newFileName = payload;
 
-    toastRef?.current?.show("Изменения сохранены", "success");
-    setIsDirty(false);
-  }, []);
+      setSavedMeta(JSON.stringify(metadata));
+      clearHistory();
+      setIsLoading(false);
+      setLoaderConfig(null);
+      setLoadingFileName(newFileName);
+
+      toastRef?.current?.show("Изменения сохранены", "success");
+      setIsDirty(false);
+    },
+    [metadata],
+  );
 
   const onError = useCallback((message: string) => {
     setIsLoading(false);
@@ -231,6 +238,7 @@ export function useEditorManager(
       onImageSelected,
       onStartLoading,
       onCancelLoading,
+      onStartSaving,
       onSaveSuccess,
     ],
   );

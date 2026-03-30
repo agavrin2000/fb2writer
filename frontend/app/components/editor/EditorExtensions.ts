@@ -19,6 +19,14 @@ import { Fb2BlockImage } from "./extensions/fb2blockimage";
 import { Fb2InlineImage } from "./extensions/fb2inlineimage";
 import { Fb2Placeholder } from "./extensions/fb2placeholder";
 import { Fb2Annotation } from "./extensions/fb2annotation";
+//import Document from "@tiptap/extension-document";
+
+/*const CustomDocument = Document.extend({
+  // Этот хак заставляет ProseMirror думать, что нам не нужны trailing breaks
+  renderHTML() {
+    return ["div", 0];
+  },
+});*/
 
 export const EditorExtensions = [
   StarterKit.configure({
@@ -40,6 +48,7 @@ export const EditorExtensions = [
     },
     //link: false,
   }),
+  //CustomDocument,
   Superscript, // Верхний индекс <sup>
   Subscript, // Нижний индекс <sub>
   Link.extend({
