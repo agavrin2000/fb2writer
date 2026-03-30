@@ -12,8 +12,8 @@ export interface Fb2Person {
 
 // Интерфейс для серий
 export interface Fb2Sequence {
-  name: string;
-  number: number;
+  Name: string;
+  Number: number;
 }
 
 // Общие поля для TitleInfo и SrcTitleInfo
