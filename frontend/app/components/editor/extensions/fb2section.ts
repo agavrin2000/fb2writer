@@ -1,4 +1,4 @@
-import { Node, mergeAttributes } from "@tiptap/core";
+import { Node } from "@tiptap/core";
 
 export const Fb2Section = Node.create({
   name: "fb2Section",
@@ -11,11 +11,6 @@ export const Fb2Section = Node.create({
   addAttributes() {
     return {
       level: { default: 2 },
-      elementId: {
-        default: null,
-        parseHTML: (element) => element.getAttribute("elementId"),
-        renderHTML: (attributes) => ({ elementId: attributes.elementId }),
-      },
       sectionId: {
         default: null,
         // Убираем здесь renderHTML, чтобы Tiptap не вешал id на внешний div

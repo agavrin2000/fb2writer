@@ -23,7 +23,7 @@ export function useEditorManager(
 ) {
   // --- РЕФЫ И СОСТОЯНИЕ ---
   const footnotesRef = useRef<Record<string, any>>({});
-  const setActiveNoteRef = useRef<(note: any) => void>(() => {});
+  const setActiveNoteRef = useRef<(note: any) => void>(() => { });
 
   const [metadata, setMetadata] = useState<Fb2Metadata | null>(
     EMPTY_FB2_TEMPLATE.Meta,
@@ -50,27 +50,38 @@ export function useEditorManager(
   const notes = useFootnotes(fb2.editor, footnotesRef, setActiveNoteRef);
 
   // --- ОБРАБОТЧИКИ СОБЫТИЙ (Incoming) ---
-
   const onFb2Content = useCallback(
     (payload: string) => {
+/*const debugComparison = (originalJSON, editor) => {
+  const resultJSON = editor.getJSON();
+
+  console.log("--- СРАВНЕНИЕ КОНТЕНТА ---");
+  console.log("Оригинал (JSON):", originalJSON);
+  console.log("В редакторе (JSON):", resultJSON);
+
+  // Простой способ найти отличия в строках
+  const originalStr = JSON.stringify(originalJSON);
+  const resultStr = JSON.stringify(resultJSON);
+
+  if (originalStr !== resultStr) {
+    console.warn("⚠️ ВНИМАНИЕ: Контент изменился при загрузке!");
+    // Здесь можно использовать любую библиотеку diff или просто посмотреть глазами
+  } else {
+    console.log("✅ Контент идентичен.");
+  }
+};
+*/
       const data = typeof payload === "string" ? JSON.parse(payload) : payload;
       if (!fb2.editor || !data) return;
 
       setMetadata(data.Meta || {});
       setSavedMeta(JSON.stringify(data.Meta || {}));
 
-      if (data.Footnotes) {
-        notes.setFootnotes(data.Footnotes);
-        if (footnotesRef.current) footnotesRef.current = data.Footnotes;
-      } else {
-        notes.setFootnotes({});
-      }
-
       if (data.EditorContent) {
+        // 1. Устанавливаем контент без записи в историю
         fb2.editor.commands.setContent(data.EditorContent);
-
-        // Очищаем историю (сбрасываем стеки undo/redo)
         clearHistory();
+        //debugComparison(data.EditorContent, fb2.editor);
       }
 
       if (data.FilePath) {
@@ -244,6 +255,20 @@ export function useEditorManager(
   );
 
   usePhotinoEvents(eventHandlers);
+  // Сбрасываем начальные изменения из-за переформатирования
+  /*useEffect(() => {
+    if (fb2.editor && !fb2.editor.isDestroyed) {
+      // Даем короткую задержку, чтобы плагины закончили авто-правки
+      const timer = setTimeout(() => {
+        clearHistory();
+        setIsDirty(false); // Начальное состояние — не "грязное"
+
+        console.log("Initial undo cleared");
+      }, 100);
+
+      return () => clearTimeout(timer);
+    }
+  }, [fb2.editor]);*/
 
   // Отслеживаем изменения
   useEffect(() => {
@@ -252,6 +277,7 @@ export function useEditorManager(
     const updateDirty = () => {
       // Если есть что отменять (undo) — значит, документ был изменен
       setIsDirty(fb2.editor.can().undo());
+      console.log("IsDirty set true (can undo)")
     };
 
     fb2.editor.on("update", updateDirty);
@@ -286,9 +312,20 @@ export function useEditorManager(
       setLoaderConfig({ title: "Сохранение...", subtitle: "Выбор файла" });
       setIsLoading(true);
 
+      const jsonContent = fb2.editor.getJSON();
+
+      // 1. Проверяем, есть ли вообще контент
+      if (jsonContent.content && jsonContent.content.length > 0) {
+        const lastNode = jsonContent.content[jsonContent.content.length - 1];
+
+        // 2. Если последний узел — параграф БЕЗ контента, удаляем его
+        if (lastNode.type === 'paragraph' && !lastNode.content) {
+          jsonContent.content.pop();
+        }
+      }
       const actualFootnotes = notes.cleanupOrphanNotes();
       const payload = {
-        content: fb2.editor.getJSON(),
+        content: jsonContent,
         footnotes: actualFootnotes,
         metadata: metadata,
         FilePath: saveAs ? "" : currentFilePath,
@@ -315,7 +352,7 @@ export function useEditorManager(
     }
 
     setIsLoading(true);
-    setLoaderConfig({ title: "Загрузка книги", subtitle: "Выьор файла" });
+    setLoaderConfig({ title: "Загрузка книги", subtitle: "Выбор файла" });
     setLoadingFileName("");
 
     photino.send("open-file", { action: "select_new" });
@@ -366,9 +403,12 @@ export function useEditorManager(
 
   const handleMetaChange = (newMeta: any) => {
     setMetadata(newMeta);
+    console.log("Saved meta", savedMeta)
+    console.log("New meta", JSON.stringify(newMeta))
     // Сравниваем текущий объект с эталонной строкой
     if (!isDirty && JSON.stringify(newMeta) !== savedMeta) {
       setIsDirty(true);
+      console.log("IsDirty set to true META")
     }
   };
 

@@ -25,6 +25,7 @@ export const RichTextEditor = ({ content, onChange }: RichTextProps) => {
         ],
         content: safeContent,
         immediatelyRender: false,
+        
         onUpdate: ({ editor }) => onChange(editor.getJSON()),
         editorProps: {
             attributes: {
@@ -36,7 +37,7 @@ export const RichTextEditor = ({ content, onChange }: RichTextProps) => {
 
     React.useEffect(() => {
         if (editor && content && editor.isEmpty) {
-            editor.commands.setContent(content);
+            editor.commands.setContent(safeContent);
         }
     }, [content, editor]);
 

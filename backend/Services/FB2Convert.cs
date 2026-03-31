@@ -10,8 +10,8 @@ namespace FB2Editor.Services;
 public class Fb2Service
 {
 
-    private readonly Dictionary<string, string> _binaryCache = [];
-    private readonly Dictionary<string, (string Base64, string ContentType)> _binarySaveCache = [];
+    private readonly Dictionary<string, (string Base64, string ContentType)> _binaryCache =
+    new(StringComparer.OrdinalIgnoreCase);
 
     private static readonly XNamespace ns = "http://www.gribuser.ru/xml/fictionbook/2.0";
     private static readonly XNamespace xlink = "http://www.w3.org/1999/xlink";
@@ -21,21 +21,30 @@ public class Fb2Service
     // Очищаем Base64 от переносов строк, иначе браузер их не поймет
     private void FillBinaryCache(XDocument doc)
     {
-        _binarySaveCache.Clear();
-        var binaries = doc.Descendants()
-            .Where(x => x.Name.LocalName == "binary");
+        _binaryCache.Clear();
 
-        foreach (var bin in binaries)
+        // 1. Используем явное пространство имен для скорости и точности
+        foreach (var bin in doc.Descendants(ns + "binary"))
         {
-            var id = bin.Attribute("id")?.Value?.TrimStart('#').ToLower();
-            if (string.IsNullOrEmpty(id)) continue;
+            // 2. ID в теге <binary> не должен содержать #. 
+            // Регистр в XML важен, поэтому оставляем как есть.
+            var id = bin.Attribute("id")?.Value?.Trim();
+            if (string.IsNullOrWhiteSpace(id)) continue;
 
             var mime = bin.Attribute("content-type")?.Value ?? "image/jpeg";
-            // Чистим base64 от всех пробельных символов и переносов
-            var base64 = string.Concat(bin.Value.Where(c => !char.IsWhiteSpace(c)));
 
-            //_binaryCache[id] = $"data:{mime};base64,{base64}";
-            _binarySaveCache[id] = (base64, mime);
+            // 3. Оптимизированная очистка Base64. 
+            // string.Concat + Where — это "убийца" производительности на больших фото.
+            // Replace на конкретные символы переноса работает в разы быстрее.
+            var base64 = bin.Value
+                .Replace("\r", "")
+                .Replace("\n", "")
+                .Replace(" ", "")
+                .Replace("\t", "");
+
+            // 4. TryAdd гарантирует, что мы берем ПЕРВЫЙ встреченный объект с таким ID
+            // и не тратим ресурсы на перезапись, если ID дублируются.
+            _binaryCache.TryAdd(id, (base64, mime));
         }
     }
 
@@ -45,11 +54,19 @@ public class Fb2Service
         if (string.IsNullOrWhiteSpace(href))
             return string.Empty;
 
-        var key = href.TrimStart('#').ToLower();
+        // 1. Чистим ключ. Важно: регистр должен совпадать с тем, что в FillBinaryCache!
+        var key = href.Trim().TrimStart('#');
 
-        return _binarySaveCache.TryGetValue(key, out var data)
-            ? $"data:{data.ContentType};base64,{data.Base64}"
-            : string.Empty;
+        // 2. Если в словаре используется OrdinalIgnoreCase, то ToLower не нужен.
+        // Если же словарь чувствителен к регистру, используйте тот же трансформ, что и при заполнении.
+        if (_binaryCache.TryGetValue(key, out var data))
+        {
+            // 3. Используем интерполяцию. 
+            // Если памяти мало, рассмотрите кэширование всей строки dataUri заранее.
+            return $"data:{data.ContentType};base64,{data.Base64}";
+        }
+
+        return string.Empty;
     }
     /// <summary>
     /// загрузка книги и конвертация для передачи во frontend
@@ -80,8 +97,6 @@ public class Fb2Service
         }
 
         ValidateFb2(doc);
-        //ns = doc.Root?.GetDefaultNamespace() ?? XNamespace.None; ;
-        XNamespace xlink = "http://www.w3.org/1999/xlink";
 
         // Локальная функция для парсинга авторов, переводчиков
         var parseAuthor = new Func<XElement, object>(a =>
@@ -90,29 +105,32 @@ public class Fb2Service
             var middle = a.Element(ns + "middle-name")?.Value ?? "";
             var last = a.Element(ns + "last-name")?.Value ?? "";
             var nickname = a.Element(ns + "nickname")?.Value ?? "";
-            var emails = a.Elements(ns + "email").Select(x => x.Value).ToList();
             var homePages = a.Elements(ns + "home-page").Select(x => x.Value).ToList();
-
+            var emails = a.Elements(ns + "email").Select(x => x.Value).ToList();
             return new
             {
                 FirstName = first,
                 LastName = last,
                 MiddleName = middle,
                 Nickname = nickname,
-                Emails = emails,
                 HomePages = homePages,
+                Emails = emails,
             };
         });
 
         // Локальная функция для парсинга структуры узлов
         List<object> ParseNodes(XElement? parent, XName name)
         {
-            var nodes = new List<object>();
-            var target = parent?.Element(name);
-            if (target != null)
-            {
-                ParseElement(target, ns, xlink, [], nodes);
-            }
+            // Ранний выход при отсутствии родителя или если у него нет дочерних элементов
+            if (parent == null || !parent.HasElements)
+                return [];
+
+            var target = parent.Element(name);
+            if (target == null)
+                return []; // Возвращаем пустой список, если целевой элемент не найден
+
+            List<object> nodes = [];
+            ParseElement(target, ns, xlink, [], nodes); // Предполагается, что ns и xlink доступны в контексте
             return nodes;
         }
 
@@ -184,7 +202,7 @@ public class Fb2Service
                 new { type = "fb2Placeholder" }
             };
 
-            ParseElement(body, ns, xlink, _binarySaveCache, bodyContent);
+            ParseElement(body, ns, xlink, _binaryCache, bodyContent);
 
             contentNodes.Add(new
             {
@@ -204,7 +222,7 @@ public class Fb2Service
                     Genres = titleInfo?.Elements().Where(x => x.Name.LocalName == "genre").Select(x => x.Value).ToList() ?? [],
                     Authors = titleInfo?.Elements().Where(x => x.Name.LocalName == "author").Select(parseAuthor).ToList() ?? [],
                     Title = titleInfo?.Element(ns + "book-title")?.Value ?? "Без названия",
-                    Annotation = annotationNodes, // Аннотация возвращается в формате TipTap JSON
+                    Annotation = annotationNodes != null ? new { type = "doc", content = annotationNodes } : null, // Аннотация возвращается в формате TipTap JSON
                     Keywords = titleInfo?.Element(ns + "keywords")?.Value ?? "",
                     Date = titleInfo?.Element(ns + "date")?.Value ?? "",
                     DateValue = titleInfo?.Element(ns + "date")?.Attribute("value")?.Value ?? "",
@@ -223,7 +241,7 @@ public class Fb2Service
                     Genres = srcTitleInfo?.Elements().Where(x => x.Name.LocalName == "genre").Select(x => x.Value).ToList() ?? [],
                     Authors = srcTitleInfo?.Elements().Where(x => x.Name.LocalName == "author").Select(parseAuthor).ToList() ?? [],
                     Title = srcTitleInfo?.Element(ns + "book-title")?.Value,
-                    Annotation = srcTitleInfoAnnotationNodes, // Аннотация возвращается в формате TipTap JSON
+                    Annotation = srcTitleInfoAnnotationNodes != null ? new { type = "doc", content = srcTitleInfoAnnotationNodes } : null,// Аннотация возвращается в формате TipTap JSON
                     Keywords = srcTitleInfo?.Element(ns + "keywords")?.Value,
                     Date = srcTitleInfo?.Element(ns + "date")?.Value,
                     DateValue = srcTitleInfo?.Element(ns + "date")?.Attribute("value")?.Value,
@@ -247,7 +265,7 @@ public class Fb2Service
                     SrcUrl = docInfo?.Element(ns + "src-url")?.Value ?? "",
                     SrcOcr = docInfo?.Element(ns + "src-ocr")?.Value ?? "",
                     Version = docInfo?.Element(ns + "version")?.Value ?? "1.0",
-                    History = historyNodes,
+                    History = historyNodes!= null ? new { type = "doc", content = historyNodes } : null,
                 },
                 PublishInfo = new // Данные об издательстве
                 {
@@ -409,7 +427,7 @@ public class Fb2Service
                     string base64 = GetImage(hrefAttr.Value);
                     if (!string.IsNullOrEmpty(base64))
                     {
-                        nodes.Add(new { type = "fb2BlockImage", attrs = new { src = base64, title = el.Attribute(ns + "title")?.Value, id = el.Attribute(ns + "id")?.Value, href = hrefAttr.Value } });
+                        nodes.Add(new { type = "fb2BlockImage", attrs = new { src = base64, title = el.Attribute(ns + "title")?.Value ?? "", href = hrefAttr.Value } });
                     }
                 }
             }
@@ -417,74 +435,83 @@ public class Fb2Service
     }
 
     // Рекурсивная функция для обработки inline элементов
-    private void ProcessInline(XNode node, List<object> container, List<object> activeMarks)
+  private void ProcessInline(XNode node, List<object> container, List<object> activeMarks)
+{
+    if (node is XText textNode)
     {
-        if (node is XText textNode)
+        string val = textNode.Value;
+        if (!string.IsNullOrWhiteSpace(val)) // Лучше проверять на пробелы тоже
         {
-            string val = textNode.Value;
-            if (!string.IsNullOrEmpty(val))
-            {
-                var textElement = new Dictionary<string, object>
-                {
-                    { "type", "text" },
-                    { "text", val }
-                };
+            var textElement = new Dictionary<string, object>();
+            textElement.Add("type", "text");
 
-                if (activeMarks.Count > 0)
-                {
-                    textElement.Add("marks", activeMarks.ToArray());
-                }
+            // ПОРЯДОК: Сначала добавляем marks, если они есть
+            if (activeMarks.Count > 0)
+            {
+                textElement.Add("marks", activeMarks.ToArray());
+            }
 
-                container.Add(textElement);
-            }
-        }
-        else if (node is XElement el)
-        {
-            string localName = el.Name.LocalName.ToLower();
-            // Обработка изображений как атомарных узлов
-            if (localName == "image")
-            {
+            // Затем добавляем сам текст
+            textElement.Add("text", val);
 
-                var hrefAttr = el.Attribute(xlink + "href");
-                if (hrefAttr != null)
-                {
-                    string base64 = GetImage(hrefAttr.Value);
-                    if (!string.IsNullOrEmpty(base64))
-                    {
-                        container.Add(new { type = "fb2InlineImage", attrs = new { src = base64 }, display = "inline", href = hrefAttr.Value });
-                    }
-                }
-                return; // Изображения не имеют вложенных узлов в FB2
-            }
-            // Маппинг тегов XML на типы марок в TipTap/ProseMirror
-            object? mark = el.Name.LocalName.ToLower() switch
-            {
-                "emphasis" => new { type = "italic" },
-                "strong" => new { type = "bold" },
-                "sub" => new { type = "subscript" },
-                "sup" => new { type = "superscript" },
-                "code" => new { type = "code" },
-                "a" => new
-                {
-                    type = "link",
-                    attrs = new
-                    {
-                        href = el.Attribute(xlink + "href")?.Value ?? "",
-                        rel = (el.Attribute("type")?.Value == "note") ? "footnote" : "noreferrer" // Если это примечание, оставляем footnote, иначе — обычная ссылка
-                    }
-                },
-                _ => null
-            };
-            //            var nextMarks = mark != null ? activeMarks.Concat(new[] { mark }).ToList() : activeMarks;
-            // Если нашли марку — создаем новый список, если нет — используем текущий
-            var nextMarks = mark != null ? [.. activeMarks, mark] : activeMarks;
-            // Идем глубже по дереву
-            foreach (var child in el.Nodes())
-            {
-                ProcessInline(child, container, nextMarks);
-            }
+            container.Add(textElement);
         }
     }
+    else if (node is XElement el)
+    {
+        string localName = el.Name.LocalName.ToLower();
+
+        if (localName == "image")
+        {
+            var hrefAttr = el.Attribute(xlink + "href");
+            if (hrefAttr != null)
+            {
+                string base64 = GetImage(hrefAttr.Value);
+                if (!string.IsNullOrEmpty(base64))
+                {
+                    // В Tiptap атрибуты ДОЛЖНЫ быть внутри объекта attrs
+                    container.Add(new { 
+                        type = "fb2InlineImage", 
+                        attrs = new { 
+                            src = base64,
+                            href = hrefAttr.Value 
+                        } 
+                    });
+                }
+            }
+            return;
+        }
+
+        object? mark = localName switch
+        {
+            "emphasis" => new { type = "italic" },
+            "strong"   => new { type = "bold" },
+            "sub"      => new { type = "subscript" },
+            "sup"      => new { type = "superscript" },
+            "code"     => new { type = "code" },
+            "a"        => new {
+                type = "link",
+                attrs = new {
+                    href = el.Attribute(xlink + "href")?.Value ?? "",
+                    target = "_blank", // Стандарт для ссылок
+                    rel = (el.Attribute("type")?.Value == "note") ? "footnote" : "noreferrer"
+                }
+            },
+            _ => null
+        };
+
+        // Создаем новый список марок для вложенных элементов
+        var nextMarks = mark != null 
+            ? new List<object>(activeMarks) { mark } 
+            : activeMarks;
+
+        foreach (var child in el.Nodes())
+        {
+            ProcessInline(child, container, nextMarks);
+        }
+    }
+}
+
 
 
 
@@ -514,7 +541,7 @@ public class Fb2Service
         var footnotes = data["footnotes"] as JObject;
 
         // Очищаем кэш перед каждой сборкой
-        _binarySaveCache.Clear();
+        _binaryCache.Clear();
 
         // 1. Создаем корневой элемент
         XElement rootElement = new XElement(ns + "FictionBook",
@@ -526,8 +553,8 @@ public class Fb2Service
         );
 
         // 2. ПОСЛЕ того как отработал BuildBody и ConvertNode, 
-        // в _binarySaveCache уже лежат все найденные картинки. Добавляем их.
-        foreach (var item in _binarySaveCache)
+        // в _binaryCache уже лежат все найденные картинки. Добавляем их.
+        foreach (var item in _binaryCache)
         {
             var binaryEl = new XElement(ns + "binary", item.Value.Base64);
             binaryEl.Add(new XAttribute("id", item.Key));
@@ -609,17 +636,30 @@ public class Fb2Service
         AddTo(el, ns + "book-title", node["Title"] ?? node["BookTitle"]); // Обработка разных ключей
         AddRichText(el, ns + "annotation", node["Annotation"]);
 
-        var coverTitle = (name == ns + "title-info") ? "cover.jpg" : "src-cover.jpg";
+        // Обложка
+        var coverId = (name == ns + "title-info") ? "cover.jpg" : "src-cover.jpg";
         var coverNode = node["CoverPage"];
         if (coverNode != null && coverNode.Type != JTokenType.Null)
         {
-            var img = CreateImage(coverNode, coverTitle);
+            // НОРМАЛИЗАЦИЯ: если пришла строка, упаковываем её в объект, который понимает CreateImage
+            JToken finalCoverNode = coverNode;
+            if (coverNode.Type == JTokenType.String)
+            {
+                finalCoverNode = new JObject
+                {
+                    ["attrs"] = new JObject
+                    {
+                        ["src"] = coverNode.ToString(),
+                    }
+                };
+            }
+
+            var img = CreateImage(finalCoverNode, coverId);
             if (img != null)
             {
                 el.Add(new XElement(ns + "coverpage", img));
             }
         }
-
         AddTo(el, ns + "lang", node["Lang"]);
         AddTo(el, ns + "src-lang", node["SrcLang"]);
         AddTo(el, ns + "keywords", node["Keywords"]);
@@ -683,7 +723,6 @@ public class Fb2Service
 
         return body;
     }
-
     private object? ConvertNode(JToken node)
     {
         if (node == null || node.Type == JTokenType.Null) return null;
@@ -697,21 +736,19 @@ public class Fb2Service
 
         // 1. Сначала определяем, были ли в JSON вообще какие-то дети до фильтрации
         var rawChildNodes = node["content"] as JArray;
-        bool hadJsonChildren = rawChildNodes != null && rawChildNodes.Count > 0;
 
         // 2. Собираем отфильтрованные дети (где hardBreak вернет null)
         var children = rawChildNodes != null
-            ? rawChildNodes.Select(ConvertNode).Where(x => x != null).Cast<object>().ToArray()
+            ? rawChildNodes.Select(ConvertNode).Where(x => x != null).ToArray()
             : [];
 
         return type switch
         {
             // "doc" возвращает временный контейнер (XElement)
             "doc" => new XElement("temp", children),
-            "hardBreak" => null,
             "paragraph" => children.Length > 0
                     ? new XElement(ns + "p", children) // Есть полезный контент
-                    : (hadJsonChildren ? null : new XElement(ns + "empty-line")), // Если были дети (br), но отфильтровались — null. Если детей не было вообще — empty-line.
+                    : new XElement(ns + "empty-line"), // Если были дети (br), но отфильтровались — null. Если детей не было вообще — empty-line.
             "text" => WrapTextWithMarks(node), // Возвращает XText или XElement (если есть марки)
 
             "fb2Section" => new XElement(ns + "section", children),
@@ -728,39 +765,37 @@ public class Fb2Service
             "fb2Date" => CreateDate(node),
             "fb2BlockImage" => CreateImage(node),
             "fb2InlineImage" => CreateImage(node),
-            _ => !string.IsNullOrEmpty(type)
-            ? new XComment($"Unknown type: {type}")
-            : null
+            _ => null
+            //            "fb2Placeholder" => null,
+            //            _ => !string.IsNullOrEmpty(type) ? new XComment($"Unknown type: {type}") : null
         };
     }
 
-    private object WrapTextWithMarks(JToken node) // Возвращаем object для гибкости
+    private static object WrapTextWithMarks(JToken node) // Возвращаем object для гибкости
     {
         var textValue = node["text"]?.ToString() ?? "";
-        // Начинаем с обычного текста (string или XText)
+
+        if (node["marks"] is not JArray marks || !marks.Any())
+            return textValue;
+        // ВАЖНО: Начинаем с XNode, чтобы гарантировать корректную работу методов XML
         object result = textValue;
 
-        if (node["marks"] is JArray marks)
+        foreach (var mark in marks)
         {
-            foreach (var mark in marks)
-            {
-                string markType = mark["type"]?.ToString() ?? "";
-                var attrs = mark["attrs"];
+            string markType = mark["type"]?.ToString() ?? "";
+            var attrs = mark["attrs"];
 
-                result = markType switch
-                {
-                    "bold" => new XElement(ns + "strong", result),
-                    "italic" => new XElement(ns + "emphasis", result),
-                    // В FB2 подчеркивание часто делается через стили, если схема поддерживает
-                    "underline" => new XElement(ns + "style", new XAttribute("builtin", "underline"), result),
-                    "strikethrough" => new XElement(ns + "strikethrough", result), // Исправлено имя
-                    "code" => new XElement(ns + "code", result),
-                    "sub" => new XElement(ns + "sub", result),
-                    "sup" => new XElement(ns + "sup", result),
-                    "link" => CreateLinkFromMark(result, attrs),
-                    _ => result
-                };
-            }
+            result = markType switch
+            {
+                "bold" => new XElement(ns + "strong", result),
+                "italic" => new XElement(ns + "emphasis", result),
+                "strikethrough" => new XElement(ns + "strikethrough", result), // Исправлено имя
+                "code" => new XElement(ns + "code", result),
+                "sub" => new XElement(ns + "sub", result),
+                "sup" => new XElement(ns + "sup", result),
+                "link" => CreateLinkFromMark(result, attrs),
+                _ => result
+            };
         }
         return result;
     }
@@ -813,14 +848,13 @@ public class Fb2Service
     private static void AddTo(XContainer parent, XName name, JToken? token)
     {
         var val = token?.ToString();
-        if (!string.IsNullOrWhiteSpace(val))
-            parent.Add(new XElement(name, val));
+        if (!string.IsNullOrWhiteSpace(val)) parent.Add(new XElement(name, val));
     }
 
     // Добавляет один или несколько элементов (если это массив)
     private static void AddMultipleTo(XContainer parent, XName name, JToken? token)
     {
-        if (token == null) return;
+        if (token == null || token.Type == JTokenType.Null) return;
 
         if (token is JArray arr)
         {
@@ -832,174 +866,231 @@ public class Fb2Service
             AddTo(parent, name, token);
         }
     }
+
     // --- УНИВЕРСАЛЬНЫЙ МЕТОД ДЛЯ СЕРИЙ ---
-
-    private static void AddSequences(XContainer parent, XName name, JToken? token)
+    private static void AddSequences(XContainer parent, XName tagName, JToken? token)
     {
-        if (token == null) return;
+        if (token == null || token.Type == JTokenType.Null) return;
 
-        if (token is JArray arr)
+        // Явно указываем тип переменной, а в тернарном операторе приводим к IEnumerable<JToken>
+        IEnumerable<JToken> sequenceNodes = token is JArray arr
+            ? arr.AsEnumerable()
+            : [token];
+
+        foreach (var item in sequenceNodes)
         {
-            foreach (var item in arr)
-                AddSingleSequence(parent, name, item);
-        }
-        else
-        {
-            AddSingleSequence(parent, name, token);
+            // Проверяем, что это объект, прежде чем пытаться извлечь из него Name/Number
+            if (item is JObject)
+            {
+                AddSingleSequence(parent, tagName, item);
+            }
         }
     }
 
-    private static void AddSingleSequence(XContainer parent, XName name, JToken token)
+    private static void AddSingleSequence(XContainer parent, XName name, JToken? token)
     {
-        var seqName = token["Name"]?.ToString();
+        // 1. Защита от Null и пустых объектов
+        if (token == null || token.Type == JTokenType.Null || !token.HasValues)
+            return;
+        // 1. Извлекаем имя — в FB2 это обязательный атрибут для <sequence>
+        var seqName = ((string?)token["Name"])?.Trim();
+
+        // Если имени нет, элемент <sequence> невалиден по схеме FB2
         if (string.IsNullOrWhiteSpace(seqName)) return;
 
+        // 2. Создаем элемент. В FB2 <sequence> НЕ ДОЛЖЕН иметь текстового контента.
         var seqElement = new XElement(name, new XAttribute("name", seqName));
 
-        // Номер серии (опционально)
-        var seqNumber = token["Number"]?.ToString();
-        if (!string.IsNullOrWhiteSpace(seqNumber))
+        // 3. Номер серии (опционально)
+        var rawNumber = token["Number"]?.ToString()?.Trim();
+        if (!string.IsNullOrWhiteSpace(rawNumber) && int.TryParse(rawNumber, out int number))
         {
-            seqElement.Add(new XAttribute("number", seqNumber));
+            seqElement.Add(new XAttribute("number", number));
         }
-
         parent.Add(seqElement);
     }
 
     // --- УНИВЕРСАЛЬНЫЙ МЕТОД ДЛЯ ПЕРСОН ---
-
     private static void AddPersons(XContainer parent, XName tagName, JToken? token)
     {
-        if (token == null) return;
+        if (token == null || token.Type == JTokenType.Null) return;
 
-        // Превращаем в массив, если пришел одиночный объект
-        var persons = token is JArray arr ? arr : new JArray(token);
+        // Безопасное получение списка объектов
+        IEnumerable<JToken> persons = token is JArray arr ? arr.Children() : new[] { token };
 
         foreach (var p in persons)
         {
+            if (p is not JObject obj) continue; // Пропускаем, если это не объект
+
             var personEl = new XElement(tagName);
 
-            AddTo(personEl, ns + "first-name", p["FirstName"]);
-            AddTo(personEl, ns + "middle-name", p["MiddleName"]);
-            AddTo(personEl, ns + "last-name", p["LastName"]);
-            AddTo(personEl, ns + "nickname", p["Nickname"]);
+            // 1. Текстовые поля (в строгом порядке FB2)
+            AddTo(personEl, ns + "first-name", obj["FirstName"]);
+            AddTo(personEl, ns + "middle-name", obj["MiddleName"]);
+            AddTo(personEl, ns + "last-name", obj["LastName"]);
+            AddTo(personEl, ns + "nickname", obj["Nickname"]);
 
-            // Массивы (используем ранее созданный AddMultipleTo)
-            AddMultipleTo(personEl, ns + "email", p["Email"]);
-            AddMultipleTo(personEl, ns + "home-page", p["HomePage"]);
+            // 2. Ссылки и контакты (home-page ОБЯЗАТЕЛЬНО перед email)
+            AddMultipleTo(personEl, ns + "home-page", obj["HomePage"]);
+            AddMultipleTo(personEl, ns + "email", obj["Email"]);
 
-            // Добавляем персону только если в ней есть хоть одно заполненное поле
-            if (personEl.HasElements)
+            // 3. Добавляем только если есть реальный текстовый контент, а не пустые теги
+            if (personEl.Elements().Any(e => !string.IsNullOrWhiteSpace(e.Value)))
+            {
+                // Опционально: добавляем ID если он есть
+                var id = obj["id"]?.ToString();
+                if (!string.IsNullOrWhiteSpace(id)) personEl.Add(new XAttribute("id", id));
+
                 parent.Add(personEl);
+            }
         }
     }
     private static void AddDate(XContainer parent, XName name, JToken? textToken, JToken? valueToken)
     {
-        var dateText = textToken?.ToString();
-        var dateValue = valueToken?.ToString();
+        // Используем явное приведение (string?), оно корректно достает значение из JValue
+        var dateText = (textToken?.Type == JTokenType.String || textToken?.Type == JTokenType.Date)
+            ? textToken.ToString().Trim()
+            : textToken?.ToString().Trim();
 
-        // Если нет ни текста, ни значения для атрибута — ничего не создаем
-        if (string.IsNullOrWhiteSpace(dateText) && string.IsNullOrWhiteSpace(dateValue))
-            return;
+        var dateValue = valueToken?.ToString().Trim();
 
-        // Создаем элемент. Если текста нет, используем значение атрибута как текст
-        var dateEl = new XElement(name, !string.IsNullOrWhiteSpace(dateText) ? dateText : dateValue);
+        bool hasText = !string.IsNullOrWhiteSpace(dateText);
+        bool hasValue = !string.IsNullOrWhiteSpace(dateValue);
 
-        // Добавляем атрибут value, если он есть
+        // 1. Если данных нет совсем — выходим
+        if (!hasText && !hasValue) return;
+
+        // 2. Определяем видимый текст: текст из редактора или, если его нет, техническое значение
+        string content = hasText ? dateText! : dateValue!;
+
+        var dateEl = new XElement(name, content);
+
+        // 3. Добавляем атрибут value только если он есть
+        if (hasValue)
+        {
+            dateEl.Add(new XAttribute("value", dateValue!));
+        }
+
+        parent.Add(dateEl);
+    }
+
+    // Вспомогательный метод для формирования ссылки
+    private XElement CreateDate(JToken node)
+    {
+        // 1. Безопасно достаем атрибут value
+        var attrs = node["attrs"];
+        var dateValue = attrs?["value"]?.ToString()?.Trim() ?? "";
+
+        // 2. Явно приводим JArray к IEnumerable<JToken>, чтобы Select не "ломался"
+        var rawContent = node["content"] as JArray;
+
+        // Используем .Children() или явное приведение типов
+        var children = rawContent?
+            .Cast<JToken>()
+            .Select(n => ConvertNode(n)) // Явно вызываем метод, чтобы помочь компилятору с типами
+            .Where(x => x != null)
+            .ToArray();
+
+        // 3. Создаем элемент. Если контента нет, используем дату как текст (fallback)
+        var dateContent = (children != null && children.Length > 0) ? (object)children : dateValue;
+        var dateEl = new XElement(ns + "date", dateContent);
+
+        // 4. Добавляем машиночитаемый атрибут, если он есть
         if (!string.IsNullOrWhiteSpace(dateValue))
         {
             dateEl.Add(new XAttribute("value", dateValue));
         }
 
-        parent.Add(dateEl);
-    }
-    // Вспомогательный метод для формирования ссылки
-    private static XElement CreateDate(JToken node)
-    {
-        var dateEl = new XElement(ns + "date");
-        var dateValue = node["value"]?.ToString() ?? "";
-        dateEl.Add(new XAttribute("value", dateValue));
         return dateEl;
     }
 
-    private object CreateImage(JToken node, string? forcedId = null)
+    private object? CreateImage(JToken node, string? forcedId = null)
     {
-        JToken? attrs = null;
-        string? rawData = null;
-        string? rawHref = null;
-        string? title = null;
+        if (node is not JObject obj) return null;
 
-        if (node is JObject obj)
-        {
-            attrs = obj["attrs"] ?? obj;
-            rawData = attrs["src"]?.ToString();
-            rawHref = attrs["href"]?.ToString();
-            title = attrs["title"]?.ToString();
-        }
-        else
-        {
-            rawData = node.ToString();
-        }
+        // Tiptap обычно вкладывает всё в attrs. Если attrs нет, берем сам объект.
+        var attrs = obj["attrs"] as JObject ?? obj;
 
+        string? rawData = attrs["src"]?.ToString();
+        string? rawHref = attrs["href"]?.ToString();
+        string? title = attrs["title"]?.ToString();
+
+        // 1. Очистка ID
         string lookupId = (rawHref ?? "").Replace("#", "").Trim();
         string finalId = (forcedId ?? lookupId).Trim();
 
         if (string.IsNullOrEmpty(finalId))
             return new XComment(" Image identifier is empty ");
 
-        // --- ЛОГИКА ПАРСИНГА DATA URL ---
-        if (!string.IsNullOrEmpty(rawData))
+        if (string.IsNullOrEmpty(rawData)) return null;
+
+        // 2. Надежный парсинг Data URL без Split(',')
+        string base64Only;
+        string contentType = "image/jpeg";
+
+        if (rawData.StartsWith("data:", StringComparison.OrdinalIgnoreCase))
         {
-            string base64Only = rawData;
-            string contentType = "image/jpeg"; // Значение по умолчанию
+            int commaIndex = rawData.IndexOf(',');
+            if (commaIndex == -1) return new XComment(" Invalid Data URL: comma missing ");
 
-            if (rawData.StartsWith("data:"))
+            string header = rawData[..commaIndex]; // "data:image/png;base64"
+            base64Only = rawData[(commaIndex + 1)..];
+
+            // Извлекаем MIME-тип: ищем между "data:" и первым ";"
+            int semiColonIndex = header.IndexOf(';');
+            if (semiColonIndex > 5)
             {
-                // Формат: data:image/png;base64,iVBOR...
-                var parts = rawData.Split(',');
-                if (parts.Length > 1)
-                {
-                    base64Only = parts[1];
-                    // Извлекаем тип: "data:image/png;base64" -> "image/png"
-                    var meta = parts[0].Split(';');
-                    contentType = meta[0].Replace("data:", "");
-                }
+                contentType = header.Substring(5, semiColonIndex - 5);
             }
-
-            _binarySaveCache[finalId] = (base64Only, contentType);
         }
-        // -------------------------------
+        else
+        {
+            base64Only = rawData;
+        }
 
-        var img = new XElement(ns + "image", new XAttribute(xlink + "href", "#" + finalId));
-        if (!string.IsNullOrWhiteSpace(title)) img.Add(new XAttribute("alt", title));
+        // 3. Защита от дублей ID в кэше (если два разных изображения имеют один ID)
+        // В FB2 бинарные данные должны быть уникальны. 
+        // Если ID уже занят, а контент другой — нужно либо генерировать новый ID, либо логировать ошибку.
+        _binaryCache.TryAdd(finalId, (base64Only, contentType));
+
+        // 4. Формирование XML. Убедитесь, что xlink — это XNamespace ("http://w3.org")
+        var img = new XElement(ns + "image",
+            new XAttribute(XNamespace.Xmlns + "xlink", xlink.NamespaceName), // На всякий случай для валидности
+            new XAttribute(xlink + "href", "#" + finalId)
+        );
+
+        if (!string.IsNullOrWhiteSpace(title))
+            img.Add(new XAttribute("alt", title));
 
         return img;
     }
 
-    // Вспомогательный метод для создания ссылки из метки
-    private static XElement CreateLinkFromMark(object content, JToken? attrs)
-    {
-        var linkEl = new XElement(ns + "a", content);
-        var href = attrs?["href"]?.ToString() ?? "";
 
-        if (!string.IsNullOrWhiteSpace(href))
+    // Вспомогательный метод для создания ссылки из метки
+    private static object CreateLinkFromMark(object content, JToken? attrs)
+    {
+        var href = attrs?["href"]?.ToString()?.Trim() ?? "";
+        if (string.IsNullOrWhiteSpace(href))
+            return content;
+
+        var linkEl = new XElement(ns + "a");
+
+        // Определяем тип ссылки
+        bool isFootnote = attrs?["rel"]?.ToString() == "footnote";
+        if (isFootnote)
         {
-            // 1. Если это сноска, проверяем наличие '#' в начале href
-            if (attrs?["rel"]?.ToString() == "footnote")
-            {
-                // FB2 ожидает внутреннюю ссылку: <a xlink:href="#note1" type="note">
-                var internalHref = href.StartsWith("#") ? href : "#" + href;
-                linkEl.Add(new XAttribute(xlink + "href", internalHref));
-                linkEl.Add(new XAttribute("type", "note"));
-            }
-            else
-            {
-                // Обычная внешняя ссылка
-                linkEl.Add(new XAttribute(xlink + "href", href));
-            }
+            var internalHref = href.StartsWith('#') ? href : "#" + href;
+            linkEl.Add(new XAttribute(xlink + "href", internalHref));
+            linkEl.Add(new XAttribute("type", "note"));
         }
+        else
+        {
+            linkEl.Add(new XAttribute(xlink + "href", href));
+        }
+
+        // Добавляем контент ПОСЛЕ атрибутов для чистоты структуры
+        linkEl.Add(content);
 
         return linkEl;
     }
-
 }

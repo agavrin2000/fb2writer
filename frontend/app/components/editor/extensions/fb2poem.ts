@@ -45,13 +45,13 @@ export const Fb2Poem = Node.create({
       insertFb2Poem:
         () =>
         ({ state, dispatch, chain }: CommandProps) => {
-          // Проверка контекста
-          const { pos: poemPos, node: poemNode } = findParentNodeByType(
-            state.selection,
-            ["fb2Title", "fb2Subtitle", "fb2Poem"],
-          );
-
-          if (poemNode) return false;
+          // Проверка контекста. Если находимся в запрещенных узлах - блокируем команду
+          const { pos: sectionPos } = findParentNodeByType(state.selection, [
+            "fb2Title",
+            "fb2Subtitle",
+            "fb2Poem",
+          ]);
+          if (sectionPos != -1) return false;
 
           if (dispatch) {
             return chain()
@@ -92,10 +92,13 @@ export const Fb2Poem = Node.create({
       removeFb2Poem:
         () =>
         ({ state, dispatch, chain }: CommandProps) => {
-          const { pos: poemPos, nodeSize: poemNodeSize } = findParentNodeByType(
+          let poemPos = -1;
+          let poemNodeSize = 0;
+
+          ({ pos: poemPos, nodeSize: poemNodeSize } = findParentNodeByType(
             state.selection,
-            ["fb2Epigraph"],
-          );
+            ["fb2Poem"],
+          ));
 
           if (poemPos === -1) return false;
 

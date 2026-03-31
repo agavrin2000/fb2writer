@@ -22,62 +22,74 @@ export const Fb2Stanza = Node.create({
     return {
       insertFb2Stanza:
         () =>
-        ({ state, dispatch, chain }: CommandProps) => {
-          // 1. Ищем текущую строфу (автоматически проверяет все уровни вверх)
-          const found = findParentNodeByType(state.selection, ["fb2Stanza"]);
-          if (!found) return false;
+        ({ state, chain }: CommandProps) => {
+          let poemNode: any = null;
+          let poemPos = -1;
 
-          if (dispatch) {
-            // Позиция СРАЗУ ПОСЛЕ текущей строфы
-            const insertPos = found.pos + found.node.nodeSize;
+          // 1. Ищем родительский 'poem' вверх по дереву
+          ({ pos: poemPos, node: poemNode } = findParentNodeByType(
+            state.selection,
+            ["fb2Poem"],
+          ));
 
-            return chain()
-              .insertContentAt(insertPos, {
-                type: "fb2Stanza",
-                content: [
-                  {
-                    type: "fb2V",
-                    content: [{ type: "text", text: "" }],
-                  },
-                ],
-              })
-              .focus(insertPos + 2) // Входим внутрь новой строфы и новой строки
-              .run();
-          }
-          return true;
+          // Если мы не внутри poem — команда недоступна
+          if (poemPos === -1) return false;
+
+          // 2. Находим позицию ПОСЛЕ последней строфы внутри этой poem
+          let lastStanzaEnd = poemPos + 1; // Начинаем от начала poem
+          poemNode.forEach((child: any, offset: number) => {
+            if (child.type.name === "fb2Stanza") {
+              lastStanzaEnd = poemPos + 1 + offset + child.nodeSize;
+            }
+          });
+
+          // 3. Вставляем новую строфу в вычисленную позицию
+          return chain()
+            .insertContentAt(lastStanzaEnd, {
+              type: "fb2Stanza",
+              content: [
+                {
+                  type: "fb2V",
+                  content: [{ type: "text", text: "Строка..." }],
+                },
+              ],
+            })
+            .focus(lastStanzaEnd + 2) // Фокусируемся внутри новой строфы
+            .run();
         },
-
       removeFb2Stanza:
         () =>
         ({ state, dispatch, chain }: CommandProps) => {
-          // 1. Ищем текущую строфу
-          const foundStanza = findParentNodeByType(state.selection, [
-            "fb2Stanza",
-          ]);
-          if (!foundStanza) return false;
+          let stanzaPos = -1;
+          let stanzaNodeSize = 0;
+          let stanzaNode: any = null;
 
-          // 2. Ищем родительскую поэму, чтобы проверить количество строф
-          const foundPoem = findParentNodeByType(state.selection, ["fb2Poem"]);
-          if (!foundPoem || !foundPoem.node) return false;
+          // 1. Ищем саму строфу и её родителя
+          ({
+            pos: stanzaPos,
+            node: stanzaNodeSize,
+            node: stanzaNode,
+          } = findParentNodeByType(state.selection, ["fb2Stanza"]));
 
-          // Считаем только детей типа fb2Stanza (используем childCount и фильтр для скорости)
+          // Если мы не в строфе — выходим
+          if (stanzaPos === -1) return false;
+
+          // 2. Считаем количество строф у родителя
           let stanzaCount = 0;
-          foundPoem.node.content?.forEach((child: ProsemirrorNode) => {
+          stanzaNode.parentNode.forEach((child: any) => {
             if (child.type.name === "fb2Stanza") stanzaCount++;
           });
 
-          // Запрещаем удаление, если это единственная строфа в поэме
+          // 3. Если строфа последняя — запрещаем удаление (возвращаем false)
           if (stanzaCount <= 1) return false;
 
           if (dispatch) {
             return chain()
-              .deleteRange({
-                from: foundStanza.pos,
-                to: foundStanza.pos + foundStanza.node.nodeSize,
-              })
+              .deleteRange({ from: stanzaPos, to: stanzaPos + stanzaNodeSize })
               .focus()
               .run();
           }
+
           return true;
         },
     };

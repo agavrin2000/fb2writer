@@ -164,6 +164,15 @@ export const EMPTY_FB2_TEMPLATE: Fb2Data = {
         content: [
           { type: "fb2Placeholder" },
           {
+            type: "fb2Title",
+            content: [
+              {
+                type: "paragraph",
+                content: [{ type: "text", text: "Название книги" }],
+              },
+            ],
+          },
+          {
             type: "fb2Section",
             attrs: {
               level: 2,
@@ -379,7 +388,7 @@ export const FB2_GENRES: { id: string; label: string }[] = [
   { id: "upbringing_book", label: "Воспитание детей" },
   { id: "vampire_book", label: "Книги про вампиров" },
   { id: "visual_arts", label: "Изобразительное искусство" },
-  { id: "unrecognised", label: "Нераспознанное" }
+  { id: "unrecognised", label: "Нераспознанное" },
 ];
 
 export const LANGUAGES = [

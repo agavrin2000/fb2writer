@@ -745,7 +745,3 @@ section.fb2-section {
   text-decoration: underline;
   cursor: pointer;
 }
-
-.ProseMirror-trailingBreak {
-  display: none !important;
-}

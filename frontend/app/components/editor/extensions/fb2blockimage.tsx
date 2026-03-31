@@ -19,36 +19,40 @@ export const Fb2BlockImage = Image.extend({
   draggable: true,
   addAttributes() {
     return {
-      ...this.parent?.(),
-      href: {
-        default: null,
-        parseHTML: (element) => element.getAttribute("elementId"),
-        renderHTML: (attributes) => ({ href: attributes.href }),
+      src: {
+        // Tiptap Image требует src для отображения в редакторе, 
+        // но мы можем сделать его опциональным в JSON
+        parseHTML: (element) => element.getAttribute("src"),
+        renderHTML: (attributes) => ({ src: attributes.src }),
       },
       title: {
-        default: null,
+        default: "",
         parseHTML: (element) => element.getAttribute("title"),
         renderHTML: (attributes) => ({ title: attributes.title }),
       },
-      class: { default: "block mx-auto my-4 rounded-lg shadow-md max-w-full" },
+      href: {
+        parseHTML: (element) => element.getAttribute("href"),
+        renderHTML: (attributes) => ({ href: attributes.href }),
+      },
+      //class: { default: "block mx-auto my-4 rounded-lg shadow-md max-w-full" },
     };
   },
   addCommands(): any {
     return {
       canInsertFb2BlockImage:
         () =>
-        ({ state }: CommandProps) => {
-          const { $from } = state.selection;
+          ({ state }: CommandProps) => {
+            const { $from } = state.selection;
 
-          for (let d = $from.depth; d > 0; d--) {
-            const node = $from.node(d);
-            const nodeName = node.type.name;
-            if (FORBIDDEN_FB2_IMAGE_PARENTS.includes(nodeName)) return false;
-            else if (nodeName === "fb2Section" || nodeName === "fb2BodySection")
-              return true;
-          }
-          return false;
-        },
+            for (let d = $from.depth; d > 0; d--) {
+              const node = $from.node(d);
+              const nodeName = node.type.name;
+              if (FORBIDDEN_FB2_IMAGE_PARENTS.includes(nodeName)) return false;
+              else if (nodeName === "fb2Section" || nodeName === "fb2BodySection")
+                return true;
+            }
+            return false;
+          },
     };
   },
 }).configure({ allowBase64: true });

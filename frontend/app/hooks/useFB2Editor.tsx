@@ -9,6 +9,7 @@ import { useTOC } from "./useTOC";
 import { createEditorProps } from "../components/editor/createEditorProps";
 import { TocItem, ActiveNote, FootnotesMap, EMPTY_FB2_TEMPLATE } from "@/types/types";
 import { Selection } from "@tiptap/pm/state";
+import { EditorState } from "@tiptap/pm/state";
 
 export const useFB2Editor = (
   footnotesRef: RefObject<FootnotesMap>,
@@ -57,10 +58,10 @@ export const useFB2Editor = (
         // Быстрый сбор структуры документа (~1-2мс на больших файлах)
         const nodes = collectNodes(editor.state.doc);
         flatNodesRef.current = nodes;
+        debouncedSetToc(nodes);
 
         // Тяжелый рендер React-дерева оглавления и поиск активной главы выносим в следующий кадр
         requestAnimationFrame(() => {
-          debouncedSetToc(nodes);
           updateActiveHeadingRef.current(editor);
         });
       },
@@ -70,8 +71,23 @@ export const useFB2Editor = (
         // Только обновляем подсветку текущей главы в Sidebar
         updateActiveHeadingRef.current(editor);
       },
+      /*onCreate({ editor }: { editor: Editor }) {
+        const { view, state } = editor;
+
+        // Создаем новое состояние, сохраняя текущий документ, выделение и плагины.
+        // Это инициализирует плагины (включая UndoRedo) с нуля.
+        const newState = EditorState.create({
+          doc: state.doc,
+          plugins: state.plugins,
+          selection: state.selection,
+          storedMarks: state.storedMarks,
+        });
+
+        // Обновляем состояние в представлении
+        view.updateState(newState);
+      },*/
     }),
-    [editorProps, debouncedSetToc, flatNodesRef], // flatNodesRef здесь константный, но для порядка добавлен
+    [editorProps, debouncedSetToc, updateActiveHeadingRef, flatNodesRef], // flatNodesRef здесь константный, но для порядка добавлен
   );
 
   // 4. Инициализация Tiptap

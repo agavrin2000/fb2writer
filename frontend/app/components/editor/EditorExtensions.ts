@@ -19,19 +19,19 @@ import { Fb2BlockImage } from "./extensions/fb2blockimage";
 import { Fb2InlineImage } from "./extensions/fb2inlineimage";
 import { Fb2Placeholder } from "./extensions/fb2placeholder";
 import { Fb2Annotation } from "./extensions/fb2annotation";
-//import Document from "@tiptap/extension-document";
+import Document from '@tiptap/extension-document'
 
-/*const CustomDocument = Document.extend({
-  // Этот хак заставляет ProseMirror думать, что нам не нужны trailing breaks
-  renderHTML() {
-    return ["div", 0];
-  },
-});*/
+const CustomDocument = Document.extend({
+  // Запрещаем любые блоки, кроме вашей основной секции
+  // Если у вас несколько корневых секций, перечислите их: 'fb2BodySection | fb2OtherSection'
+  content: 'fb2BodySection', 
+});
 
 export const EditorExtensions = [
   StarterKit.configure({
     gapcursor: false,
     link: false,
+    document: false, 
     // Заголовки разных уровней
     heading: { levels: [1, 2, 3, 4] },
     // Настройка цитат
@@ -48,7 +48,7 @@ export const EditorExtensions = [
     },
     //link: false,
   }),
-  //CustomDocument,
+  CustomDocument,
   Superscript, // Верхний индекс <sup>
   Subscript, // Нижний индекс <sub>
   Link.extend({

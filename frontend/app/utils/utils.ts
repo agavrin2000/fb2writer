@@ -98,6 +98,7 @@ export const findParentNodeByType = (
       };
     }
   }
-
   return { node: null, pos: -1, depth: null, nodeSize: 0 };
 };
+
+

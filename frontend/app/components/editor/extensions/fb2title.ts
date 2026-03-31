@@ -26,24 +26,44 @@ export const Fb2Title = Node.create({
       insertFb2Title:
         () =>
         ({ state, dispatch, chain }: CommandProps) => {
-          // Ищем родителя (Tiptap сам обработает NodeSelection внутри helpers)
-          const found = findParentNodeByType(state.selection, TARGET_TYPES);
-          if (!found) return false;
+          const { selection } = state;
+          let sectionPos = -1;
+          let sectionNode = null;
 
-          const { node: section, pos: sectionPos } = found;
-          const isBody = section.type.name === "fb2BodySection";
+          // 1. Проверяем: выделена ли сама секция?
+          if (
+            selection instanceof NodeSelection &&
+            (selection.node.type.name === "fb2Section" ||
+              selection.node.type.name === "fb2Poem" ||
+              selection.node.type.name === "fb2Stanza")
+          ) {
+            sectionPos = selection.from;
+            sectionNode = selection.node;
+          }
+          // 2. Если нет — ищем родительскую секцию вверх по дереву
+          else {
+            ({ pos: sectionPos, node: sectionNode } = findParentNodeByType(
+              selection,
+              TARGET_TYPES,
+            ));
+          }
+          // Если не нашли секцию или  — блокируем команду
+          if (sectionPos == -1) return false;
+
+          const isBody = sectionNode.type.name === "fb2BodySection";
           const targetIndex = isBody ? 1 : 0;
 
           // Проверяем наличие заголовка на нужной позиции
-          if (section.maybeChild(targetIndex)?.type.name === "fb2Title")
+          if (sectionNode.maybeChild(targetIndex)?.type.name === "fb2Title")
             return false;
 
           if (dispatch) {
             // Вычисляем позицию: начало секции + 1 (вход в ноду) + размер первого ребенка (если это Body)
             const offset =
-              isBody && section.firstChild ? section.firstChild.nodeSize : 0;
+              isBody && sectionNode.firstChild
+                ? sectionNode.firstChild.nodeSize
+                : 0;
             const insertPos = sectionPos + 1 + offset;
-
             return chain()
               .insertContentAt(insertPos, {
                 type: "fb2Title",
@@ -54,9 +74,10 @@ export const Fb2Title = Node.create({
                   },
                 ],
               })
-              .focus(insertPos + 2) // Прыгаем сразу в текст параграфа
+              .focus(sectionPos + 2) // Фокусируемся внутри нового заголовка
               .run();
           }
+
           return true;
         },
       removeFb2Title:

@@ -1,5 +1,6 @@
 import { Node, mergeAttributes, CommandProps } from "@tiptap/core";
 import { findParentNodeByType } from "@/utils/utils";
+import { NodeSelection } from "@tiptap/pm/state";
 
 export const Fb2Date = Node.create({
   name: "fb2Date",
@@ -94,23 +95,43 @@ export const Fb2Date = Node.create({
     return {
       insertFb2Date:
         () =>
-        ({ chain, state, dispatch }: CommandProps) => {
-          // 1. Ищем родительскую поэму (автоматически проверяет и NodeSelection, и курсор внутри)
-          const foundPoem = findParentNodeByType(state.selection, ["fb2Poem"]);
-          if (!foundPoem || !foundPoem.node) return false;
+        ({ chain, state, dispatch }: any) => {
+          const { selection } = state;
+          let poemPos = -1;
+          let poemNode = null;
 
-          const { node: poem, pos: poemPos } = foundPoem;
+          // 1. Проверяем: выделена ли сама секция?
+          if (
+            selection instanceof NodeSelection &&
+            selection.node.type.name === "fb2Poem"
+          ) {
+            poemPos = selection.from;
+            poemNode = selection.node;
+          }
+          // 2. Если нет — ищем родительскую секцию вверх по дереву
+          else {
+            ({ pos: poemPos, node: poemNode } = findParentNodeByType(
+              selection,
+              ["fb2Poem"],
+            ));
+          }
 
-          // 2. Проверяем, нет ли уже даты в конце
-          if (poem.lastChild?.type.name === "fb2Date") return false;
+          // Если не нашли поэму или дата уже есть — блокируем команду
+          if (poemPos == -1) return false;
 
+          const lastChild = poemNode.lastChild;
+          const hasDate = lastChild?.type.name === "fb2Date";
+
+          if (hasDate) return false;
+
+          // 3. Вычисляем позицию вставки (конец poem)
+          // poemPos + 1 (начало) + размер контента
           if (dispatch) {
-            // Позиция вставки: позиция поэмы + размер всей ноды - 1 (закрывающий тег)
-            const insertPos = poemPos + poem.nodeSize - 1;
+            const insertPos = poemPos + poemNode.nodeSize - 1;
 
             return chain()
               .insertContentAt(insertPos, {
-                type: "fb2Date",
+                type: this.name,
                 content: [
                   {
                     type: "text",
@@ -118,47 +139,41 @@ export const Fb2Date = Node.create({
                   },
                 ],
               })
-              .focus(insertPos + 1)
+              .focus(insertPos + 1) // Фокусируемся на тексте новой даты
               .run();
           }
           return true;
         },
-
       removeFb2Date:
         () =>
         ({ state, dispatch, chain }: CommandProps) => {
-          // 1. Ищем саму дату (под курсором)
-          let target = findParentNodeByType(state.selection, ["fb2Date"]);
+          const { selection } = state;
 
-          // 2. Если не нашли под курсором, проверяем: вдруг выделена вся поэма?
-          if (!target) {
-            const foundPoem = findParentNodeByType(state.selection, [
-              "fb2Poem",
-            ]);
-            if (foundPoem?.node.lastChild?.type.name === "fb2Date") {
-              const lastChild = foundPoem.node.lastChild;
-              // Смещение: позиция родителя + позиция последнего ребенка внутри родителя
-              // (В ProseMirror content.size - lastChild.nodeSize дает смещение начала последнего ребенка)
-              const offset =
-                foundPoem.node.content.size - lastChild.nodeSize + 1;
-
-              target = {
-                node: lastChild,
-                pos: foundPoem.pos + offset,
-                nodeSize: lastChild.nodeSize, // Добавляем
-                depth: foundPoem.depth + 1, // Добавляем (приблизительно)
-              };
-            }
+          let datePos = -1;
+          let dateNodeSize = 0;
+          // 1. Если выделена вся нода (fb2Poem)
+          if ( selection instanceof NodeSelection && selection.node.type.name === "fb2Poem"
+          ) {
+            selection.node.forEach((child, offset) => {
+              if (child.type.name === "fb2Date") {
+                datePos = selection.from + 1 + offset;
+                dateNodeSize = child.nodeSize;
+              }
+            });
+          }
+          // 2. Если курсор внутри (обычное выделение)
+          else {
+            ({ pos: datePos, nodeSize: dateNodeSize } = findParentNodeByType(
+              selection,
+              ["fb2Date"],
+            ));
           }
 
-          if (!target) return false;
+          if (datePos === -1) return false;
 
           if (dispatch) {
             return chain()
-              .deleteRange({
-                from: target.pos,
-                to: target.pos + target.node.nodeSize,
-              })
+              .deleteRange({ from: datePos, to: datePos + dateNodeSize })
               .focus()
               .run();
           }

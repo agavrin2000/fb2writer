@@ -26,7 +26,7 @@ import { GenreList } from "./GenreList";
 import { CustomInfoList } from "./CustomInfoList";
 import { RichTextEditor } from "./RichTextEditor";
 import { CoverPicker } from "./CoverPicker";
-import {FB2_GENRES, LANGUAGES} from "@/types/types"
+import { FB2_GENRES, LANGUAGES } from "@/types/types"
 
 interface MetadataSidebarProps {
   meta: any;
@@ -61,24 +61,42 @@ export const MetadataSidebar = ({
     return isNaN(date.getTime()) ? "" : date.toISOString().split("T")[0];
   };
 
-  const handleMetaUpdate = (
-    section:
-      | "TitleInfo"
-      | "DocumentInfo"
-      | "SrcTitleInfo"
-      | "PublishInfo"
-      | "CustomInfo",
-    field: string,
-    newValue: any,
-  ) => {
-    onMetaChange({
-      ...meta,
-      [section]: {
-        ...meta[section],
-        [field]: newValue,
-      },
-    });
-  };
+const handleMetaUpdate = (
+  section: "TitleInfo" | "DocumentInfo" | "SrcTitleInfo" | "PublishInfo" | "CustomInfo",
+  field: string,
+  newValue: any,
+) => {
+  // 1. Копируем текущую секцию
+  const updatedSection = { ...meta[section] };
+
+  // 2. Логика определения "пустоты" для Tiptap
+  let isTiptapEmpty = false;
+  if (newValue && typeof newValue === 'object' && newValue.type === 'doc') {
+    const content = newValue.content || [];
+    isTiptapEmpty = content.length === 0 || 
+      (content.length === 1 && (!content[0].content || content[0].content.length === 0));
+  }
+
+  // 3. Условие удаления: если пришел null, пустая строка или пустой Tiptap-док
+  const shouldRemove = newValue === null || newValue === "" || isTiptapEmpty;
+
+  if (shouldRemove) {
+    // Если поле уже отсутствует, ничего не делаем (оптимизация)
+    if (!(field in updatedSection)) return;
+    delete updatedSection[field]; // ПОЛНОСТЬЮ удаляем ключ из объекта
+  } else {
+    // Проверка на изменения, чтобы не спамить ререндерами
+    if (JSON.stringify(updatedSection[field]) === JSON.stringify(newValue)) return;
+    updatedSection[field] = newValue;
+  }
+
+  // 4. Отправляем обновленный объект метаданных
+  onMetaChange({
+    ...meta,
+    [section]: updatedSection,
+  });
+};
+
 
   if (!meta) return <div>Загрузка...</div>;
 
@@ -595,11 +613,10 @@ const TabButton = ({ active, onClick, label, icon }: any) => (
   <button
     type="button"
     onClick={onClick}
-    className={`flex-1 flex flex-col items-center gap-1 py-3 transition-all border-b-2 ${
-      active
-        ? "border-blue-600 text-blue-600 bg-blue-50/50"
-        : "border-transparent text-gray-400 hover:text-gray-600 hover:bg-gray-50"
-    }`}
+    className={`flex-1 flex flex-col items-center gap-1 py-3 transition-all border-b-2 ${active
+      ? "border-blue-600 text-blue-600 bg-blue-50/50"
+      : "border-transparent text-gray-400 hover:text-gray-600 hover:bg-gray-50"
+      }`}
   >
     {icon}
     <span className="text-[9px] font-bold uppercase tracking-tighter">

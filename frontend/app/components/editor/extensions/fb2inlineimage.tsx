@@ -17,8 +17,18 @@ export const Fb2InlineImage = Image.extend({
   draggable: true,
   addAttributes() {
     return {
-      ...this.parent?.(),
-      class: { default: "inline-block align-bottom mx-1 max-w-full h-auto" },
+      href: {
+        default: null,
+        parseHTML: (element) => element.getAttribute("href"),
+        renderHTML: (attributes) => ({ href: attributes.href }),
+      },
+      src: {
+        // Tiptap Image требует src для отображения в редакторе, 
+        // но мы можем сделать его опциональным в JSON
+        parseHTML: (element) => element.getAttribute("src"),
+        renderHTML: (attributes) => ({ src: attributes.src }),
+      },
+      //class: { default: "inline-block align-bottom mx-1 max-w-full h-auto" },
     };
   },
   addCommands(): any {
