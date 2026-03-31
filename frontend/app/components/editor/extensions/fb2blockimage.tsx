@@ -20,7 +20,7 @@ export const Fb2BlockImage = Image.extend({
   addAttributes() {
     return {
       src: {
-        // Tiptap Image требует src для отображения в редакторе, 
+        // Tiptap Image требует src для отображения в редакторе,
         // но мы можем сделать его опциональным в JSON
         parseHTML: (element) => element.getAttribute("src"),
         renderHTML: (attributes) => ({ src: attributes.src }),
@@ -34,25 +34,25 @@ export const Fb2BlockImage = Image.extend({
         parseHTML: (element) => element.getAttribute("href"),
         renderHTML: (attributes) => ({ href: attributes.href }),
       },
-      //class: { default: "block mx-auto my-4 rounded-lg shadow-md max-w-full" },
+      class: { default: "block mx-auto my-4 rounded-lg shadow-md max-w-full" },
     };
   },
   addCommands(): any {
     return {
       canInsertFb2BlockImage:
         () =>
-          ({ state }: CommandProps) => {
-            const { $from } = state.selection;
+        ({ state }: CommandProps) => {
+          const { $from } = state.selection;
 
-            for (let d = $from.depth; d > 0; d--) {
-              const node = $from.node(d);
-              const nodeName = node.type.name;
-              if (FORBIDDEN_FB2_IMAGE_PARENTS.includes(nodeName)) return false;
-              else if (nodeName === "fb2Section" || nodeName === "fb2BodySection")
-                return true;
-            }
-            return false;
-          },
+          for (let d = $from.depth; d > 0; d--) {
+            const node = $from.node(d);
+            const nodeName = node.type.name;
+            if (FORBIDDEN_FB2_IMAGE_PARENTS.includes(nodeName)) return false;
+            else if (nodeName === "fb2Section" || nodeName === "fb2BodySection")
+              return true;
+          }
+          return false;
+        },
     };
   },
 }).configure({ allowBase64: true });

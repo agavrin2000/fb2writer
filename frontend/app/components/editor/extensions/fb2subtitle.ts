@@ -1,5 +1,6 @@
 import { Node, mergeAttributes } from "@tiptap/core";
 import { CommandProps } from "@tiptap/core";
+import { findParentNodeByType } from "@/utils/utils";
 
 export const Fb2Subtitle = Node.create({
   name: "fb2Subtitle",
@@ -71,29 +72,25 @@ export const Fb2Subtitle = Node.create({
         },
       removeFb2Subtitle:
         () =>
-        ({ state, chain }: CommandProps) => {
-          const { $from } = state.selection;
-          let subtitleDepth = -1;
-
+        ({ state, chain, dispatch }: CommandProps) => {
           // 1. Ищем, находимся ли мы внутри fb2Subtitle
-          for (let d = $from.depth; d > 0; d--) {
-            if ($from.node(d).type.name === "fb2Subtitle") {
-              subtitleDepth = d;
-              break;
-            }
-          }
+          const { pos: subtitlPos, nodeSize: subtitleNodeSize } =
+            findParentNodeByType(state.selection, ["fb2Subtitle"]);
 
           // Если не нашли — команда недоступна (кнопка в UI будет неактивна)
-          if (subtitleDepth === -1) {
-            return false;
-          }
-
-          // 2. Определяем границы узла
-          const from = $from.before(subtitleDepth);
-          const to = $from.after(subtitleDepth);
+          if (subtitlPos === -1) return false;
 
           // 3. Удаляем узел и возвращаем фокус
-          return chain().deleteRange({ from, to }).focus().run();
+          if (dispatch) {
+            return chain()
+              .deleteRange({
+                from: subtitlPos,
+                to: subtitlPos + subtitleNodeSize,
+              })
+              .focus()
+              .run();
+          }
+          return true;
         },
     };
   },

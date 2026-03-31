@@ -23,22 +23,23 @@ export const Fb2InlineImage = Image.extend({
         renderHTML: (attributes) => ({ href: attributes.href }),
       },
       src: {
-        // Tiptap Image требует src для отображения в редакторе, 
+        // Tiptap Image требует src для отображения в редакторе,
         // но мы можем сделать его опциональным в JSON
         parseHTML: (element) => element.getAttribute("src"),
         renderHTML: (attributes) => ({ src: attributes.src }),
       },
-      //class: { default: "inline-block align-bottom mx-1 max-w-full h-auto" },
+      class: { default: "inline-block align-bottom mx-1 max-w-full h-auto" },
     };
   },
   addCommands(): any {
     return {
       canInsertFb2InlineImage:
         () =>
-          ({ state }: CommandProps) => {
-            return INLINE_ACTIVE_NODES.includes(state.selection.$from.parent.type.name);
-          },
+        ({ state }: CommandProps) => {
+          return INLINE_ACTIVE_NODES.includes(
+            state.selection.$from.parent.type.name,
+          );
+        },
     };
   },
-
 }).configure({ allowBase64: true });

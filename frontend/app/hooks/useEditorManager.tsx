@@ -23,7 +23,7 @@ export function useEditorManager(
 ) {
   // --- РЕФЫ И СОСТОЯНИЕ ---
   const footnotesRef = useRef<Record<string, any>>({});
-  const setActiveNoteRef = useRef<(note: any) => void>(() => { });
+  const setActiveNoteRef = useRef<(note: any) => void>(() => {});
 
   const [metadata, setMetadata] = useState<Fb2Metadata | null>(
     EMPTY_FB2_TEMPLATE.Meta,
@@ -52,7 +52,7 @@ export function useEditorManager(
   // --- ОБРАБОТЧИКИ СОБЫТИЙ (Incoming) ---
   const onFb2Content = useCallback(
     (payload: string) => {
-/*const debugComparison = (originalJSON, editor) => {
+      /*const debugComparison = (originalJSON, editor) => {
   const resultJSON = editor.getJSON();
 
   console.log("--- СРАВНЕНИЕ КОНТЕНТА ---");
@@ -217,12 +217,13 @@ export function useEditorManager(
 
       setSavedMeta(JSON.stringify(metadata));
       clearHistory();
+      setCurrentFilePath(newFileName);
+      setLoadingFileName("");
+      setIsDirty(false);
       setIsLoading(false);
       setLoaderConfig(null);
-      setLoadingFileName(newFileName);
 
       toastRef?.current?.show("Изменения сохранены", "success");
-      setIsDirty(false);
     },
     [metadata],
   );
@@ -277,7 +278,7 @@ export function useEditorManager(
     const updateDirty = () => {
       // Если есть что отменять (undo) — значит, документ был изменен
       setIsDirty(fb2.editor.can().undo());
-      console.log("IsDirty set true (can undo)")
+      console.log("IsDirty set true (can undo)");
     };
 
     fb2.editor.on("update", updateDirty);
@@ -312,20 +313,9 @@ export function useEditorManager(
       setLoaderConfig({ title: "Сохранение...", subtitle: "Выбор файла" });
       setIsLoading(true);
 
-      const jsonContent = fb2.editor.getJSON();
-
-      // 1. Проверяем, есть ли вообще контент
-      if (jsonContent.content && jsonContent.content.length > 0) {
-        const lastNode = jsonContent.content[jsonContent.content.length - 1];
-
-        // 2. Если последний узел — параграф БЕЗ контента, удаляем его
-        if (lastNode.type === 'paragraph' && !lastNode.content) {
-          jsonContent.content.pop();
-        }
-      }
       const actualFootnotes = notes.cleanupOrphanNotes();
       const payload = {
-        content: jsonContent,
+        content: fb2.editor.getJSON(),
         footnotes: actualFootnotes,
         metadata: metadata,
         FilePath: saveAs ? "" : currentFilePath,
@@ -403,12 +393,12 @@ export function useEditorManager(
 
   const handleMetaChange = (newMeta: any) => {
     setMetadata(newMeta);
-    console.log("Saved meta", savedMeta)
-    console.log("New meta", JSON.stringify(newMeta))
+    console.log("Saved meta", savedMeta);
+    console.log("New meta", JSON.stringify(newMeta));
     // Сравниваем текущий объект с эталонной строкой
     if (!isDirty && JSON.stringify(newMeta) !== savedMeta) {
       setIsDirty(true);
-      console.log("IsDirty set to true META")
+      console.log("IsDirty set to true META");
     }
   };
 

@@ -40,7 +40,7 @@ export const Fb2TextAuthor = Node.create({
             ));
           }
 
-          if (!parentNode) return false;
+          if (parentPos == -1) return false;
 
           // Начальная точка вставки (сразу после открытия тега родителя)
           let insertPos = parentPos + 1;

@@ -33,9 +33,7 @@ export const Fb2Title = Node.create({
           // 1. Проверяем: выделена ли сама секция?
           if (
             selection instanceof NodeSelection &&
-            (selection.node.type.name === "fb2Section" ||
-              selection.node.type.name === "fb2Poem" ||
-              selection.node.type.name === "fb2Stanza")
+            TARGET_TYPES.includes(selection.node.type.name)
           ) {
             sectionPos = selection.from;
             sectionNode = selection.node;

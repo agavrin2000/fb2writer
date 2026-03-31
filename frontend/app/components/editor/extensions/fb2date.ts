@@ -62,11 +62,20 @@ export const Fb2Date = Node.create({
 
       input.onchange = (e: Event) => {
         const target = e.target as HTMLInputElement;
-        if (typeof getPos === "function") {
-          editor.commands.updateAttributes("fb2Date", { value: target.value });
+
+        // 1. Получаем позицию и проверяем, что это число
+        const pos = typeof getPos === "function" ? getPos() : null;
+
+        // В Tiptap getPos может вернуть число. Проверяем строго на тип 'number'
+        if (typeof pos === "number") {
+          editor.view.dispatch(
+            editor.state.tr.setNodeMarkup(pos, undefined, {
+              ...node.attrs,
+              value: target.value,
+            }),
+          );
         }
       };
-
       controls.append(button, input);
       dom.append(contentDOM, dateBadge, controls);
 
@@ -152,7 +161,9 @@ export const Fb2Date = Node.create({
           let datePos = -1;
           let dateNodeSize = 0;
           // 1. Если выделена вся нода (fb2Poem)
-          if ( selection instanceof NodeSelection && selection.node.type.name === "fb2Poem"
+          if (
+            selection instanceof NodeSelection &&
+            selection.node.type.name === "fb2Poem"
           ) {
             selection.node.forEach((child, offset) => {
               if (child.type.name === "fb2Date") {

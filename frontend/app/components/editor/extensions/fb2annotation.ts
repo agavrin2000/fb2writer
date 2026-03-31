@@ -28,21 +28,14 @@ export const Fb2Annotation = Node.create({
           }
           // 2. Если нет — ищем родительскую секцию вверх по дереву
           else {
-            const { $from } = selection;
-            for (let d = $from.depth; d > 0; d--) {
-              const node = $from.node(d);
-              if (
-                node.type.name === "fb2Section"
-              ) {
-                sectionPos = $from.before(d);
-                sectionNode = node;
-                break;
-              }
-            }
+            ({ pos: sectionPos, node: sectionNode } = findParentNodeByType(
+              selection,
+              ["fb2Section"],
+            ));
           }
 
           // Если не нашли секцию или аннотация уже есть — блокируем команду
-          if (!sectionNode) return false;
+          if (sectionPos === -1) return false;
 
           let hasAnnotation = false;
           let insertOffset = 0; // По умолчанию 0 (в самое начало контента секции)
@@ -87,7 +80,6 @@ export const Fb2Annotation = Node.create({
               .focus(finalPos + 2) // Фокус на текст внутри аннотации
               .run();
           }
-
           return true;
         },
       removeFb2Annotation:
@@ -101,8 +93,7 @@ export const Fb2Annotation = Node.create({
           if (
             selection instanceof NodeSelection &&
             selection.node.type.name === "fb2Section"
-          ) 
-          {
+          ) {
             const section = selection.node;
             let currentOffset = 0;
 
@@ -121,21 +112,15 @@ export const Fb2Annotation = Node.create({
                 child.type.name === "fb2Section"
               )
                 break;
-
               currentOffset += child.nodeSize;
             }
           }
           // 2. Если курсор уже внутри аннотации
           else {
-            const { $from } = selection;
-            for (let d = $from.depth; d > 0; d--) {
-              const node = $from.node(d);
-              if (node.type.name === "fb2Annotation") {
-                nodePos = $from.before(d);
-                nodeSize = node.nodeSize;
-                break;
-              }
-            }
+            ({ pos: nodePos, nodeSize: nodeSize } = findParentNodeByType(
+              selection,
+              ["fb2Annotation"],
+            ));
           }
 
           if (nodePos === -1) return false;

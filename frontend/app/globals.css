@@ -239,7 +239,7 @@ section.fb2-section {
   float: right;
   margin-right: -25px;
   /* Вынос вправо за пределы рамки */
-  z-index: 100;
+  z-index: 50;
 
   /* 2. Размеры и центрирование */
   width: 30px;
@@ -304,10 +304,10 @@ section.fb2-section {
 
 /* ПОЭМА */
 .fb2-poem {
-  @apply block relative border-2 border-dashed border-[#e0e0e0] rounded bg-white p-[30px] transition-all duration-200 ease-in-out;
+  @apply block relative border-2 border-dashed border-[#e0e0e0] rounded bg-white pt-[30px] pl-[30px] pr-[30px] pb-[10px] transition-all duration-200 ease-in-out;
   transition-property: border-color, box-shadow;
 }
-
+/*
 .fb2-poem {
   @apply block relative 
          bg-white rounded-xl 
@@ -315,11 +315,11 @@ section.fb2-section {
          p-8 md:p-10
          shadow-sm
          transition-all duration-300 ease-in-out;
-}
+}*/
 
 .fb2-poem:hover::before {
   content: "Поэма";
-  @apply absolute top-0 right-3 bg-indigo-400 text-white text-[10px] px-2 py-0.5 rounded font-sans not-italic tracking-wider z-10;
+  @apply absolute -top-6 right-3 bg-indigo-400 text-white text-[10px] px-2 py-0.5 rounded font-sans not-italic tracking-wider z-10;
 }
 
 /* Базовое состояние ручки */
@@ -330,7 +330,7 @@ section.fb2-section {
   float: right;
   margin-right: -30px;
   /* Вынос вправо за пределы рамки */
-  z-index: 100;
+  z-index: 50;
 
   /* 2. Размеры и центрирование */
   width: 30px;
@@ -392,7 +392,7 @@ section.fb2-section {
   outline: 2px solid transparent;
   outline-offset: 4px;
   font-size: x-large;
-  @apply font-bold mb-4 my-6 tracking-wide;
+  @apply font-bold tracking-wide;
 }
 
 .fb2-title,
@@ -464,20 +464,7 @@ section.fb2-section {
 /* Этикетка справа-вверху */
 .fb2-subtitle:hover::before {
   content: "Подзаголовок";
-  @apply absolute -top-7 right-0 bg-indigo-400 text-white text-[10px] px-2 py-1 rounded font-sans not-italic;
-  /*  position: absolute;
-  top: -12px;
-  right: 0;
-  background-color: #6366f1;
-  color: white;
-  font-size: 10px;
-  font-weight: bold;
-  padding: 2px 8px;
-  border-radius: 4px;
-  text-transform: none;
-  letter-spacing: normal;
-  pointer-events: none;
-  z-index: 10;*/
+  @apply absolute -top-7 right-0 bg-indigo-400 text-white text-[10px] px-2 py-1 rounded font-sans font-normal not-italic z-20;
 }
 
 .fb2-cite {
@@ -630,7 +617,6 @@ section.fb2-section {
   gap: 8px;
   background: transparent; /* Убираем фон контейнера */
   padding: 4px 0; /* Немного отступа сверху/снизу */
-  margin: 1em 0; /* Отступ от текста */
 }
 
 .fb2-date-text {

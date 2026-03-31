@@ -76,7 +76,7 @@ export const Fb2Stanza = Node.create({
 
           // 2. Считаем количество строф у родителя
           let stanzaCount = 0;
-          stanzaNode.parentNode.forEach((child: any) => {
+          stanzaNode.parentNode?.forEach((child: any) => {
             if (child.type.name === "fb2Stanza") stanzaCount++;
           });
 
