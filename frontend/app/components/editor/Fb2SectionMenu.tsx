@@ -10,19 +10,17 @@ import {
   FloatingPortal,
 } from "@floating-ui/react";
 import {
-  ListPlus,
   ListStart,
   ListEnd,
   Heading1,
   TextQuote,
   Image as ImageIcon,
-  Plus,
-  Minus,
   Layers,
   List,
   BookImage,
   FileText,
   Rows2,
+  Fingerprint,
 } from "lucide-react";
 import { Fb2ActionIcon } from "../ui/Fb2ActionIcon";
 
@@ -91,12 +89,19 @@ export const Fb2SectionMenu = ({ editor, onSelectImage }: Props) => {
 
   // Извлекаем уровень из текущей выделенной секции
   const { selection } = editor.state;
-  const currentLevel =
-    selection instanceof NodeSelection ? selection.node.attrs.level || 1 : 1;
+  const isSection = selection instanceof NodeSelection && selection.node.type.name === "fb2Section";
+  const currentLevel = isSection ? selection.node.attrs.level || 1 : 1;
+  const currentElementId = isSection ? selection.node.attrs.elementId || "" : "";
 
+  // Функция обновления ID
+  const handleIdChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newId = e.target.value;
+    editor.chain().focus().updateAttributes("fb2Section", { elementId: newId }).run();
+  };
   // Проверяем наличие элементов внутри выделенной секции
   const canRemoveTitle = editor.can().removeFb2Title();
   const canRemoveAnnotation = editor.can().removeFb2Annotation();
+  const canRemoveSection = editor.can().removeFb2Section();
 
   const addFb2Section = (position: "after" | "start" | "end") => {
     const { selection } = editor.state;
@@ -150,6 +155,21 @@ export const Fb2SectionMenu = ({ editor, onSelectImage }: Props) => {
             {currentLevel}
           </span>
         </div>
+        {/* НОВОЕ: Поле для Element ID */}
+        <div className="flex flex-col border-b pb-1 mb-1 gap-1 group relative">
+          <div className="flex items-center justify-center p-2 text-gray-400">
+            <Fingerprint size={16} />
+          </div>
+          {/* Всплывающий инпут при наведении или фокусе на иконку ID */}
+          <input
+            type="text"
+            value={currentElementId}
+            onChange={handleIdChange}
+            placeholder="ID секции..."
+            className="absolute left-full ml-2 top-0 bg-white border border-gray-200 rounded md shadow-lg p-1 text-[10px] w-24 outline-none focus:border-indigo-400"
+            onKeyDown={(e) => e.stopPropagation()} // Чтобы не срабатывали горячие клавиши редактора
+          />
+        </div>
         {/* Группа: Структура секций */}
         <div className="flex flex-col border-b pb-1 mb-1 gap-1">
           <button
@@ -177,14 +197,16 @@ export const Fb2SectionMenu = ({ editor, onSelectImage }: Props) => {
             <ListEnd size={16} />
           </button>
           {/* Удаление */}
-          <button
-            type="button"
-            onClick={() => editor.commands.deleteSelection()}
-            className={twBtn}
-            title="Удалить всю секцию"
-          >
-            <Fb2ActionIcon icon={Rows2} mode="remove" />
-          </button>
+          {canRemoveSection &&
+            <button
+              type="button"
+              onClick={() => editor.chain().focus().removeFb2Section().run()}
+              className={twBtn}
+              title="Удалить всю секцию"
+            >
+              <Fb2ActionIcon icon={Rows2} mode="remove" />
+            </button>
+          }
         </div>
 
         {/* Группа: Внутренние элементы (Title / Epigraph) */}

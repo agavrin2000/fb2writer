@@ -16,12 +16,9 @@
 
 body {
   color: rgb(var(--foreground-rgb));
-  background: linear-gradient(
-      to bottom,
+  background: linear-gradient(to bottom,
       transparent,
-      rgb(var(--background-end-rgb))
-    )
-    rgb(var(--background-start-rgb));
+      rgb(var(--background-end-rgb))) rgb(var(--background-start-rgb));
 }
 
 /* Контейнер-обертка для имитации бумажного листа */
@@ -78,6 +75,7 @@ body {
   border: 2px solid #e2e8f0;
   border-radius: 10px;
 }
+
 /* 1. Сама дорожка скроллбара */
 .custom-scrollbar::-webkit-scrollbar {
   width: 12px;
@@ -86,34 +84,39 @@ body {
 
 /* 2. Ползунок по умолчанию "невидимый" (но существующий) */
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background-color: rgba(0, 0, 0, 0); /* Полная прозрачность через RGBA */
+  background-color: rgba(0, 0, 0, 0);
+  /* Полная прозрачность через RGBA */
   border-radius: 10px;
-  min-height: 150px; /* Делаем его длинным, чтобы легко было попасть */
-  border: 3px solid transparent; /* Создаем отступ, чтобы он был изящным */
-  background-clip: padding-box; /* Чтобы border не съедал цвет */
+  min-height: 150px;
+  /* Делаем его длинным, чтобы легко было попасть */
+  border: 3px solid transparent;
+  /* Создаем отступ, чтобы он был изящным */
+  background-clip: padding-box;
+  /* Чтобы border не съедал цвет */
 }
 
 /* 3. Эффект: Показываем ползунок, когда мышь ВНУТРИ всего контейнера */
 /* Это заставит его проявиться, как только вы начнете двигать мышь по редактору */
 .custom-scrollbar:hover::-webkit-scrollbar-thumb {
-  background-color: rgba(
-    148,
-    163,
-    184,
-    0.4
-  ); /* Нежно-серый (slate-400 с альфой) */
+  background-color: rgba(148,
+      163,
+      184,
+      0.4);
+  /* Нежно-серый (slate-400 с альфой) */
 }
 
 /* 4. Акцент: Когда мышь наведена прямо на ЗОНУ скроллбара (справа) */
 /* В WebView2 это самый надежный способ "подсветить" его ярче */
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background-color: rgba(100, 116, 139, 0.8) !important; /* Темно-серый */
+  background-color: rgba(100, 116, 139, 0.8) !important;
+  /* Темно-серый */
 }
 
 /* 5. Дополнительно: можно подсветить саму дорожку при наведении */
 .custom-scrollbar::-webkit-scrollbar-track:hover {
   background-color: rgba(0, 0, 0, 0.03);
 }
+
 /* Тень и эффект бумаги */
 .editor-paper-sheet {
   box-shadow: 0 0 50px rgba(0, 0, 0, 0.1);
@@ -216,7 +219,8 @@ section.fb2-section {
   /* Сильно ускоряет рендер длинных списков */
   content-visibility: auto;
   contain-intrinsic-size: 1px 2000px;
-  scroll-margin-top: 80px !important; /* ЭТО ЗАМЕНИТ ВАШ ТРЯСУЩИЙСЯ JS РАСЧЕТ */
+  scroll-margin-top: 80px !important;
+  /* ЭТО ЗАМЕНИТ ВАШ ТРЯСУЩИЙСЯ JS РАСЧЕТ */
 }
 
 .section-node-wrapper {
@@ -281,22 +285,20 @@ section.fb2-section {
 
 /* 2. ПОДСВЕТКА ТОЛЬКО ПРЯМОЙ РУЧКИ */
 /* Заменяем .is-selected на системный класс ProseMirror */
-.section-node-wrapper.ProseMirror-selectednode > .section-handle {
+.section-node-wrapper.ProseMirror-selectednode>.section-handle {
   background-color: #3b82f6 !important;
   color: #ffffff !important;
   border-color: #2563eb !important;
 }
 
 /* 3. ТО ЖЕ САМОЕ ДЛЯ РАМКИ СЕКЦИИ */
-.section-node-wrapper.ProseMirror-selectednode > section.fb2-section {
+.section-node-wrapper.ProseMirror-selectednode>section.fb2-section {
   border-color: #3b82f6 !important;
   background-color: rgba(59, 130, 246, 0.02);
 }
 
 /* 4. СБРОС ДЛЯ ВЛОЖЕННЫХ */
-.section-node-wrapper.ProseMirror-selectednode
-  .section-node-wrapper:not(.ProseMirror-selectednode)
-  > .section-handle {
+.section-node-wrapper.ProseMirror-selectednode .section-node-wrapper:not(.ProseMirror-selectednode)>.section-handle {
   background-color: #ffffff !important;
   color: #94a3b8 !important;
   border-color: #e2e8f0 !important;
@@ -307,6 +309,7 @@ section.fb2-section {
   @apply block relative border-2 border-dashed border-[#e0e0e0] rounded bg-white pt-[30px] pl-[30px] pr-[30px] pb-[10px] transition-all duration-200 ease-in-out;
   transition-property: border-color, box-shadow;
 }
+
 /*
 .fb2-poem {
   @apply block relative 
@@ -372,27 +375,21 @@ section.fb2-section {
 
 /* 2. ПОДСВЕТКА ТОЛЬКО ПРЯМОЙ РУЧКИ */
 /* Заменяем .is-selected на системный класс ProseMirror */
-.poem-node-wrapper.ProseMirror-selectednode > .poem-handle {
+.poem-node-wrapper.ProseMirror-selectednode>.poem-handle {
   background-color: #3b82f6 !important;
   color: #ffffff !important;
   border-color: #2563eb !important;
 }
 
 /* 3. ТО ЖЕ САМОЕ ДЛЯ РАМКИ СЕКЦИИ */
-.poem-node-wrapper.ProseMirror-selectednode > poem.fb2-poem {
+.poem-node-wrapper.ProseMirror-selectednode>poem.fb2-poem {
   border-color: #3b82f6 !important;
   background-color: rgba(59, 130, 246, 0.02);
 }
 
 /* Базовое состояние (невидимое) */
 .fb2-title {
-  position: relative;
-  transition: all 0.2s ease-in-out;
-  border-radius: 4px;
-  outline: 2px solid transparent;
-  outline-offset: 4px;
-  font-size: x-large;
-  @apply font-bold tracking-wide;
+  @apply relative text-2xl tracking-[0.2em] text-slate-800 transition-all duration-200 rounded outline-2 outline-transparent outline-offset-4;
 }
 
 .fb2-title,
@@ -409,16 +406,18 @@ section.fb2-section {
 /* Этикетка справа-вверху */
 .fb2-title:hover::before {
   content: "Заголовок";
-  @apply absolute -top-7 right-0 bg-indigo-400 text-white text-[10px] px-2 py-1 rounded font-sans font-normal not-italic z-20;
+  @apply absolute -top-7 right-0 tracking-normal indent-0 bg-indigo-400 text-white text-[10px] px-2 py-1 rounded font-sans font-normal not-italic z-20 whitespace-nowrap;
 }
 
 /* Базовое состояние (невидимое) */
 .fb2-epigraph {
-  letter-spacing: 0.02em; /* Небольшая разрядка букв */
+  letter-spacing: 0.02em;
+  /* Небольшая разрядка букв */
   line-height: 1.4;
   @apply ml-auto mb-6 max-w-[50%] text-gray-500 border-indigo-100 pl-4 py-1;
   transition: all 0.2s ease-in-out;
   position: relative;
+  text-align: justify !important;
 }
 
 /* Рамка и этикетка при наведении (аналогично заголовку) */
@@ -452,7 +451,6 @@ section.fb2-section {
   outline: 2px solid transparent;
   outline-offset: 4px;
   text-align: center !important;
-  font-weight: bold;
 }
 
 /* Эффект при наведении */
@@ -464,7 +462,7 @@ section.fb2-section {
 /* Этикетка справа-вверху */
 .fb2-subtitle:hover::before {
   content: "Подзаголовок";
-  @apply absolute -top-7 right-0 bg-indigo-400 text-white text-[10px] px-2 py-1 rounded font-sans font-normal not-italic z-20;
+  @apply absolute -top-7 right-0 indent-0 bg-indigo-400 text-white text-[10px] px-2 py-1 rounded font-sans font-normal not-italic z-20;
 }
 
 .fb2-cite {
@@ -500,8 +498,10 @@ section.fb2-section {
   position: relative;
   transition: all 0.2s ease-in-out;
   border-radius: 4px;
-  margin: 1rem 0; /* Увеличил отступ между строфами */
-  padding: 8px 0; /* Чтобы рамка строфы была заметнее */
+  margin: 1rem 0;
+  /* Увеличил отступ между строфами */
+  padding: 8px 0;
+  /* Чтобы рамка строфы была заметнее */
 }
 
 /* Рамка СТРОФЫ — пунктирная и ВНУТРИ */
@@ -587,7 +587,8 @@ section.fb2-section {
 }
 
 .fb2-placeholder-wrapper {
-  height: 0; /* Не занимает места в структуре */
+  height: 0;
+  /* Не занимает места в структуре */
   overflow: visible;
   position: relative;
 }
@@ -611,41 +612,51 @@ section.fb2-section {
 }
 
 .fb2-date-container {
-  display: flex; /* Меняем на блочный flex для выравнивания */
-  justify-content: flex-end; /* Прижимаем всё содержимое к правому краю */
+  display: flex;
+  /* Меняем на блочный flex для выравнивания */
+  justify-content: flex-end;
+  /* Прижимаем всё содержимое к правому краю */
   align-items: center;
   gap: 8px;
-  background: transparent; /* Убираем фон контейнера */
-  padding: 4px 0; /* Немного отступа сверху/снизу */
+  background: transparent;
+  /* Убираем фон контейнера */
+  padding: 4px 0;
+  /* Немного отступа сверху/снизу */
 }
 
 .fb2-date-text {
   min-width: 1ch;
   outline: none;
-  font-style: italic; /* Обычно даты в FB2 пишутся курсивом */
+  font-style: italic;
+  /* Обычно даты в FB2 пишутся курсивом */
 }
 
 /* Плашка с технической датой */
 .fb2-date-badge {
-  background: transparent; /* Убираем фон плашки */
-  color: #94a3b8; /* Делаем цвет даты более приглушенным */
+  background: transparent;
+  /* Убираем фон плашки */
+  color: #94a3b8;
+  /* Делаем цвет даты более приглушенным */
   padding: 0 4px;
   font-size: 0.85em;
   user-select: none;
   white-space: nowrap;
-  font-family: monospace; /* Моноширинный шрифт для YYYY-MM-DD */
+  font-family: monospace;
+  /* Моноширинный шрифт для YYYY-MM-DD */
 }
 
 .fb2-date-controls {
   position: relative;
   display: inline-flex;
   align-items: center;
-  opacity: 0.6; /* Кнопка будет полупрозрачной, пока не навели */
+  opacity: 0.6;
+  /* Кнопка будет полупрозрачной, пока не навели */
   transition: opacity 0.2s;
 }
 
 .fb2-date-controls:hover {
-  opacity: 1; /* Проявляется при наведении */
+  opacity: 1;
+  /* Проявляется при наведении */
 }
 
 .fb2-date-controls button {
@@ -720,6 +731,7 @@ section.fb2-section {
   color: #059669;
   font-weight: bold;
 }
+
 .cancel-btn {
   color: #6b7280;
 }

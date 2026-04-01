@@ -65,6 +65,10 @@ export const Fb2Epigraph = Node.create({
                     type: "paragraph",
                     content: [{ type: "text", text: "Эпиграф" }],
                   },
+                  {
+                    type: "fb2TextAuthor",
+                    content: [{ type: "text", text: "Автор текста" }],
+                  },
                 ],
               })
               .focus(insertPos + 2) // Фокус внутри параграфа нового эпиграфа

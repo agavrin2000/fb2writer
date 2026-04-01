@@ -1,4 +1,6 @@
-import { Node } from "@tiptap/core";
+import { findParentNodeByType } from "@/utils/utils";
+import { Node, CommandProps, RawCommands } from "@tiptap/core";
+import { NodeSelection } from "@tiptap/pm/state";
 
 export const Fb2Section = Node.create({
   name: "fb2Section",
@@ -16,23 +18,49 @@ export const Fb2Section = Node.create({
         // Убираем здесь renderHTML, чтобы Tiptap не вешал id на внешний div
         parseHTML: (element) => element.getAttribute("id"),
       },
+      elementId: {
+        default: null,
+        parseHTML: (element) =>
+          element.getAttribute("elementid") ||
+          element.getAttribute("elementId"),
+        renderHTML: (attributes) => {
+          if (!attributes.elementId) return {};
+          return { elementId: attributes.elementId };
+        },
+      },
     };
   },
   addNodeView() {
     return ({ node, editor, getPos }) => {
       const dom = document.createElement("div");
       dom.className = "section-node-wrapper";
+
       const content = document.createElement("section");
       content.className = "fb2-section";
 
-      // Ручная установка ID строго на внутренний тег
-      if (node.attrs.sectionId) {
-        content.id = node.attrs.sectionId;
-      }
+      // 1. Функция для синхронизации атрибутов с DOM
+      const syncAttributes = (newNode) => {
+        if (newNode.attrs.sectionId) {
+          content.id = newNode.attrs.sectionId;
+        } else {
+          content.removeAttribute("id");
+        }
+
+        if (newNode.attrs.elementId) {
+          content.setAttribute("elementId", newNode.attrs.elementId);
+        } else {
+          content.removeAttribute("elementId");
+        }
+      };
+
+      // Инициализация при создании
+      syncAttributes(node);
+
       const handle = document.createElement("div");
       handle.className = "section-handle";
       handle.innerText = "⠿";
       handle.contentEditable = "false";
+
       handle.onclick = () => {
         const pos = getPos();
         if (typeof pos === "number") {
@@ -40,13 +68,62 @@ export const Fb2Section = Node.create({
         }
       };
 
-      // КЛЮЧЕВОЕ ИЗМЕНЕНИЕ: вешаем ID прямо на тег <section>
-      if (node.attrs.sectionId) {
-        content.id = node.attrs.sectionId;
-      }
-
       dom.append(handle, content);
-      return { dom, contentDOM: content };
+
+      return {
+        dom,
+        contentDOM: content,
+        // 2. КЛЮЧЕВОЙ МЕТОД: вызывается Tiptap при обновлении атрибутов
+        update: (updatedNode) => {
+          if (updatedNode.type.name !== this.name) return false;
+
+          // Синхронизируем атрибуты без перерисовки всего узла
+          syncAttributes(updatedNode);
+          return true;
+        },
+      };
+    };
+  },
+  addCommands() {
+    return {
+      removeFb2Section:
+        () =>
+        ({ state, chain }: CommandProps) => {
+          const { selection, schema } = state;
+          let sectionPos = -1;
+          let sectionNode = null;
+
+          // 1. Проверяем: выделена ли сама секция?
+          if (
+            !(
+              selection instanceof NodeSelection &&
+              selection.node.type.name === "fb2Section"
+            )
+          )
+            return false;
+          ({ node: sectionNode } = findParentNodeByType(selection, [
+            "fb2Section",
+            "fb2BodySection",
+          ]));
+
+          if (sectionNode.type.name === "fb2BodySection") {
+            // Считаем количество секций у родителя
+            let sectionCount = 0;
+            sectionNode.forEach((child: any) => {
+              if (child.type.name === "fb2Section") sectionCount++;
+            });
+            // Удаляем секцию
+            if (sectionCount <= 1) return false;
+            return chain().deleteSelection().run();
+          }
+
+          // Для fb2Section заменяем удаленную секцию на пустой параграф
+          return chain()
+            .insertContent(schema.nodes.paragraph.create())
+            .focus()
+            .scrollIntoView() // Опционально: прокрутить к новому параграфу
+            .run();
+        },
     };
   },
 });

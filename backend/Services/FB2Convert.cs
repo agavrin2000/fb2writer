@@ -265,7 +265,7 @@ public class Fb2Service
                     SrcUrl = docInfo?.Element(ns + "src-url")?.Value ?? "",
                     SrcOcr = docInfo?.Element(ns + "src-ocr")?.Value ?? "",
                     Version = docInfo?.Element(ns + "version")?.Value ?? "1.0",
-                    History = historyNodes!= null ? new { type = "doc", content = historyNodes } : null,
+                    History = historyNodes != null ? new { type = "doc", content = historyNodes } : null,
                 },
                 PublishInfo = new // Данные об издательстве
                 {
@@ -323,6 +323,7 @@ public class Fb2Service
                 throw new Exception("Критическая ошибка при загрузке XSD схем из папки Schemas.", ex);
             }
         });
+
     /// <summary>
     /// Валидация fb2 документа на основе xsd-схем
     /// </summary>
@@ -435,87 +436,89 @@ public class Fb2Service
     }
 
     // Рекурсивная функция для обработки inline элементов
-  private void ProcessInline(XNode node, List<object> container, List<object> activeMarks)
-{
-    if (node is XText textNode)
+    private void ProcessInline(XNode node, List<object> container, List<object> activeMarks)
     {
-        string val = textNode.Value;
-        if (!string.IsNullOrWhiteSpace(val)) // Лучше проверять на пробелы тоже
+        if (node is XText textNode)
         {
-            var textElement = new Dictionary<string, object>();
-            textElement.Add("type", "text");
-
-            // ПОРЯДОК: Сначала добавляем marks, если они есть
-            if (activeMarks.Count > 0)
+            string val = textNode.Value;
+            if (!string.IsNullOrWhiteSpace(val)) // Лучше проверять на пробелы тоже
             {
-                textElement.Add("marks", activeMarks.ToArray());
-            }
+                var textElement = new Dictionary<string, object>();
+                textElement.Add("type", "text");
 
-            // Затем добавляем сам текст
-            textElement.Add("text", val);
-
-            container.Add(textElement);
-        }
-    }
-    else if (node is XElement el)
-    {
-        string localName = el.Name.LocalName.ToLower();
-
-        if (localName == "image")
-        {
-            var hrefAttr = el.Attribute(xlink + "href");
-            if (hrefAttr != null)
-            {
-                string base64 = GetImage(hrefAttr.Value);
-                if (!string.IsNullOrEmpty(base64))
+                // ПОРЯДОК: Сначала добавляем marks, если они есть
+                if (activeMarks.Count > 0)
                 {
-                    // В Tiptap атрибуты ДОЛЖНЫ быть внутри объекта attrs
-                    container.Add(new { 
-                        type = "fb2InlineImage", 
-                        attrs = new { 
-                            src = base64,
-                            href = hrefAttr.Value 
-                        } 
-                    });
+                    textElement.Add("marks", activeMarks.ToArray());
                 }
+
+                // Затем добавляем сам текст
+                textElement.Add("text", val);
+
+                container.Add(textElement);
             }
-            return;
         }
-
-        object? mark = localName switch
+        else if (node is XElement el)
         {
-            "emphasis" => new { type = "italic" },
-            "strong"   => new { type = "bold" },
-            "sub"      => new { type = "subscript" },
-            "sup"      => new { type = "superscript" },
-            "code"     => new { type = "code" },
-            "a"        => new {
-                type = "link",
-                attrs = new {
-                    href = el.Attribute(xlink + "href")?.Value ?? "",
-                    target = "_blank", // Стандарт для ссылок
-                    rel = (el.Attribute("type")?.Value == "note") ? "footnote" : "noreferrer"
+            string localName = el.Name.LocalName.ToLower();
+
+            if (localName == "image")
+            {
+                var hrefAttr = el.Attribute(xlink + "href");
+                if (hrefAttr != null)
+                {
+                    string base64 = GetImage(hrefAttr.Value);
+                    if (!string.IsNullOrEmpty(base64))
+                    {
+                        // В Tiptap атрибуты ДОЛЖНЫ быть внутри объекта attrs
+                        container.Add(new
+                        {
+                            type = "fb2InlineImage",
+                            attrs = new
+                            {
+                                src = base64,
+                                href = hrefAttr.Value
+                            }
+                        });
+                    }
                 }
-            },
-            _ => null
-        };
+                return;
+            }
 
-        // Создаем новый список марок для вложенных элементов
-        var nextMarks = mark != null 
-            ? new List<object>(activeMarks) { mark } 
-            : activeMarks;
+            object? mark = localName switch
+            {
+                "emphasis" => new { type = "italic" },
+                "strong" => new { type = "bold" },
+                "sub" => new { type = "subscript" },
+                "sup" => new { type = "superscript" },
+                "code" => new { type = "code" },
+                "a" => new
+                {
+                    type = "link",
+                    attrs = new
+                    {
+                        href = el.Attribute(xlink + "href")?.Value ?? "",
+                        target = "_blank", // Стандарт для ссылок
+                        rel = (el.Attribute("type")?.Value == "note") ? "footnote" : "noreferrer"
+                    }
+                },
+                _ => null
+            };
 
-        foreach (var child in el.Nodes())
-        {
-            ProcessInline(child, container, nextMarks);
+            // Создаем новый список марок для вложенных элементов
+            var nextMarks = mark != null
+                ? new List<object>(activeMarks) { mark }
+                : activeMarks;
+
+            foreach (var child in el.Nodes())
+            {
+                ProcessInline(child, container, nextMarks);
+            }
         }
     }
-}
 
-
-
-
-
+    //--------------------------------------------------------------------------------------------
+    // Формирование и сохранение XML-документа из JSON-строки, полученной из frontend   
     //--------------------------------------------------------------------------------------------
     /// <summary>
     /// Convert json to FB2-content
@@ -567,11 +570,110 @@ public class Fb2Service
             new XDeclaration("1.0", "utf-8", null),
             rootElement
         );
+        ValidateFb2(doc);
+        // 2. Логика сохранения: обычный FB2 или ZIP
+        bool isZip = fileName.EndsWith(".zip", StringComparison.OrdinalIgnoreCase);
 
-        using var writer = new StreamWriter(outputStream, System.Text.Encoding.UTF8);
-        doc.Save(writer);
+        if (isZip)
+        {
+            // Создаем архив. leaveOpen: true критичен, чтобы не закрыть основной outputStream раньше времени
+            using var archive = new ZipArchive(outputStream, ZipArchiveMode.Create, leaveOpen: true);
+
+            // Имя файла внутри архива (убираем .zip)
+            string entryName = fileName.EndsWith(".fb2.zip", StringComparison.OrdinalIgnoreCase)
+                ? fileName[..^4]
+                : Path.ChangeExtension(fileName, ".fb2");
+
+            var entry = archive.CreateEntry(entryName, CompressionLevel.Optimal);
+            using var entryStream = entry.Open();
+            using var writer = new StreamWriter(entryStream, Encoding.UTF8);
+            doc.Save(writer);
+        }
+        else
+        {
+            // Обычное сохранение в поток
+            using var writer = new StreamWriter(outputStream, Encoding.UTF8, 1024, leaveOpen: true);
+            doc.Save(writer);
+        }
+    }
+    
+    // Проверка description перед сохранением
+    private static void ValidateDescription(XElement? description)
+    {
+        // Вспомогательная функция для проверки title-info и src-title-info
+        static void ValidateTitleInfo(XElement element, string context)
+        {
+            // Обязательные поля для любого title-info типа:
+
+            // Жанр (минимум один)
+            if (!element.Elements(ns + "genre").Any())
+                throw new InvalidOperationException($"<{context}> должен содержать хотя бы один жанр (<genre>).");
+
+            // Автор (минимум один)
+            var authors = element.Elements(ns + "author");
+            if (!authors.Any())
+                throw new InvalidOperationException($"<{context}> должен содержать хотя бы одного автора (<author>).");
+
+            // У автора должно быть имя/фамилия ИЛИ никнейм
+            foreach (var author in authors)
+            {
+                bool hasName = author.Element(ns + "first-name") != null || author.Element(ns + "last-name") != null;
+                bool hasNickname = author.Element(ns + "nickname") != null;
+                if (!hasName && !hasNickname)
+                    throw new InvalidOperationException($"В <{context}> у автора должен быть указан nickname или имя/фамилия.");
+            }
+
+            // Название книги
+            if (element.Element(ns + "book-title") == null)
+                throw new InvalidOperationException($"<{context}> должен содержать назввние книги (<book-title>).");
+
+            // Язык
+            if (element.Element(ns + "lang") == null)
+                throw new InvalidOperationException($"<{context}> должен содержать язык книги (<lang>).");
+        }
+
+        if (description == null)
+            throw new InvalidOperationException("Элемент <description> отсутствует.");
+
+        // 1. Проверка title-info (ОБЯЗАТЕЛЬНО)
+        var titleInfo = description.Element(ns + "title-info") ?? throw new InvalidOperationException("<description> должен содержать <title-info>.");
+        ValidateTitleInfo(titleInfo, "title-info");
+
+        // 2. Проверка src-title-info (ОПЦИОНАЛЬНО, но если есть — должен быть валидным)
+        var srcTitleInfo = description.Element(ns + "src-title-info");
+        if (srcTitleInfo != null)
+        {
+            ValidateTitleInfo(srcTitleInfo, "src-title-info");
+        }
+
+        // 3. Проверка document-info (ОБЯЗАТЕЛЬНО по стандартной схеме)
+        var docInfo = description.Element(ns + "document-info") ?? throw new InvalidOperationException("<description> должен содержать <document-info>.");
+
+        if (docInfo.Element(ns + "id") == null)
+            throw new InvalidOperationException("<document-info> должен содержать уникальный ID документа (<id>).");
+
+        if (docInfo.Element(ns + "date") == null)
+            throw new InvalidOperationException("<document-info> должен содержать дату документа (<date>).");
+
+        if (docInfo.Element(ns + "version") == null)
+            throw new InvalidOperationException("<document-info> должен содержать версию документа (<version>).");
+
+        // Автор (минимум один)
+        var authors = docInfo.Elements(ns + "author");
+        if (!authors.Any())
+            throw new InvalidOperationException($"<document-info> должен содержать хотя бы одного автора (<author>).");
+
+        // У автора должно быть имя/фамилия ИЛИ никнейм
+        foreach (var author in authors)
+        {
+            bool hasName = author.Element(ns + "first-name") != null || author.Element(ns + "last-name") != null;
+            bool hasNickname = author.Element(ns + "nickname") != null;
+            if (!hasName && !hasNickname)
+                throw new InvalidOperationException($"В <document-info> у автора должен быть указан nickname или имя/фамилия.");
+        }
     }
 
+    // Создание description
     private XElement BuildDescription(JToken? meta)
     {
         var description = new XElement(ns + "description");
@@ -635,6 +737,8 @@ public class Fb2Service
         AddPersons(el, ns + "author", node["Authors"]);
         AddTo(el, ns + "book-title", node["Title"] ?? node["BookTitle"]); // Обработка разных ключей
         AddRichText(el, ns + "annotation", node["Annotation"]);
+        AddTo(el, ns + "keywords", node["Keywords"]);
+        AddDate(el, ns + "date", node["Date"], node["DateValue"]);
 
         // Обложка
         var coverId = (name == ns + "title-info") ? "cover.jpg" : "src-cover.jpg";
@@ -662,8 +766,6 @@ public class Fb2Service
         }
         AddTo(el, ns + "lang", node["Lang"]);
         AddTo(el, ns + "src-lang", node["SrcLang"]);
-        AddTo(el, ns + "keywords", node["Keywords"]);
-        AddDate(el, ns + "date", node["Date"], node["DateValue"]);
         AddPersons(el, ns + "translator", node["Translators"]);
         AddSequences(el, ns + "sequence", node["Sequence"]);
 
@@ -696,6 +798,7 @@ public class Fb2Service
         }
     }
 
+    // Создание основного body
     private XElement BuildBody(JToken? content, string name)
     {
         var body = new XElement(ns + "body");
@@ -723,6 +826,8 @@ public class Fb2Service
 
         return body;
     }
+    
+    // Рекурсивная конвертация узла JSON в XElement
     private object? ConvertNode(JToken node)
     {
         if (node == null || node.Type == JTokenType.Null) return null;
@@ -771,6 +876,7 @@ public class Fb2Service
         };
     }
 
+    // Обработка текстовых узлов с форматированием
     private static object WrapTextWithMarks(JToken node) // Возвращаем object для гибкости
     {
         var textValue = node["text"]?.ToString() ?? "";
@@ -800,6 +906,7 @@ public class Fb2Service
         return result;
     }
 
+    // Создание body с секцией примечаний
     private XElement? BuildNotesBody(JObject? footnotes)
     {
         if (footnotes == null || !footnotes.Properties().Any())
@@ -867,7 +974,7 @@ public class Fb2Service
         }
     }
 
-    // --- УНИВЕРСАЛЬНЫЙ МЕТОД ДЛЯ СЕРИЙ ---
+    // Добавление набора серий
     private static void AddSequences(XContainer parent, XName tagName, JToken? token)
     {
         if (token == null || token.Type == JTokenType.Null) return;
@@ -886,7 +993,8 @@ public class Fb2Service
             }
         }
     }
-
+    
+    // Добавление одной серии
     private static void AddSingleSequence(XContainer parent, XName name, JToken? token)
     {
         // 1. Защита от Null и пустых объектов
@@ -910,7 +1018,7 @@ public class Fb2Service
         parent.Add(seqElement);
     }
 
-    // --- УНИВЕРСАЛЬНЫЙ МЕТОД ДЛЯ ПЕРСОН ---
+    // Универсальный метод для добавления персон (авторов, переводчиков)
     private static void AddPersons(XContainer parent, XName tagName, JToken? token)
     {
         if (token == null || token.Type == JTokenType.Null) return;
@@ -945,6 +1053,8 @@ public class Fb2Service
             }
         }
     }
+    
+    // Добавление даты в description
     private static void AddDate(XContainer parent, XName name, JToken? textToken, JToken? valueToken)
     {
         // Используем явное приведение (string?), оно корректно достает значение из JValue
@@ -974,7 +1084,7 @@ public class Fb2Service
         parent.Add(dateEl);
     }
 
-    // Вспомогательный метод для формирования ссылки
+    // Создание даты в poem
     private XElement CreateDate(JToken node)
     {
         // 1. Безопасно достаем атрибут value
@@ -1004,6 +1114,7 @@ public class Fb2Service
         return dateEl;
     }
 
+    // Создание элемента с изображением
     private object? CreateImage(JToken node, string? forcedId = null)
     {
         if (node is not JObject obj) return null;
@@ -1066,7 +1177,7 @@ public class Fb2Service
     }
 
 
-    // Вспомогательный метод для создания ссылки из метки
+    // Создание ссылки из метки
     private static object CreateLinkFromMark(object content, JToken? attrs)
     {
         var href = attrs?["href"]?.ToString()?.Trim() ?? "";
