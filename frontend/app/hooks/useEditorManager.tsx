@@ -290,6 +290,7 @@ export function useEditorManager(
   // --- МЕТОДЫ ДЕЙСТВИЙ (Outgoing) ---
   // Очистка истории UndoRedo
   const clearHistory = useCallback(() => {
+    if (!fb2.editor) return;
     const { view, state } = fb2.editor;
 
     // Создаем новое состояние, сохраняя текущий документ, выделение и плагины.

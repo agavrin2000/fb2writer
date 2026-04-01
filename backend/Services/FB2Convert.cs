@@ -551,7 +551,7 @@ public class Fb2Service
             new XAttribute(XNamespace.Xmlns + "xlink", xlink.NamespaceName), // Добавляем объявление xlink
             new XAttribute(XNamespace.Xml + "lang", "ru"),
             BuildDescription(metadata),
-            BuildBody(content, "main"),
+            BuildBody(content),
             BuildNotesBody(footnotes)
         );
 
@@ -596,7 +596,7 @@ public class Fb2Service
             doc.Save(writer);
         }
     }
-    
+
     // Проверка description перед сохранением
     private static void ValidateDescription(XElement? description)
     {
@@ -799,34 +799,18 @@ public class Fb2Service
     }
 
     // Создание основного body
-    private XElement BuildBody(JToken? content, string name)
+    private XElement BuildBody(JToken? content)
     {
-        var body = new XElement(ns + "body");
-
-        // В FB2 name="notes" обычно используется для секции сносок
-        if (!string.IsNullOrEmpty(name) && name != "main")
+        // 1. Проверяем наличие массива узлов
+        if (content?["content"] is JArray nodes && nodes.Count > 0)
         {
-            body.Add(new XAttribute("name", name));
+            return (XElement?)ConvertNode(nodes[0]) ?? new XElement(ns + "body");
         }
 
-        // Извлекаем массив узлов из "content"
-        if (content?["content"] is JArray nodes)
-        {
-            foreach (var node in nodes)
-            {
-                var converted = ConvertNode(node);
-                if (converted != null)
-                {
-                    // Добавляем результат. Если это массив (object[]), 
-                    // XElement.Add автоматически добавит каждый элемент массива.
-                    body.Add(converted);
-                }
-            }
-        }
-
-        return body;
+        // 3. Возвращаем пустой body, если контента нет или массив пуст
+        return new XElement(ns + "body");
     }
-    
+
     // Рекурсивная конвертация узла JSON в XElement
     private object? ConvertNode(JToken node)
     {
@@ -857,7 +841,7 @@ public class Fb2Service
             "text" => WrapTextWithMarks(node), // Возвращает XText или XElement (если есть марки)
 
             "fb2Section" => new XElement(ns + "section", children),
-            "fb2BodySection" => new XElement(ns + "section", children),
+            "fb2BodySection" => new XElement(ns + "body", children),
             "fb2Annotation" => new XElement(ns + "annotation", children),
             "fb2Title" => new XElement(ns + "title", children),
             "fb2Cite" => new XElement(ns + "cite", children),
@@ -993,7 +977,7 @@ public class Fb2Service
             }
         }
     }
-    
+
     // Добавление одной серии
     private static void AddSingleSequence(XContainer parent, XName name, JToken? token)
     {
@@ -1053,7 +1037,7 @@ public class Fb2Service
             }
         }
     }
-    
+
     // Добавление даты в description
     private static void AddDate(XContainer parent, XName name, JToken? textToken, JToken? valueToken)
     {

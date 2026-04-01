@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Editor } from "@tiptap/react";
 import { NodeSelection } from "@tiptap/pm/state";
 import {
@@ -21,6 +21,7 @@ import {
   FileText,
   Rows2,
   Fingerprint,
+  Anchor,
 } from "lucide-react";
 import { Fb2ActionIcon } from "../ui/Fb2ActionIcon";
 
@@ -31,7 +32,7 @@ interface Props {
 
 export const Fb2SectionMenu = ({ editor, onSelectImage }: Props) => {
   const [isOpen, setIsOpen] = useState(false);
-
+  const isTyping = useRef(false);
   const { refs, floatingStyles, update } = useFloating({
     open: isOpen,
     placement: "right-start",
@@ -39,10 +40,31 @@ export const Fb2SectionMenu = ({ editor, onSelectImage }: Props) => {
     whileElementsMounted: autoUpdate,
   });
 
+  // Извлекаем уровень из текущей выделенной секции
+  const selection = editor?.state.selection;
+  const isSection =
+    selection instanceof NodeSelection &&
+    selection.node.type.name === "fb2Section";
+  const currentLevel = isSection ? selection.node.attrs.level || 1 : 1;
+  const currentElementId = isSection
+    ? selection.node.attrs.elementId || ""
+    : "";
+
+  const [localId, setLocalId] = useState(currentElementId);
+
+  // 2. Синхронизируем его, когда меняется выделение в редакторе
+  useEffect(() => {
+    if (!isTyping.current) {
+      setLocalId(currentElementId);
+    }
+  }, [currentElementId]);
+
   useEffect(() => {
     if (!editor) return;
 
     const updateMenu = () => {
+      console.log(isTyping.current);
+      if (isOpen && isTyping.current) return;
       const { selection } = editor.state;
       const isSectionSelected =
         selection instanceof NodeSelection &&
@@ -59,18 +81,21 @@ export const Fb2SectionMenu = ({ editor, onSelectImage }: Props) => {
         }
       } else {
         setIsOpen(false);
+        isTyping.current = false;
       }
     };
 
     const handleClickOutside = (event: MouseEvent) => {
-      if (!isOpen) return;
+      // Используем актуальное состояние через проверку refs
+      if (!refs.floating.current) return;
+
       const target = event.target as HTMLElement;
       if (
-        !refs.floating.current?.contains(target) &&
+        !refs.floating.current.contains(target) &&
         !target.closest(".section-handle")
       ) {
-        editor.commands.focus();
         setIsOpen(false);
+        isTyping.current = false;
       }
     };
 
@@ -83,21 +108,10 @@ export const Fb2SectionMenu = ({ editor, onSelectImage }: Props) => {
       window.removeEventListener("scroll", update, true);
       window.removeEventListener("mousedown", handleClickOutside);
     };
-  }, [editor, refs, update, isOpen]);
+  }, [editor, update, isOpen]);
 
   if (!isOpen || !editor) return null;
 
-  // Извлекаем уровень из текущей выделенной секции
-  const { selection } = editor.state;
-  const isSection = selection instanceof NodeSelection && selection.node.type.name === "fb2Section";
-  const currentLevel = isSection ? selection.node.attrs.level || 1 : 1;
-  const currentElementId = isSection ? selection.node.attrs.elementId || "" : "";
-
-  // Функция обновления ID
-  const handleIdChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newId = e.target.value;
-    editor.chain().focus().updateAttributes("fb2Section", { elementId: newId }).run();
-  };
   // Проверяем наличие элементов внутри выделенной секции
   const canRemoveTitle = editor.can().removeFb2Title();
   const canRemoveAnnotation = editor.can().removeFb2Annotation();
@@ -158,16 +172,45 @@ export const Fb2SectionMenu = ({ editor, onSelectImage }: Props) => {
         {/* НОВОЕ: Поле для Element ID */}
         <div className="flex flex-col border-b pb-1 mb-1 gap-1 group relative">
           <div className="flex items-center justify-center p-2 text-gray-400">
-            <Fingerprint size={16} />
+            <Anchor size={16} />
           </div>
           {/* Всплывающий инпут при наведении или фокусе на иконку ID */}
           <input
             type="text"
-            value={currentElementId}
-            onChange={handleIdChange}
+            value={localId}
+            onPointerDown={(e) => {
+              e.stopPropagation();
+              isTyping.current = true;
+            }}
+            onFocus={() => {
+              isTyping.current = true;
+            }}
+            onBlur={() => {
+              isTyping.current = false;
+              // Финальное сохранение при потере фокуса
+              editor.commands.updateAttributes("fb2Section", {
+                elementId: localId,
+              });
+            }}
+            onChange={(e) => {
+              const val = e.target.value;
+              setLocalId(val);
+              // Обновляем атрибуты в редакторе в реальном времени,
+              // но благодаря isTyping.current это не закроет меню
+              editor.commands.updateAttributes("fb2Section", {
+                elementId: val,
+              });
+            }}
+            onKeyDown={(e) => {
+              e.stopPropagation();
+              if (e.key === "Enter") {
+                isTyping.current = false;
+                editor.commands.focus();
+              }
+            }}
+            onMouseDown={(e) => e.stopPropagation()}
             placeholder="ID секции..."
             className="absolute left-full ml-2 top-0 bg-white border border-gray-200 rounded md shadow-lg p-1 text-[10px] w-24 outline-none focus:border-indigo-400"
-            onKeyDown={(e) => e.stopPropagation()} // Чтобы не срабатывали горячие клавиши редактора
           />
         </div>
         {/* Группа: Структура секций */}
@@ -197,7 +240,7 @@ export const Fb2SectionMenu = ({ editor, onSelectImage }: Props) => {
             <ListEnd size={16} />
           </button>
           {/* Удаление */}
-          {canRemoveSection &&
+          {canRemoveSection && (
             <button
               type="button"
               onClick={() => editor.chain().focus().removeFb2Section().run()}
@@ -206,7 +249,7 @@ export const Fb2SectionMenu = ({ editor, onSelectImage }: Props) => {
             >
               <Fb2ActionIcon icon={Rows2} mode="remove" />
             </button>
-          }
+          )}
         </div>
 
         {/* Группа: Внутренние элементы (Title / Epigraph) */}

@@ -65,6 +65,7 @@ class PhotinoBridge extends EventEmitter {
 
       // Эмитим событие, если у нас есть тип
       if (message && message.type) {
+        console.log("📩 Из .NET:", message);
         this.emit(message.type, message.payload);
       }
     } catch (e) {
@@ -80,6 +81,7 @@ class PhotinoBridge extends EventEmitter {
     const message = payload ? `${type}:${JSON.stringify(payload)}` : type;
 
     this.bridge.sendMessage(message);
+    console.log("👉 Отправка в C#:", message);
   }
 }
 
