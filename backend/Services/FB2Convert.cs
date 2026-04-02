@@ -271,7 +271,7 @@ public class Fb2Service
                     City = (string?)pubInfo?.Element(ns + "city"),
                     Year = (string?)pubInfo?.Element(ns + "year"),
                     ISBN = (string?)pubInfo?.Element(ns + "isbn"),
-                    Sequence = pubInfo?.Elements(ns+"sequence").Select(x => new
+                    Sequence = pubInfo?.Elements(ns + "sequence").Select(x => new
                     {
                         name = (string?)x.Attribute("name"),
                         number = (int?)x.Attribute("number")

@@ -7,9 +7,13 @@ import { EditorExtensions } from "@/components/editor/EditorExtensions";
 import { collectNodes } from "@/utils/utils";
 import { useTOC } from "./useTOC";
 import { createEditorProps } from "../components/editor/createEditorProps";
-import { TocItem, ActiveNote, FootnotesMap, EMPTY_FB2_TEMPLATE } from "@/types/types";
+import {
+  TocItem,
+  ActiveNote,
+  FootnotesMap,
+  EMPTY_FB2_TEMPLATE,
+} from "@/types/types";
 import { Selection } from "@tiptap/pm/state";
-import { EditorState } from "@tiptap/pm/state";
 
 export const useFB2Editor = (
   footnotesRef: RefObject<FootnotesMap>,
@@ -76,21 +80,15 @@ export const useFB2Editor = (
         // Только обновляем подсветку текущей главы в Sidebar
         updateActiveHeadingRef.current(editor);
       },
-      /*onCreate({ editor }: { editor: Editor }) {
-        const { view, state } = editor;
-
-        // Создаем новое состояние, сохраняя текущий документ, выделение и плагины.
-        // Это инициализирует плагины (включая UndoRedo) с нуля.
-        const newState = EditorState.create({
-          doc: state.doc,
-          plugins: state.plugins,
-          selection: state.selection,
-          storedMarks: state.storedMarks,
+      onCreate: ({ editor }: { editor: Editor }) => {
+        // При создании редактора сразу обновляем подсветку текущей главы
+        const nodes = collectNodes(editor.state.doc);
+        flatNodesRef.current = nodes;
+        debouncedSetToc(nodes);
+        requestAnimationFrame(() => {
+          updateActiveHeadingRef.current(editor);
         });
-
-        // Обновляем состояние в представлении
-        view.updateState(newState);
-      },*/
+      },
     }),
     [editorProps, debouncedSetToc, updateActiveHeadingRef, flatNodesRef], // flatNodesRef здесь константный, но для порядка добавлен
   );
@@ -111,7 +109,7 @@ export const useFB2Editor = (
       const selection = Selection.near(resolvedPos);
 
       // Применяем выделение через транзакцию
-      editor.view.dispatch(state.tr.setSelection(selection));
+      view.dispatch(state.tr.setSelection(selection));
 
       // Фокусируем редактор
       editor.commands.focus();

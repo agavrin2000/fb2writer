@@ -187,6 +187,7 @@
      <xs:element name="nickname" type="textFieldType" minOccurs="0"/>
      <xs:element name="home-page" type="xs:string" minOccurs="0" maxOccurs="unbounded"/>
      <xs:element name="email" type="xs:string" minOccurs="0" maxOccurs="unbounded"/>
+     <xs:element name="id" type="xs:token" minOccurs="0"/>
    </xs:sequence>
    <xs:sequence>
      <xs:element name="nickname" type="textFieldType"/>
