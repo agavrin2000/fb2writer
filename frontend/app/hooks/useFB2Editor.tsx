@@ -52,20 +52,25 @@ export const useFB2Editor = (
         editor: Editor;
         transaction: Transaction;
       }) => {
-        // Если текст не менялся (только курсор) — ничего не делаем
-        if (!transaction.docChanged) return;
+        // 1. Проверяем, изменился ли документ ИЛИ изменилось ли выделение (курсор)
+        const isDocChanged = transaction.docChanged;
+        const isSelectionChanged = transaction.selectionSet;
 
-        // Быстрый сбор структуры документа (~1-2мс на больших файлах)
-        const nodes = collectNodes(editor.state.doc);
-        flatNodesRef.current = nodes;
-        debouncedSetToc(nodes);
+        // Если вообще ничего не произошло — выходим
+        if (!isDocChanged && !isSelectionChanged) return;
 
-        // Тяжелый рендер React-дерева оглавления и поиск активной главы выносим в следующий кадр
+        // 2. Если документ изменился — пересобираем структуру (TOC)
+        if (isDocChanged) {
+          const nodes = collectNodes(editor.state.doc);
+          flatNodesRef.current = nodes;
+          debouncedSetToc(nodes);
+        }
+
+        // 3. Обновляем активную главу (это нужно и при вводе, и при простом движении курсора)
         requestAnimationFrame(() => {
           updateActiveHeadingRef.current(editor);
         });
       },
-
       // Обработка перемещения курсора / выделения
       onSelectionUpdate: ({ editor }: { editor: Editor }) => {
         // Только обновляем подсветку текущей главы в Sidebar

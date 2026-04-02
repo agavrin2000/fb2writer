@@ -14,13 +14,10 @@ import {
   ListEnd,
   Heading1,
   TextQuote,
-  Image as ImageIcon,
   Layers,
-  List,
   BookImage,
   FileText,
   Rows2,
-  Fingerprint,
   Anchor,
 } from "lucide-react";
 import { Fb2ActionIcon } from "../ui/Fb2ActionIcon";
@@ -33,14 +30,16 @@ interface Props {
 export const Fb2SectionMenu = ({ editor, onSelectImage }: Props) => {
   const [isOpen, setIsOpen] = useState(false);
   const isTyping = useRef(false);
+  // Плавающий элемент
   const { refs, floatingStyles, update } = useFloating({
     open: isOpen,
+    onOpenChange: setIsOpen,
     placement: "right-start",
     middleware: [offset({ mainAxis: 10, crossAxis: 0 }), flip(), shift()],
     whileElementsMounted: autoUpdate,
   });
 
-  // Извлекаем уровень из текущей выделенной секции
+  // Состояние для отслеживания текущего выделени
   const selection = editor?.state.selection;
   const isSection =
     selection instanceof NodeSelection &&
@@ -52,7 +51,7 @@ export const Fb2SectionMenu = ({ editor, onSelectImage }: Props) => {
 
   const [localId, setLocalId] = useState(currentElementId);
 
-  // 2. Синхронизируем его, когда меняется выделение в редакторе
+  // Синхронизация локального ID с текущим узлом
   useEffect(() => {
     if (!isTyping.current) {
       setLocalId(currentElementId);
@@ -117,6 +116,7 @@ export const Fb2SectionMenu = ({ editor, onSelectImage }: Props) => {
   const canRemoveAnnotation = editor.can().removeFb2Annotation();
   const canRemoveSection = editor.can().removeFb2Section();
 
+  // Добавление новой секции
   const addFb2Section = (position: "after" | "start" | "end") => {
     const { selection } = editor.state;
     if (!(selection instanceof NodeSelection)) return;
@@ -158,8 +158,9 @@ export const Fb2SectionMenu = ({ editor, onSelectImage }: Props) => {
         ref={refs.setFloating}
         style={floatingStyles}
         className="z-[9999] flex flex-col bg-white border border-gray-200 rounded-lg shadow-xl p-1 gap-1 animate-in fade-in slide-in-from-left-2 duration-150"
+        onMouseDown={(e) => e.stopPropagation()}
       >
-        {/* Индикатор уровня */}
+        {/* Индикатор уровня вложенности */}
         <div
           className="flex items-center justify-center gap-1 py-1.5 border-b mb-1 bg-gray-50 rounded-t-md"
           title={`Уровень вложенности: ${currentLevel}`}
@@ -169,7 +170,7 @@ export const Fb2SectionMenu = ({ editor, onSelectImage }: Props) => {
             {currentLevel}
           </span>
         </div>
-        {/* НОВОЕ: Поле для Element ID */}
+        {/* Поле ввода Element ID */}
         <div className="flex flex-col border-b pb-1 mb-1 gap-1 group relative">
           <div className="flex items-center justify-center p-2 text-gray-400">
             <Anchor size={16} />
@@ -187,10 +188,6 @@ export const Fb2SectionMenu = ({ editor, onSelectImage }: Props) => {
             }}
             onBlur={() => {
               isTyping.current = false;
-              // Финальное сохранение при потере фокуса
-              editor.commands.updateAttributes("fb2Section", {
-                elementId: localId,
-              });
             }}
             onChange={(e) => {
               const val = e.target.value;
@@ -202,19 +199,20 @@ export const Fb2SectionMenu = ({ editor, onSelectImage }: Props) => {
               });
             }}
             onKeyDown={(e) => {
-              e.stopPropagation();
               if (e.key === "Enter") {
                 isTyping.current = false;
                 editor.commands.focus();
               }
+              e.stopPropagation();
             }}
             onMouseDown={(e) => e.stopPropagation()}
             placeholder="ID секции..."
-            className="absolute left-full ml-2 top-0 bg-white border border-gray-200 rounded md shadow-lg p-1 text-[10px] w-24 outline-none focus:border-indigo-400"
+            className="absolute left-full ml-2 top-0 bg-white border border-gray-200 rounded-md shadow-lg p-1 text-[10px] w-24 outline-none focus:border-indigo-400"
           />
         </div>
+
         {/* Группа: Структура секций */}
-        <div className="flex flex-col border-b pb-1 mb-1 gap-1">
+        <div className="flex flex-col border-b gap-1">
           <button
             type="button"
             onClick={() => addFb2Section("after")}
@@ -239,7 +237,8 @@ export const Fb2SectionMenu = ({ editor, onSelectImage }: Props) => {
           >
             <ListEnd size={16} />
           </button>
-          {/* Удаление */}
+
+          {/* Удаление раздела */}
           {canRemoveSection && (
             <button
               type="button"
@@ -253,7 +252,7 @@ export const Fb2SectionMenu = ({ editor, onSelectImage }: Props) => {
         </div>
 
         {/* Группа: Внутренние элементы (Title / Epigraph) */}
-        <div className="flex flex-col mb-1 gap-1">
+        <div className="flex flex-col gap-1">
           <button
             type="button"
             onClick={() =>
@@ -296,7 +295,7 @@ export const Fb2SectionMenu = ({ editor, onSelectImage }: Props) => {
                 : editor.chain().focus().insertFb2Annotation().run()
             }
             className={twBtn}
-            title={canRemoveTitle ? "Удалить аннотацию" : "Добавить аннотацию"}
+            title={canRemoveAnnotation ? "Удалить аннотацию" : "Добавить аннотацию"}
           >
             <Fb2ActionIcon
               icon={FileText}

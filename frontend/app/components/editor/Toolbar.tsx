@@ -1,5 +1,5 @@
 import { Editor } from "@tiptap/react";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, memo } from "react";
 import {
   Bold,
   Italic,
@@ -64,7 +64,7 @@ interface ToolbarProps {
   onAddLink: () => void;
 }
 
-export const Toolbar: React.FC<ToolbarProps> = ({
+export const Toolbar: React.FC<ToolbarProps> = memo(({
   editor,
   onSelectImage,
   onAddFootnote,
@@ -410,4 +410,6 @@ export const Toolbar: React.FC<ToolbarProps> = ({
       </div>
     </div>
   );
-};
+});
+
+Toolbar.displayName = 'StatusBar';

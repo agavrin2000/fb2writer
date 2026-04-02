@@ -114,7 +114,7 @@ export const useFootnotes = (
   );
 
   // Добавить ссылку
-  const addFootnote = () => {
+  const addFootnote = useCallback(() => {
     const allowedTypes = ["paragraph", "fb2V", "fb2TextAuthor", "fb2Subtitle"];
     if (!editor || !allowedTypes.some((type) => editor.isActive(type))) return;
 
@@ -144,7 +144,7 @@ export const useFootnotes = (
     // 4. Обновляем стейты
     setFootnotes((prev) => ({ ...prev, [id]: initialContent }));
     setActiveNote({ id, x, y, isNew: true, pos: from });
-  };
+  }, [editor, setFootnotes, setActiveNote]);
 
   // УДАЛИТЬ ССЫЛКУ
   const deleteFootnote = useCallback(

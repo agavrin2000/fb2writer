@@ -5,6 +5,7 @@ using Avalonia;
 using Avalonia.Controls;
 using FB2Editor.Services;
 using Newtonsoft.Json.Linq;
+using Newtonsoft.Json;
 
 namespace FB2Editor;
 //NOTE: To hide the console window, go to the project properties and change the Output Type to Windows Application.
@@ -30,6 +31,63 @@ class Program
         // The appUrl is set to the local development server when in debug mode.
         // This helps with hot reloading and debugging.
         string appUrl = IsDebugMode ? "http://localhost:3000" : $"{baseUrl}/index.html";
+        // Loader на старте приложения
+        string loadingHtml = $@"
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <style>
+                    body {{ 
+                        background: #fdfdfd; 
+                        color: #333; 
+                        display: flex; 
+                        flex-direction: column; 
+                        justify-content: center; 
+                        align-items: center; 
+                        height: 100vh; 
+                        margin: 0; 
+                        font-family: sans-serif; 
+                    }}
+                    .loader {{ 
+                        border: 4px solid #eee; 
+                        border-top: 4px solid #3498db; 
+                        border-radius: 50%; 
+                        width: 40px; 
+                        height: 40px; 
+                        animation: spin 1s linear infinite; 
+                        margin-bottom: 15px;
+                    }}
+                    @keyframes spin {{ 0% {{ transform: rotate(0deg); }} 100% {{ transform: rotate(360deg); }} }}
+                </style>
+            </head>
+            <body>
+                <div class='loader'></div>
+                <p id='status'>Загрузка FB2 Writer...</p>
+
+                <script>
+                    const targetUrl = '{appUrl}';
+                    
+                    async function checkServer() {{
+                        try {{
+                            // Проверяем доступность сервера
+                            await fetch(targetUrl, {{ mode: 'no-cors' }});
+                            
+                            // Сообщаем C#, что пора возвращать рамки окна
+                            window.external.sendMessage('app_ready');
+                            
+                            // Переходим в основное приложение
+                            window.location.href = targetUrl;
+                        }} catch (e) {{
+                            // Если сервер еще не готов, повторяем через 500мс
+                            setTimeout(checkServer, 500);
+                        }}
+                    }}
+
+                    checkServer();
+                </script>
+            </body>
+            </html>";
+
         Console.WriteLine($"Serving React app at {appUrl}");
 
         var fb2Service = new Fb2Service();
@@ -71,7 +129,10 @@ class Program
         });
         fileService.OnMessageEmitted += (json) => window.SendWebMessage(json);
 
-        window.Load(appUrl).WaitForClose(); // Starts the application event loop
+        // Загружаем строку с лоадером, который будет сам переключаться на приложение после ответа сервера
+        window.LoadRawString(loadingHtml);
+
+        window.WaitForClose();
     }
 
     private static void InitializeAvalonia()
@@ -98,10 +159,17 @@ class Program
         if (string.IsNullOrWhiteSpace(message)) return;
 
         // Разделяем строку на две части по первому двоеточию
+        // Разделяем команду и полезную нагрузку по первому двоеточию
         // "save-file:{"text":"..."}" -> ["save-file", "{"text":"..."}"]
-        var parts = message.Split(':', 2);
-        string command = parts[0];
-        string payload = parts.Length > 1 ? parts[1] : string.Empty;
+        var separatorIndex = message.IndexOf(':');
+        if (separatorIndex == -1)
+        {
+            Console.WriteLine($"[C# Unknown Command]: {message}");
+            return;
+        }
+
+        string command = message[..separatorIndex];
+        string payload = message[(separatorIndex + 1)..];
 
         switch (command)
         {
@@ -115,11 +183,19 @@ class Program
                 break;
 
             case "select-image":
-                string type = "block"; ;
+                string type = "block";
                 if (!string.IsNullOrEmpty(payload))
                 {
-                    var obj = JObject.Parse(payload);
-                    type = obj["type"]?.ToString() ?? "block"; ;
+                    try
+                    {
+                        var obj = JObject.Parse(payload);
+                        type = obj["type"]?.ToString() ?? "block"; ;
+                    }
+                    catch (JsonException ex)
+                    {
+                        Console.WriteLine($"[C# JSON Parse Error]: {ex.Message}");
+                        // Используем значение по умолчанию
+                    }
                 }
                 _ = fileService.SelectImageAsync(type);
                 break;

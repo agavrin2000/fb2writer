@@ -16,6 +16,7 @@ import { EditorState } from "@tiptap/pm/state";
 import { ConfirmHandle } from "@/components/ui/ConfirmDialog";
 import { findParentNodeByType, getFileName } from "@/utils/utils";
 import { Node as ProsemirrorNode } from "@tiptap/pm/model";
+import isEqual from 'fast-deep-equal';
 
 export function useEditorManager(
   toastRef: React.RefObject<ToastHandle | null>,
@@ -23,21 +24,14 @@ export function useEditorManager(
 ) {
   // --- РЕФЫ И СОСТОЯНИЕ ---
   const footnotesRef = useRef<Record<string, any>>({});
-  const setActiveNoteRef = useRef<(note: any) => void>(() => {});
+  const setActiveNoteRef = useRef<(note: any) => void>(() => { });
 
-  const [metadata, setMetadata] = useState<Fb2Metadata | null>(
-    EMPTY_FB2_TEMPLATE.Meta,
-  );
-  const [savedMeta, setSavedMeta] = useState(
-    JSON.stringify(EMPTY_FB2_TEMPLATE.Meta),
-  ); // Эталон в виде строки
-
+  const [metadata, setMetadata] = useState<Fb2Metadata | null>(EMPTY_FB2_TEMPLATE.Meta);
+  const [savedMeta, setSavedMeta] = useState<any>(EMPTY_FB2_TEMPLATE.Meta); // Эталон в виде строки
   const [isLoading, setIsLoading] = useState(false);
   const [loadingFileName, setLoadingFileName] = useState("");
-  const [currentFilePath, setCurrentFilePath] = useState<string>(
-    EMPTY_FB2_TEMPLATE.FilePath,
-  );
-  const [isDirty, setIsDirty] = useState(false);
+  const [currentFilePath, setCurrentFilePath] = useState<string>(EMPTY_FB2_TEMPLATE.FilePath);
+
   const [loaderConfig, setLoaderConfig] = useState<{
     title?: string;
     subtitle?: string;
@@ -46,8 +40,40 @@ export function useEditorManager(
   // 1. Сначала инициализируем Редактор (ему больше не нужны actions)
   const fb2 = useFB2Editor(footnotesRef, setActiveNoteRef);
 
+  // 1. Проверяем изменения в метаданных (структурно)
+  const isMetaDirty = useMemo(() => {
+    return !isEqual(metadata, savedMeta);
+  }, [metadata, savedMeta]);
+
+  // 2. Проверяем изменения в тексте (через историю Tiptap или хэш контента)
+  // У Tiptap есть встроенный способ, но можно по старинке через флаг истории
+  const isContentDirty = useMemo(() => {
+    return fb2.editor?.can().undo() ?? false;
+  }, [fb2.editor?.state.doc]); // Пересчитываем при каждом изменении документа
+
+  // 3. Итоговый флаг "грязности"
+  const isDirty = isMetaDirty || isContentDirty;
+
   // 2. Инициализируем Сноски
   const notes = useFootnotes(fb2.editor, footnotesRef, setActiveNoteRef);
+
+  // Очистка истории UndoRedo
+  const clearHistory = useCallback(() => {
+    if (!fb2.editor) return;
+    const { view, state } = fb2.editor;
+
+    // Создаем новое состояние, сохраняя текущий документ, выделение и плагины.
+    // Это инициализирует плагины (включая UndoRedo) с нуля.
+    const newState = EditorState.create({
+      doc: state.doc,
+      plugins: state.plugins,
+      selection: state.selection,
+      storedMarks: state.storedMarks,
+    });
+
+    // Обновляем состояние в представлении
+    view.updateState(newState);
+  }, [fb2.editor]);
 
   // --- ОБРАБОТЧИКИ СОБЫТИЙ (Incoming) ---
   const onFb2Content = useCallback(
@@ -75,24 +101,32 @@ export function useEditorManager(
       if (!fb2.editor || !data) return;
 
       setMetadata(data.Meta || {});
-      setSavedMeta(JSON.stringify(data.Meta || {}));
+      setSavedMeta(JSON.parse(JSON.stringify(data.Meta || {})));
 
       if (data.EditorContent) {
-        // 1. Устанавливаем контент без записи в историю
         fb2.editor.commands.setContent(data.EditorContent);
         clearHistory();
         //debugComparison(data.EditorContent, fb2.editor);
+        // Устанавливаем курсор в позицию 0 (начало документа) и фокусируем редактор, чтобы сработали события onUpdate/onSelectionUpdate
+        fb2.editor.commands.focus('start');
       }
 
       if (data.FilePath) {
         setCurrentFilePath(data.FilePath);
       }
       setLoadingFileName("");
-      setIsDirty(false);
       setIsLoading(false);
       setLoaderConfig(null);
-    },
-    [fb2.editor, notes],
+    }, [
+    fb2.editor,
+    clearHistory,
+    setMetadata,
+    setSavedMeta,
+    setCurrentFilePath,
+    setLoadingFileName,
+    setIsLoading,
+    setLoaderConfig
+  ],
   );
 
   const onImageSelected = useCallback(
@@ -100,6 +134,9 @@ export function useEditorManager(
       const imageData =
         typeof payload === "string" ? JSON.parse(payload) : payload;
       const chain = fb2.editor.chain().focus();
+
+      setIsLoading(false);
+      setLoaderConfig(null);
 
       if (imageData.display === "block") {
         // Вставляем как блочный узел
@@ -185,9 +222,7 @@ export function useEditorManager(
           .focus(absoluteInsertPos + 1)
           .run();
       }
-    },
-    [fb2.editor, toastRef],
-  );
+    }, [fb2.editor, toastRef, setIsLoading, setLoaderConfig]);
 
   const onStartLoading = useCallback((name: string) => {
     setIsLoading(true);
@@ -196,43 +231,52 @@ export function useEditorManager(
       subtitle: "Парсинг XML и извлечение Binary",
     });
     setLoadingFileName(name || "Загрузка...");
-  }, []);
+  }, [setLoadingFileName, setIsLoading, setLoaderConfig]);
 
   const onStartSaving = useCallback(() => {
     setIsLoading(true);
     setLoaderConfig({ title: "Сохранение книги", subtitle: "" });
     setLoadingFileName(getFileName(currentFilePath));
-  }, []);
+  }, [setLoadingFileName, setIsLoading, setLoaderConfig]);
 
   const onCancelLoading = useCallback(() => {
     setIsLoading(false);
     setLoaderConfig(null);
     setLoadingFileName("");
-  }, []);
+  }, [setLoadingFileName, setIsLoading, setLoaderConfig]);
 
   const onSaveSuccess = useCallback(
-    (payload: any) => {
-      // payload уже содержит "book.fb2", парсить его не нужно
-      const newFileName = payload;
-
-      setSavedMeta(JSON.stringify(metadata));
+    (newFilePath: any) => {
+      // 1. Сохраняем КЛОН объекта, чтобы разорвать связь с текущим стейтом
+      setSavedMeta(JSON.parse(JSON.stringify(metadata)));
+      
       clearHistory();
-      setCurrentFilePath(newFileName);
+      setCurrentFilePath(newFilePath);
       setLoadingFileName("");
-      setIsDirty(false);
       setIsLoading(false);
       setLoaderConfig(null);
 
       toastRef?.current?.show("Изменения сохранены", "success");
     },
-    [metadata],
-  );
+    // Полный и правильный список зависимостей
+    [
+      metadata, 
+      clearHistory, 
+      setSavedMeta, 
+      setCurrentFilePath, 
+      setLoadingFileName, 
+      setIsLoading, 
+      setLoaderConfig, 
+      toastRef
+    ]
+  );;
 
   const onError = useCallback((message: string) => {
     setIsLoading(false);
     setLoaderConfig(null);
+    setLoadingFileName("");
     toastRef?.current?.show(message, "error");
-  }, []);
+  }, [setLoadingFileName, setIsLoading, setLoaderConfig, toastRef]);
 
   // Регистрация событий Photino
   const eventHandlers = useMemo(
@@ -256,105 +300,75 @@ export function useEditorManager(
   );
 
   usePhotinoEvents(eventHandlers);
-  // Сбрасываем начальные изменения из-за переформатирования
-  /*useEffect(() => {
-    if (fb2.editor && !fb2.editor.isDestroyed) {
-      // Даем короткую задержку, чтобы плагины закончили авто-правки
-      const timer = setTimeout(() => {
-        clearHistory();
-        setIsDirty(false); // Начальное состояние — не "грязное"
-
-        console.log("Initial undo cleared");
-      }, 100);
-
-      return () => clearTimeout(timer);
-    }
-  }, [fb2.editor]);*/
-
-  // Отслеживаем изменения
-  useEffect(() => {
-    if (!fb2.editor) return;
-
-    const updateDirty = () => {
-      // Если есть что отменять (undo) — значит, документ был изменен
-      setIsDirty(fb2.editor.can().undo());
-      console.log("IsDirty set true (can undo)");
-    };
-
-    fb2.editor.on("update", updateDirty);
-    return () => {
-      fb2.editor.off("update", updateDirty);
-    };
-  }, [fb2.editor]); // Зависим только от экземпляра редактора
 
   // --- МЕТОДЫ ДЕЙСТВИЙ (Outgoing) ---
-  // Очистка истории UndoRedo
-  const clearHistory = useCallback(() => {
-    if (!fb2.editor) return;
-    const { view, state } = fb2.editor;
 
-    // Создаем новое состояние, сохраняя текущий документ, выделение и плагины.
-    // Это инициализирует плагины (включая UndoRedo) с нуля.
-    const newState = EditorState.create({
-      doc: state.doc,
-      plugins: state.plugins,
-      selection: state.selection,
-      storedMarks: state.storedMarks,
-    });
+  const ensureSafeToProceed = useCallback(async () => {
+    // Если правок нет — сразу разрешаем
+    if (!isDirty) return true;
 
-    // Обновляем состояние в представлении
-    view.updateState(newState);
-  }, [fb2.editor]);
+    // Вызываем диалог и принудительно приводим результат к Boolean (!!),
+    // чтобы исключить undefined, если реф пустой
+    const confirmed = await confirmRef?.current?.ask(
+      "Несохраненные изменения",
+      "У вас есть несохраненные изменения. Продолжить без сохранения?",
+      "danger"
+    );
+
+    return !!confirmed;
+  }, [isDirty, confirmRef]); // Функция обновится только когда изменится статус "грязности"
+
+
 
   // Сохранение книги в файл
   const saveFile = useCallback(
     (saveAs: boolean = false) => {
       if (!fb2.editor || isLoading) return;
 
-      setLoaderConfig({ title: "Сохранение...", subtitle: "Выбор файла" });
+      setLoaderConfig({
+        title: "Сохранение...",
+        subtitle: saveAs || !currentFilePath ? "Выбор пути сохранения" : "Запись данных на диск"
+      });
       setIsLoading(true);
 
       const actualFootnotes = notes.cleanupOrphanNotes();
       const payload = {
         content: fb2.editor.getJSON(),
         footnotes: actualFootnotes,
-        metadata: metadata,
+        metadata: JSON.parse(JSON.stringify(metadata)),
         FilePath: saveAs ? "" : currentFilePath,
       };
 
       // Сериализуем в строку перед отправкой
       photino.send("save-file", JSON.stringify(payload));
     },
-    [fb2.editor, isLoading, metadata, notes],
+    [fb2.editor, isLoading, metadata, notes, currentFilePath, setLoaderConfig, setIsLoading, photino],
   );
 
+  // Выбрать файл для загрузки
   const openFile = useCallback(async () => {
     if (isLoading) return;
-    if (isDirty) {
-      // 1. Вызываем кастомный диалог
-      const confirmed = await confirmRef?.current?.ask(
-        "Несохраненные изменения",
-        "У вас есть несохраненные изменения. Продолжить без сохранения?",
-        "danger",
-      );
-
-      // 2. Если пользователь нажал "Отмена" или закрыл окно — прерываем выполнение
-      if (!confirmed) return;
-    }
-
+    const canProceed = await ensureSafeToProceed();
+    if (!canProceed) return;
     setIsLoading(true);
     setLoaderConfig({ title: "Загрузка книги", subtitle: "Выбор файла" });
     setLoadingFileName("");
 
     photino.send("open-file", { action: "select_new" });
-  }, [isLoading, isDirty, photino, confirmRef, loaderConfig]);
+  }, [isLoading, photino, ensureSafeToProceed, setLoadingFileName, setIsLoading, setLoaderConfig,]);
 
   const selectImage = useCallback(
     (type: "block" | "inline" | "section" = "block") => {
+      if (isLoading) return;
+      setIsLoading(true);
+      setLoaderConfig({
+        title: "Выбор изображения",
+        subtitle: "Открытие системного диалога..."
+      });
       // Отправляем объект с данными, чтобы бэкенд знал, какой тип вставки использовать
       photino.send("select-image", { type });
     },
-    [],
+    [isLoading, photino, setIsLoading, setLoaderConfig],
   );
 
   const addLink = useCallback(() => {
@@ -377,31 +391,15 @@ export function useEditorManager(
   }, [fb2.editor, photino]);
 
   const createNewFile = useCallback(async () => {
-    // 1. Спрашиваем подтверждение, если есть несохраненные изменения
-    if (isDirty) {
-      // Вызываем кастомный диалог вместо window.confirm
-      const confirmed = await confirmRef?.current?.ask(
-        "Несохраненные изменения",
-        "У вас есть несохраненные изменения. Продолжить без сохранения?",
-        "danger", // или 'default'
-      );
+    const canProceed = await ensureSafeToProceed();
+    if (!canProceed) return;
 
-      // Если пользователь нажал "Отмена", прерываем выполнение
-      if (!confirmed) return;
-    }
     onFb2Content(JSON.stringify(EMPTY_FB2_TEMPLATE));
-  }, [onFb2Content, isDirty, confirmRef]);
+  }, [onFb2Content, ensureSafeToProceed]);
 
-  const handleMetaChange = (newMeta: any) => {
-    setMetadata(newMeta);
-    console.log("Saved meta", savedMeta);
-    console.log("New meta", JSON.stringify(newMeta));
-    // Сравниваем текущий объект с эталонной строкой
-    if (!isDirty && JSON.stringify(newMeta) !== savedMeta) {
-      setIsDirty(true);
-      console.log("IsDirty set to true META");
-    }
-  };
+const handleMetaChange = useCallback((newMeta: any) => {
+  setMetadata(newMeta);
+}, [setMetadata]);
 
   // --- ИТОГОВЫЙ ОБЪЕКТ ---
   return {

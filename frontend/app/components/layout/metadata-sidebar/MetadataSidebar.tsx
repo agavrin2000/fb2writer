@@ -1,5 +1,5 @@
 "use client";
-import React, { useState } from "react";
+import React, { useState, useMemo, useEffect, useCallback } from "react";
 import {
   ChevronRight,
   ChevronLeft,
@@ -27,6 +27,7 @@ import { CustomInfoList } from "./CustomInfoList";
 import { RichTextEditor } from "./RichTextEditor";
 import { CoverPicker } from "./CoverPicker";
 import { FB2_GENRES, LANGUAGES } from "@/types/types"
+import { debounce } from "@/utils/utils";
 
 interface MetadataSidebarProps {
   meta: any;
@@ -34,8 +35,6 @@ interface MetadataSidebarProps {
   isOpen: boolean;
   onToggle: () => void;
 }
-
-
 
 export const MetadataSidebar = ({
   meta,
@@ -46,14 +45,15 @@ export const MetadataSidebar = ({
   const [activeTab, setActiveTab] = useState<
     "title" | "src-title" | "publish" | "custom" | "doc"
   >("title");
+  const [localMeta, setLocalMeta] = useState(meta);
 
   // Безопасный доступ к веткам JSON
-  const titleInfo = meta?.TitleInfo || {};
-  const srctitleInfo = meta?.SrcTitleInfo || {};
-  const publishInfo = meta?.PublishInfo || {};
-  const docInfo = meta?.DocumentInfo || {};
-  const customInfo = meta?.CustomInfo || {};
-
+  const titleInfo = localMeta?.TitleInfo || {};
+  const srctitleInfo = localMeta?.SrcTitleInfo || {};
+  const publishInfo = localMeta?.PublishInfo || {};
+  const docInfo = localMeta?.DocumentInfo || {};
+  const customInfo = localMeta?.CustomInfo || {};
+  
   const formatDateForInput = (dateStr: string) => {
     if (!dateStr) return "";
     // Если дата уже YYYY-MM-DD, вернет её, иначе попробует преобразовать
@@ -61,43 +61,56 @@ export const MetadataSidebar = ({
     return isNaN(date.getTime()) ? "" : date.toISOString().split("T")[0];
   };
 
-const handleMetaUpdate = (
-  section: "TitleInfo" | "DocumentInfo" | "SrcTitleInfo" | "PublishInfo" | "CustomInfo",
-  field: string,
-  newValue: any,
-) => {
-  // 1. Копируем текущую секцию
-  const updatedSection = { ...meta[section] };
+  // СИНХРОНИЗАЦИЯ: Если файл закрыли или открыли новый, обновляем локальную копию
+  useEffect(() => {
+    setLocalMeta(meta);
+  }, [meta]);
 
-  // 2. Логика определения "пустоты" для Tiptap
-  let isTiptapEmpty = false;
-  if (newValue && typeof newValue === 'object' && newValue.type === 'doc') {
-    const content = newValue.content || [];
-    isTiptapEmpty = content.length === 0 || 
-      (content.length === 1 && (!content[0].content || content[0].content.length === 0));
-  }
+  // 1. Логика обработки изменений
+  const processMetaUpdate = useCallback((
+    section: string,
+    field: string,
+    newValue: any,
+    currentMeta: any
+  ) => {
+    const currentSection = currentMeta[section] || {};
+    
+    const isTiptapEmpty = newValue?.type === 'doc' && (!newValue.content || newValue.content.length === 0);
+    const shouldRemove = newValue === null || newValue === "" || isTiptapEmpty;
 
-  // 3. Условие удаления: если пришел null, пустая строка или пустой Tiptap-док
-  const shouldRemove = newValue === null || newValue === "" || isTiptapEmpty;
+    let updatedSection;
+    if (shouldRemove) {
+      if (!(field in currentSection)) return null;
+      const { [field]: _, ...rest } = currentSection;
+      updatedSection = rest;
+    } else {
+      // Глубокое сравнение для объектов, простое для строк
+      if (typeof newValue !== 'object' && currentSection[field] === newValue) return null;
+      if (typeof newValue === 'object' && JSON.stringify(currentSection[field]) === JSON.stringify(newValue)) return null;
+      
+      updatedSection = { ...currentSection, [field]: newValue };
+    }
 
-  if (shouldRemove) {
-    // Если поле уже отсутствует, ничего не делаем (оптимизация)
-    if (!(field in updatedSection)) return;
-    delete updatedSection[field]; // ПОЛНОСТЬЮ удаляем ключ из объекта
-  } else {
-    // Проверка на изменения, чтобы не спамить ререндерами
-    if (JSON.stringify(updatedSection[field]) === JSON.stringify(newValue)) return;
-    updatedSection[field] = newValue;
-  }
+    return { ...currentMeta, [section]: updatedSection };
+  }, []);
 
-  // 4. Отправляем обновленный объект метаданных
-  onMetaChange({
-    ...meta,
-    [section]: updatedSection,
-  });
-};
+  // 2. Debounce для родителя
+  const debouncedNotify = useMemo(
+    () => debounce((nextMeta: any) => onMetaChange(nextMeta), 300),
+    [onMetaChange]
+  );
 
-
+  // 3. Основной метод (исправленный setLocalMeta)
+  const handleMetaUpdate = useCallback((section: string, field: string, newValue: any) => {
+    // Важно: берем данные из localMeta для мгновенного отклика
+    const nextFullMeta = processMetaUpdate(section, field, newValue, localMeta);
+    
+    if (nextFullMeta) {
+      setLocalMeta(nextFullMeta); // Теперь имя совпадает с useState
+      debouncedNotify(nextFullMeta);
+    }
+  }, [localMeta, processMetaUpdate, debouncedNotify]);
+  
   if (!meta) return <div>Загрузка...</div>;
 
   const generateUUID = () => {

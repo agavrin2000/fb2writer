@@ -18,7 +18,7 @@ public class FileService
     }
 
     /// <summary>
-    /// Open fb2-filep
+    /// Open fb2-file
     /// </summary>
     /// <returns></returns>
     public async Task OpenFileAsync()
@@ -86,7 +86,13 @@ public class FileService
             AllowMultiple = false
         });
 
-        if (result == null || result.Count == 0) return;
+        if (result == null || result.Count == 0)
+        {
+            // Cancel OpenFile dialog
+            Emit("cancel-loading", string.Empty);
+            return;
+        }
+
         var file = result[0];
 
         try

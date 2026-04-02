@@ -1,5 +1,5 @@
 import { findParentNodeByType } from "@/utils/utils";
-import { Node, CommandProps, RawCommands } from "@tiptap/core";
+import { Node, CommandProps } from "@tiptap/core";
 import { NodeSelection } from "@tiptap/pm/state";
 
 export const Fb2Section = Node.create({
@@ -39,7 +39,7 @@ export const Fb2Section = Node.create({
       content.className = "fb2-section";
 
       // 1. Функция для синхронизации атрибутов с DOM
-      const syncAttributes = (newNode) => {
+      const syncAttributes = (newNode: typeof node) => {
         if (newNode.attrs.sectionId) {
           content.id = newNode.attrs.sectionId;
         } else {
@@ -81,6 +81,10 @@ export const Fb2Section = Node.create({
           syncAttributes(updatedNode);
           return true;
         },
+        destroy: () => {
+          // Очистка event listeners или внешних ссылок
+          handle.onclick = null;
+        },
       };
     };
   },
@@ -90,8 +94,6 @@ export const Fb2Section = Node.create({
         () =>
         ({ state, chain }: CommandProps) => {
           const { selection, schema } = state;
-          let sectionPos = -1;
-          let sectionNode = null;
 
           // 1. Проверяем: выделена ли сама секция?
           if (
@@ -101,10 +103,12 @@ export const Fb2Section = Node.create({
             )
           )
             return false;
-          ({ node: sectionNode } = findParentNodeByType(selection, [
+
+          const { node: sectionNode } = findParentNodeByType(selection, [
             "fb2Section",
             "fb2BodySection",
-          ]));
+          ]);
+          if (!sectionNode) return false;
 
           if (sectionNode.type.name === "fb2BodySection") {
             // Считаем количество секций у родителя

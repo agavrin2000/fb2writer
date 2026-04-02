@@ -22,7 +22,6 @@ export default function Page() {
   // Добавляем локальное состояние сайдбара на уровне страницы
   const toastRef = useRef<ToastHandle>(null);
   const confirmRef = useRef<ConfirmHandle>(null);
-
   // Передаем реф (теперь типы совпадут)
   const fb2 = useEditorManager(toastRef, confirmRef);
   const {
@@ -40,6 +39,7 @@ export default function Page() {
     scrollToHeading,
   } = fb2;
 
+  const displayFileName = useMemo(() => getFileName(currentFilePath), [currentFilePath]);
   const [isContentsSidebarOpen, setIsContentsSidebarOpen] = useState(false);
   const toggleContentsSidebar = useCallback(() => setIsContentsSidebarOpen((v) => !v), []);
   const [isMetadataSidebarOpen, setIsMetadataSidebarOpen] = useState(false);
@@ -70,7 +70,7 @@ export default function Page() {
 
   return (
     <div className="flex flex-col h-screen overflow-hidden bg-white">
-      <Header editor={editor} onSave={actions.save} onNew={actions.newFile} onOpen={actions.open} fileName={getFileName(currentFilePath)} />
+      <Header editor={editor} onSave={actions.save} onNew={actions.newFile} onOpen={actions.open} fileName={displayFileName} />
 
       <div className="flex flex-1 overflow-hidden relative">
         <ContentsSidebar
@@ -120,7 +120,7 @@ export default function Page() {
         />
       )}
       <Toast ref={toastRef} />
-      <StatusBar fileName={getFileName(currentFilePath)} loading={isLoading} />
+      <StatusBar fileName={displayFileName} loading={isLoading} />
       <ConfirmDialog ref={confirmRef} />
     </div>
   );

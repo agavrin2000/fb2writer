@@ -1,12 +1,12 @@
 'use client';
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, memo } from 'react';
 import { Editor } from '@tiptap/react';
 import { Info, LogOut, Save, FolderOpen, Undo, Redo, FileCode, FilePlus } from 'lucide-react';
 import { AboutModal } from './AboutModal';
 import { ExitModal } from './ExitModal';
 import { photino } from '@/api/photino';
 
-export const Header = ({
+export const Header = memo(({
     editor,
     onSave,
     onOpen,
@@ -137,4 +137,4 @@ export const Header = ({
             />
         </>
     );
-};
+});

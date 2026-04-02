@@ -7,6 +7,19 @@ using Newtonsoft.Json.Linq;
 
 namespace FB2Editor.Services;
 
+// Вспомогательный класс для расширений
+public static class EnumerableExtensions
+{
+    public static List<T>? ToListOrNull<T>(this IEnumerable<T> source)
+    {
+        if (source == null || !source.Any())
+        {
+            return null;
+        }
+        return source.ToList();
+    }
+}
+
 public class Fb2Service
 {
 
@@ -68,6 +81,7 @@ public class Fb2Service
 
         return string.Empty;
     }
+
     /// <summary>
     /// загрузка книги и конвертация для передачи во frontend
     /// </summary>
@@ -151,44 +165,27 @@ public class Fb2Service
         var historyNodes = ParseNodes(docInfo, ns + "history");
 
         // --- ПАРСИНГ ПРИМЕЧАНИЙ ---
-        var notesBody = doc.Descendants()
-            .FirstOrDefault(x => x.Name.LocalName == "body" && x.Attribute("name")?.Value.ToLower() == "notes");
+        var notesBody = doc.Descendants(ns + "body")
+            .FirstOrDefault(x => x.Attribute("name")?.Value.ToLower() == "notes");
 
         var footnotesList = new Dictionary<string, List<object>>();
-        var sections = notesBody?.Elements().Where(e => e.Name.LocalName == "section") ?? [];
 
-        foreach (var section in sections)
+        if (notesBody != null)
         {
-            var id = section.Attribute("id")?.Value;
-            if (string.IsNullOrEmpty(id)) continue;
+            foreach (var section in notesBody.Elements(ns + "section"))
+            {
+                var id = section.Attribute("id")?.Value;
+                if (string.IsNullOrEmpty(id)) continue;
 
-            var notesNodes = new List<object>();
-            ParseElement(section, ns, xlink, [], notesNodes);
+                var notesNodes = new List<object>();
+                ParseElement(section, ns, xlink, [], notesNodes);
 
-            // Безопасное добавление (на случай дублей id в XML)
-            footnotesList[id] = notesNodes;
+                footnotesList[id] = notesNodes;
+            }
         }
-
         // --- ПАРСИНГ КОНТЕНТА И КАРТИНОК ---
         FillBinaryCache(doc);
-        /*
-                var binaryCache = doc.Descendants()
-                    .Where(x => x.Name.LocalName == "binary")
-                    .Select(x => new
-                    {
-                        Id = x.Attribute("id")?.Value ?? "",
-                        Title = x.Attribute("title")?.Value ?? "",
-                        Mime = x.Attribute("content-type")?.Value ?? "image/jpeg",
-                        // Эффективная очистка от всех пробельных символов
-                        Data = string.Concat(x.Value.Where(c => !char.IsWhiteSpace(c)))
-                    })
-                    .Where(x => !string.IsNullOrEmpty(x.Id))
-                    .ToDictionary(
-                        x => x.Id,
-                        x => $"data:{x.Mime};base64,{x.Data}",
-                        StringComparer.OrdinalIgnoreCase
-                    );
-        */
+
         // Извлекаем контент
         var contentNodes = new List<object>();
         var body = doc.Descendants().FirstOrDefault(x => x.Name.LocalName == "body");
@@ -219,75 +216,75 @@ public class Fb2Service
             {
                 TitleInfo = new // Данные о произведении
                 {
-                    Genres = titleInfo?.Elements().Where(x => x.Name.LocalName == "genre").Select(x => x.Value).ToList() ?? [],
-                    Authors = titleInfo?.Elements().Where(x => x.Name.LocalName == "author").Select(parseAuthor).ToList() ?? [],
-                    Title = titleInfo?.Element(ns + "book-title")?.Value ?? "Без названия",
-                    Annotation = annotationNodes != null ? new { type = "doc", content = annotationNodes } : null, // Аннотация возвращается в формате TipTap JSON
-                    Keywords = titleInfo?.Element(ns + "keywords")?.Value ?? "",
-                    Date = titleInfo?.Element(ns + "date")?.Value ?? "",
-                    DateValue = titleInfo?.Element(ns + "date")?.Attribute("value")?.Value ?? "",
-                    CoverPage = GetImage(titleInfo?.Element(ns + "coverpage")?.Descendants(ns + "image").FirstOrDefault()?.Attribute(xlink + "href")?.Value),
-                    Lang = titleInfo?.Element(ns + "lang")?.Value ?? "ru",
-                    SrcLang = titleInfo?.Element(ns + "src-lang")?.Value ?? "",
-                    Translators = titleInfo?.Elements().Where(x => x.Name.LocalName == "translator").Select(parseAuthor).ToList() ?? [],
-                    Sequence = titleInfo?.Elements().Where(x => x.Name.LocalName == "sequence").Select(x => new
+                    Genres = titleInfo?.Elements().Where(x => x.Name.LocalName == "genre").Select(x => x.Value).ToListOrNull(),
+                    Authors = titleInfo?.Elements().Where(x => x.Name.LocalName == "author").Select(parseAuthor).ToListOrNull(),
+                    Title = (string?)titleInfo?.Element(ns + "book-title"),
+                    Annotation = (annotationNodes?.Count ?? 0) > 0 ? new { type = "doc", content = annotationNodes } : null, // Аннотация возвращается в формате TipTap JSON
+                    Keywords = (string?)titleInfo?.Element(ns + "keywords"),
+                    Date = (string?)titleInfo?.Element(ns + "date"),
+                    DateValue = (string?)titleInfo?.Element(ns + "date")?.Attribute("value")?.Value,
+                    CoverPage = GetImage(titleInfo?.Element(ns + "coverpage")?.Element(ns + "image")?.Attribute(xlink + "href")?.Value),
+                    Lang = (string?)titleInfo?.Element(ns + "lang"),
+                    SrcLang = (string?)titleInfo?.Element(ns + "src-lang"),
+                    Translators = titleInfo?.Elements(ns + "translator").Select(parseAuthor).ToListOrNull(),
+                    Sequence = titleInfo?.Elements(ns + "sequence").Select(x => new
                     {
-                        name = x.Attribute("name")?.Value ?? "",
-                        number = (int?)x.Attribute("number") ?? 0
-                    }).ToList() ?? []
+                        name = (string?)x.Attribute("name"),
+                        number = (int?)x.Attribute("number")
+                    }).ToListOrNull()
                 },
                 SrcTitleInfo = new // Данные о произведении на языке оригинала
                 {
-                    Genres = srcTitleInfo?.Elements().Where(x => x.Name.LocalName == "genre").Select(x => x.Value).ToList() ?? [],
-                    Authors = srcTitleInfo?.Elements().Where(x => x.Name.LocalName == "author").Select(parseAuthor).ToList() ?? [],
-                    Title = srcTitleInfo?.Element(ns + "book-title")?.Value,
-                    Annotation = srcTitleInfoAnnotationNodes != null ? new { type = "doc", content = srcTitleInfoAnnotationNodes } : null,// Аннотация возвращается в формате TipTap JSON
-                    Keywords = srcTitleInfo?.Element(ns + "keywords")?.Value,
-                    Date = srcTitleInfo?.Element(ns + "date")?.Value,
+                    Genres = srcTitleInfo?.Elements(ns + "genre").Select(x => x.Value).ToListOrNull(),
+                    Authors = srcTitleInfo?.Elements(ns + "author").Select(parseAuthor).ToListOrNull(),
+                    Title = (string?)srcTitleInfo?.Element(ns + "book-title"),
+                    Annotation = (srcTitleInfoAnnotationNodes?.Count ?? 0) > 0 ? new { type = "doc", content = srcTitleInfoAnnotationNodes } : null,// Аннотация возвращается в формате TipTap JSON
+                    Keywords = (string?)srcTitleInfo?.Element(ns + "keywords"),
+                    Date = (string?)srcTitleInfo?.Element(ns + "date"),
                     DateValue = srcTitleInfo?.Element(ns + "date")?.Attribute("value")?.Value,
-                    CoverPage = GetImage(srcTitleInfo?.Element(ns + "coverpage")?.Descendants(ns + "image").FirstOrDefault()?.Attribute(xlink + "href")?.Value),
-                    Lang = srcTitleInfo?.Element(ns + "lang")?.Value,
-                    SrcLang = srcTitleInfo?.Element(ns + "src-lang")?.Value,
-                    Translators = srcTitleInfo?.Elements().Where(x => x.Name.LocalName == "translator").Select(parseAuthor).ToList(),
-                    Sequence = srcTitleInfo?.Elements().Where(x => x.Name.LocalName == "sequence").Select(x => new
+                    CoverPage = GetImage(srcTitleInfo?.Element(ns + "coverpage")?.Element(ns + "image")?.Attribute(xlink + "href")?.Value),
+                    Lang = (string?)srcTitleInfo?.Element(ns + "lang"),
+                    SrcLang = (string?)srcTitleInfo?.Element(ns + "src-lang"),
+                    Translators = srcTitleInfo?.Elements(ns + "translator").Select(parseAuthor).ToListOrNull(),
+                    Sequence = srcTitleInfo?.Elements(ns + "sequence").Select(x => new
                     {
-                        name = x.Attribute("name")?.Value,
+                        name = (string?)x.Attribute("name"),
                         number = (int?)x.Attribute("number")
-                    }).ToList()
+                    }).ToListOrNull()
                 },
                 DocumentInfo = new // Данные о документе
                 {
-                    Authors = docInfo?.Elements().Where(x => x.Name.LocalName == "author").Select(parseAuthor).ToList() ?? [],
-                    Program = docInfo?.Element(ns + "program-used")?.Value ?? "",
-                    Date = docInfo?.Element(ns + "date")?.Value ?? "",
-                    DateValue = docInfo?.Element(ns + "date")?.Attribute("value")?.Value ?? "",
-                    Id = docInfo?.Element(ns + "id")?.Value ?? "",
-                    SrcUrl = docInfo?.Element(ns + "src-url")?.Value ?? "",
-                    SrcOcr = docInfo?.Element(ns + "src-ocr")?.Value ?? "",
-                    Version = docInfo?.Element(ns + "version")?.Value ?? "1.0",
-                    History = historyNodes != null ? new { type = "doc", content = historyNodes } : null,
+                    Authors = docInfo?.Elements(ns + "author").Select(parseAuthor).ToListOrNull(),
+                    Program = (string?)docInfo?.Element(ns + "program-used"),
+                    Date = (string?)docInfo?.Element(ns + "date"),
+                    DateValue = (string?)docInfo?.Element(ns + "date")?.Attribute("value"),
+                    Id = (string?)docInfo?.Element(ns + "id"),
+                    SrcUrl = (string?)docInfo?.Element(ns + "src-url"),
+                    SrcOcr = (string?)docInfo?.Element(ns + "src-ocr"),
+                    Version = (string?)docInfo?.Element(ns + "version"),
+                    History = (historyNodes?.Count ?? 0) > 0 ? new { type = "doc", content = historyNodes } : null,
                 },
                 PublishInfo = new // Данные об издательстве
                 {
-                    BookName = pubInfo?.Element(ns + "book-name")?.Value ?? "",
-                    Publisher = pubInfo?.Element(ns + "publisher")?.Value ?? "",
-                    City = pubInfo?.Element(ns + "city")?.Value ?? "",
-                    Year = pubInfo?.Element(ns + "year")?.Value ?? "",
-                    ISBN = pubInfo?.Element(ns + "isbn")?.Value ?? "",
-                    Sequence = pubInfo?.Elements().Where(x => x.Name.LocalName == "sequence").Select(x => new
+                    BookName = (string?)pubInfo?.Element(ns + "book-name"),
+                    Publisher = (string?)pubInfo?.Element(ns + "publisher"),
+                    City = (string?)pubInfo?.Element(ns + "city"),
+                    Year = (string?)pubInfo?.Element(ns + "year"),
+                    ISBN = (string?)pubInfo?.Element(ns + "isbn"),
+                    Sequence = pubInfo?.Elements(ns+"sequence").Select(x => new
                     {
-                        name = x.Attribute("name")?.Value ?? "",
-                        number = (int?)x.Attribute("number") ?? 0
-                    }).ToList() ?? [],
+                        name = (string?)x.Attribute("name"),
+                        number = (int?)x.Attribute("number")
+                    }).ToListOrNull(),
                 },
                 // Произвольная информация
                 CustomInfo = new
                 {
                     customItems = description?.Elements().Where(x => x.Name.LocalName == "custom-info").Select(x => new
                     {
-                        infoType = x.Attribute("info-type")?.Value ?? "",
+                        infoType = (string?)x.Attribute("info-type"),
                         value = x.Value
-                    }).ToList() ?? [],
+                    }).ToListOrNull(),
                 }
             },
             EditorContent = new { type = "doc", content = contentNodes }, // Контент, включая картинки
@@ -295,7 +292,7 @@ public class Fb2Service
             FilePath = fileName, // Полный путь к файлу для сохранения
         }, new JsonSerializerSettings
         {
-            // Игнорировать свойства со значением null
+            // ВАЖНО! Игнорировать свойства со значением null
             NullValueHandling = NullValueHandling.Ignore,
         });
     }
