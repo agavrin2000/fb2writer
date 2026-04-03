@@ -115,12 +115,13 @@ public class Fb2Service
         // Локальная функция для парсинга авторов, переводчиков
         var parseAuthor = new Func<XElement, object>(a =>
         {
-            var first = a.Element(ns + "first-name")?.Value ?? "";
-            var middle = a.Element(ns + "middle-name")?.Value ?? "";
-            var last = a.Element(ns + "last-name")?.Value ?? "";
-            var nickname = a.Element(ns + "nickname")?.Value ?? "";
-            var homePages = a.Elements(ns + "home-page").Select(x => x.Value).ToList();
-            var emails = a.Elements(ns + "email").Select(x => x.Value).ToList();
+            var first = a.Element(ns + "first-name")?.Value;
+            var middle = a.Element(ns + "middle-name")?.Value;
+            var last = a.Element(ns + "last-name")?.Value;
+            var nickname = a.Element(ns + "nickname")?.Value;
+            var homePages = a.Elements(ns + "home-page").Select(x => x.Value).ToListOrNull();
+            var emails = a.Elements(ns + "email").Select(x => x.Value).ToListOrNull();
+            var id = a.Element(ns + "id")?.Value;
             return new
             {
                 FirstName = first,
@@ -129,6 +130,7 @@ public class Fb2Service
                 Nickname = nickname,
                 HomePages = homePages,
                 Emails = emails,
+                Id = id,
             };
         });
 
@@ -310,7 +312,7 @@ public class Fb2Service
                 schemas.Add("http://www.w3.org/XML/1998/namespace", Path.Combine(schemaPath, "FictionBookLang.xsd"));
                 schemas.Add("http://www.gribuser.ru/xml/fictionbook/2.0/genres", Path.Combine(schemaPath, "FictionBookGenres.xsd"));
                 // 2. Добавляем обе версии FB2. Валидатор сам выберет нужную по xmlns в файле.
-                schemas.Add(null, Path.Combine(schemaPath, "FictionBook2.1.xsd"));
+                schemas.Add(null, Path.Combine(schemaPath, "FictionBook.xsd"));
 
                 schemas.Compile();
                 return schemas;
@@ -1022,6 +1024,7 @@ public class Fb2Service
             // 2. Ссылки и контакты (home-page ОБЯЗАТЕЛЬНО перед email)
             AddMultipleTo(personEl, ns + "home-page", obj["HomePage"]);
             AddMultipleTo(personEl, ns + "email", obj["Email"]);
+            AddTo(personEl, ns + "id", obj["Id"]);
 
             // 3. Добавляем только если есть реальный текстовый контент, а не пустые теги
             if (personEl.Elements().Any(e => !string.IsNullOrWhiteSpace(e.Value)))

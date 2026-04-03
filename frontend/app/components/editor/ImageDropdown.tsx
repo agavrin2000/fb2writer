@@ -23,7 +23,8 @@ export const ImageDropdown: React.FC<{
   onSelect: (type: "block" | "inline" | "section") => void;
   canInlineImage: boolean;
   canBlockImage: boolean;
-}> = ({ onSelect, canInlineImage, canBlockImage }) => {
+  canSectionImage: boolean;
+}> = ({ onSelect, canInlineImage, canBlockImage, canSectionImage }) => {
   const [isOpen, setIsOpen] = React.useState(false);
   const dropdownRef = React.useRef<HTMLDivElement>(null);
 
@@ -103,11 +104,13 @@ export const ImageDropdown: React.FC<{
           <button
             key="section"
             type="button"
+            disabled={!canSectionImage}
             onClick={() => {
               onSelect("section");
               setIsOpen(false);
             }}
-            className="w-full flex items-center gap-3 px-3 py-2 hover:bg-indigo-50 text-left transition-colors"
+            onMouseDown={(e) => e.preventDefault()}
+            className={itemClass}
           >
             <PanelTop size={18} className="text-indigo-600" />
             <div className="flex flex-col">

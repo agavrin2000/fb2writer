@@ -1,7 +1,8 @@
 import React from 'react';
-import { User, Mail, Plus, X, Globe } from 'lucide-react';
+import { User, Plus, X, Globe, Fingerprint } from 'lucide-react';
 import { Field } from './Field'; // Путь к твоему компоненту Field
 import { EditableList } from './EditableList';
+import { useConfirm } from '@/hooks/ConfirmContext';
 
 interface Person {
     FirstName?: string;
@@ -10,6 +11,7 @@ interface Person {
     Nickname?: string;
     Emails?: string[];
     HomePages?: string[];
+    Id: string;
 }
 
 interface PersonListProps {
@@ -20,18 +22,25 @@ interface PersonListProps {
 }
 
 export const PersonList = ({ title, items = [], onUpdate, icon: Icon = User }: PersonListProps) => {
-    
+    const confirm = useConfirm();
     const addPerson = () => {
-        const newPerson: Person = { FirstName: '', MiddleName: '', LastName: '', Nickname: '', Emails: [] };
+        const newPerson: Person = { FirstName: '', MiddleName: '', LastName: '', Nickname: '', Emails: [], Id: '' };
         onUpdate([...items, newPerson]);
     };
 
-    const removePerson = (index: number) => {
+    const  removePerson = async(index: number) => {
         const person = items[index];
-        const displayName = person.Nickname || person.LastName || "эту запись";
-        if (window.confirm(`Вы уверены, что хотите удалить ${displayName}?`)) {
+        const displayName = [person.LastName, person.FirstName].filter(Boolean).join(' ') || person.Nickname || "запись";
+        const isConfirmed = await confirm.ask(
+            "Удаление",
+            `Вы уверены, что хотите удалить ${displayName}?`,
+            "danger"
+        );
+
+        if (isConfirmed) {
             onUpdate(items.filter((_, i) => i !== index));
         }
+
     };
 
     const updatePerson = (index: number, updatedFields: Partial<Person>) => {
@@ -45,7 +54,7 @@ export const PersonList = ({ title, items = [], onUpdate, icon: Icon = User }: P
 
             {items.map((person, idx) => (
                 <div key={idx} className="relative group p-3 bg-white border border-gray-200 rounded-lg shadow-sm space-y-1 transition-all hover:border-blue-200">
-                    <button 
+                    <button
                         type="button"
                         title="Удалить"
                         onClick={() => removePerson(idx)}
@@ -57,27 +66,32 @@ export const PersonList = ({ title, items = [], onUpdate, icon: Icon = User }: P
                     <Field label="Имя" value={person.FirstName} onChange={(val) => updatePerson(idx, { FirstName: val })} />
                     <Field label="Отчество" value={person.MiddleName} onChange={(val) => updatePerson(idx, { MiddleName: val })} />
                     <Field label="Фамилия" value={person.LastName} onChange={(val) => updatePerson(idx, { LastName: val })} />
-                    <Field 
-                        label="Никнейм" 
-                        value={person.Nickname} 
-                        icon={User} 
-                        className="font-bold text-blue-600" 
-                        onChange={(val) => updatePerson(idx, { Nickname: val })} 
+                    <Field
+                        label="Никнейм"
+                        value={person.Nickname}
+                        icon={User}
+                        className="font-bold text-blue-600"
+                        onChange={(val) => updatePerson(idx, { Nickname: val })}
                     />
-                    
+                    <Field
+                        label="ID"
+                        value={person.Id}
+                        icon={Fingerprint}
+                        onChange={(val) => updatePerson(idx, { Id: val })}
+                    />
                     <EditableList
                         label="Email"
                         items={person.Emails || []}
                         onUpdate={(newEmails) => updatePerson(idx, { Emails: newEmails })}
                     />
-                                    <EditableList
-                    label="Домашняя страница"
-                    items={person.HomePages || []}
-                    icon={Globe}
-                    placeholder='http://www.homepage'
-                    onUpdate={(newHomePages) => updatePerson(idx, { HomePages: newHomePages })}
-                />
-            </div>
+                    <EditableList
+                        label="Домашняя страница"
+                        items={person.HomePages || []}
+                        icon={Globe}
+                        placeholder='http://www.homepage'
+                        onUpdate={(newHomePages) => updatePerson(idx, { HomePages: newHomePages })}
+                    />
+                </div>
             ))}
 
             <button

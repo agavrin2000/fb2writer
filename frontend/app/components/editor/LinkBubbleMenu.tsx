@@ -6,7 +6,7 @@ import { BubbleMenu } from '@tiptap/react/menus';
 import { Link as LinkIcon, Trash2 } from 'lucide-react';
 
 interface LinkBubbleMenuProps {
-  editor: Editor;
+  editor: Editor | null;
 }
 
 export const LinkBubbleMenu: React.FC<LinkBubbleMenuProps> = ({ editor }) => {

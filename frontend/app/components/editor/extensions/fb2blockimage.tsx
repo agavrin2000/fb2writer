@@ -1,15 +1,18 @@
 import Image from "@tiptap/extension-image";
 import { CommandProps } from "@tiptap/core";
+import { findParentNodeByType } from "@/utils/utils";
+import { NodeSelection } from "@tiptap/pm/state";
 
-const FORBIDDEN_FB2_IMAGE_PARENTS = [
+// Типы, в которых запрещена вставка изображения
+const FORBIDDEN_PARENTS = [
   "fb2Epigraph",
   "fb2Subtitle",
   "fb2Title",
   "fb2Annotation",
   "fb2Poem",
   "fb2Cite",
+  "fb2Placeholder",
 ];
-
 // Блочное изображение (для структуры FB2)
 export const Fb2BlockImage = Image.extend({
   name: "fb2BlockImage",
@@ -39,20 +42,102 @@ export const Fb2BlockImage = Image.extend({
   },
   addCommands(): any {
     return {
-      canInsertFb2BlockImage:
-        () =>
-        ({ state }: CommandProps) => {
-          const { $from } = state.selection;
+      insertFb2BlockImage:
+        (attributes: { src: string, href?: string, title?: string }) => // Принимаем данные изображения
+          ({ state, dispatch, chain }: CommandProps) => {
+            const { selection } = state;
 
-          for (let d = $from.depth; d > 0; d--) {
-            const node = $from.node(d);
-            const nodeName = node.type.name;
-            if (FORBIDDEN_FB2_IMAGE_PARENTS.includes(nodeName)) return false;
-            else if (nodeName === "fb2Section" || nodeName === "fb2BodySection")
-              return true;
-          }
-          return false;
-        },
+            // 1. Проверяем: выделена ли сама секция?
+            if (selection instanceof NodeSelection && selection.node.type.name === "fb2Section") return false;
+
+            const { pos: parentPos, node: parentNode } = findParentNodeByType(
+              selection,
+              ["fb2Section"],
+            );
+            if (parentPos !== -1) return false;
+
+            if (dispatch && attributes) {
+              return chain()
+                .insertContent({
+                  type: "fb2BlockImage",
+                  attrs: { src: attributes.src, href: attributes.href, title: attributes.title },
+                })
+                .focus()
+                .run();
+            }
+            return true;
+          },
+      insertFb2SectionImage:
+        (attributes: { src: string, href?: string, title?: string }) => // Принимаем данные изображения
+          ({ state, dispatch, chain }: CommandProps) => {
+            const { selection } = state;
+
+            let sectionNode = null;
+            let sectionPos = -1;
+
+            // 1. Проверяем: выделена ли сама секция?
+            if (selection instanceof NodeSelection && selection.node.type.name === "fb2Section") {
+              sectionPos = selection.from;
+              sectionNode = selection.node;
+            }
+            // 2. Если нет — ищем родительскую секцию вверх по дереву
+            else {
+              ({ node: sectionNode, pos: sectionPos } = findParentNodeByType(
+                selection,
+                ["fb2BodySection", "fb2Section"],
+              ));
+            }
+
+            if (sectionPos === -1) return false;
+            
+            // 2. Определяем позицию вставки внутри найденной секции
+            let insertRelativePos = 0;
+
+            // Определяем позицию возможной вставки
+            if (sectionNode.type.name === "fb2BodySection") {
+              insertRelativePos = sectionNode.child(0).nodeSize; // Для fb2BodySection вставка всегда в начало после placeholder
+            }
+            else {
+              // Для секции - после заголовков и эпиграфов
+              for (let i = 0; i < sectionNode.content.childCount; i++) {
+                const child = sectionNode.content.child(i);
+                if (child.type.name === "fb2Title" || child.type.name === "fb2Epigraph") {
+                  insertRelativePos += child.nodeSize;
+                } else {
+                  // Как только встретили что-то другое (например, параграф) — выходим
+                  break;
+                }
+              }
+            }
+
+            // Если на этой позиции уже есть изображение, запрещаем вставку
+            // 1. Получаем результат поиска узла
+            const result = sectionNode.childAfter(insertRelativePos);
+
+            // 2. ПРИСТРАСТНАЯ ПРОВЕРКА:
+            // Нам нужно, чтобы узел существовал (node), 
+            // чтобы он начинался РОВНО в insertRelativePos (offset === insertRelativePos)
+            // и чтобы это была именно картинка.
+            if (
+              result.node &&
+              result.node.type.name === "fb2BlockImage"
+            ) {
+              return false; // Запрещаем вставку: картинка уже ровно здесь
+            }
+
+            if (dispatch && attributes) {
+              const absoluteInsertPos = sectionPos + 1 + insertRelativePos;
+              return chain()
+                .insertContentAt(absoluteInsertPos, {
+                  type: "fb2BlockImage",
+                  attrs: { src: attributes.src, href: attributes.href, title: attributes.title },
+                })
+                .focus()
+                .run();
+            }
+
+            return true;
+          },
     };
   },
 }).configure({ allowBase64: true });

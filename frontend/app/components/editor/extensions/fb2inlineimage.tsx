@@ -1,5 +1,6 @@
 import Image from "@tiptap/extension-image";
 import { CommandProps } from "@tiptap/core";
+import { findParentNodeByType } from "@/utils/utils";
 
 const INLINE_ACTIVE_NODES = [
   "paragraph",
@@ -33,13 +34,29 @@ export const Fb2InlineImage = Image.extend({
   },
   addCommands(): any {
     return {
-      canInsertFb2InlineImage:
-        () =>
-        ({ state }: CommandProps) => {
-          return INLINE_ACTIVE_NODES.includes(
-            state.selection.$from.parent.type.name,
-          );
-        },
+      insertFb2InlineImage:
+        (attributes: { src: string, href?: string }) => // Принимаем данные изображения
+          ({ state, dispatch, chain, commands }: CommandProps) => {
+            // 1. Логика проверки (Dry Run)
+            const canInsert = INLINE_ACTIVE_NODES.includes(
+              state.selection.$from.parent.type.name
+            );
+
+            if (!canInsert) return false;
+
+            // 2. Логика выполнения (если это не Dry Run, а реальный вызов)
+            // attributes передаются при вызове: editor.commands.insertFb2InlineImage({ src: '...' })
+            if (dispatch && attributes) {
+              return chain()
+                .insertContent({
+                  type: "fb2InlineImage",
+                  attrs: attributes,
+                })
+                .focus()
+                .run();
+            }
+            return true;
+          },
     };
   },
 }).configure({ allowBase64: true });

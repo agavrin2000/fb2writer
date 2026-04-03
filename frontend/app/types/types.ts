@@ -1,13 +1,11 @@
 // Основной интерфейс для персон (авторы, переводчики)
-
-import { attachReactRefresh } from "next/dist/build/webpack-config";
-
 export interface Fb2Person {
   FirstName?: string;
   MiddleName?: string;
   LastName?: string;
   Nickname?: string;
   Emails?: string[];
+  Id?: string;
 }
 
 // Интерфейс для серий
@@ -117,14 +115,15 @@ export interface TiptapContent {
 
 // Ссловарь сносок
 export type FootnotesMap = Record<string, TiptapContent[]>;
-
+export type ImageDisplayType = "block" | "inline" | "section";
 // Корневой объект, который приходит с бэкенда
 export interface Fb2ImageData {
   data: string;
   href: string;
-  display: "block" | "inline" | "section";
+  display: ImageDisplayType;
 }
 
+// Шаблон для новой книги
 export const EMPTY_FB2_TEMPLATE: Fb2Data = {
   Meta: {
     TitleInfo: {
@@ -202,6 +201,7 @@ export const EMPTY_FB2_TEMPLATE: Fb2Data = {
   FilePath: "new_book.fb2",
 };
 
+// Список жанров
 export const FB2_GENRES: { id: string; label: string }[] = [
   { id: "accounting", label: "Бухучет, налогообложение, аудит" },
   { id: "adv_animal", label: "Приключения про животных" },
@@ -391,6 +391,7 @@ export const FB2_GENRES: { id: string; label: string }[] = [
   { id: "unrecognised", label: "Нераспознанное" },
 ];
 
+// Языки
 export const LANGUAGES = [
   { value: "ru", label: "Русский" },
   { value: "en", label: "English" },
@@ -399,3 +400,50 @@ export const LANGUAGES = [
   { value: "uk", label: "Українська" },
   { value: "be", label: "Беларуская" },
 ];
+
+// Команды в тулбаре
+export const COMMAND_NAMES = [
+  "Title",
+  "Epigraph",
+  "TextAuthor",
+  "Subtitle",
+  "Poem",
+  "Stanza",
+  "Annotation",
+  "Date",
+  "InlineImage",
+  "BlockImage",
+  "SectionImage",
+  "Section",
+] as const;
+
+export type Capabilities = {
+  [K in (typeof COMMAND_NAMES)[number]as
+  | `canInsert${K}`
+  | `canRemove${K}`]: boolean;
+};
+
+// Специфические атрибуты для разных узлов
+type Fb2NodeAttrs = {
+  InlineImage: { src: string; href?: string };
+  BlockImage: { src: string; title?: string; href?: string }; 
+  SectionImage: { src: string; title?: string; href?: string }; 
+};
+
+// Умный тип для аргументов команд
+export type Fb2Commands<ReturnType> = {
+  // Генерация insert-команд
+  [K in (typeof COMMAND_NAMES)[number]as `insertFb2${K}`]:
+  K extends keyof Fb2NodeAttrs
+  ? (attributes: Fb2NodeAttrs[K]) => ReturnType
+  : () => ReturnType;
+} & {
+  // Генерация remove-команд (обычно без аргументов)
+  [K in (typeof COMMAND_NAMES)[number]as `removeFb2${K}`]: () => ReturnType;
+};
+
+declare module "@tiptap/core" {
+  interface Commands<ReturnType> {
+    fb2: Fb2Commands<ReturnType>;
+  }
+}

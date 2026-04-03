@@ -2,22 +2,25 @@
 import React, { memo } from "react";
 import { ChevronRight, ChevronLeft } from "lucide-react";
 import { TocItem } from "@/types/types";
+import { useActiveHeading } from "@/hooks/useActiveHeading";
+import { Editor } from "@tiptap/react";
 
 export const ContentsSidebar = memo(
   ({
+    editor, // <--- Добавляем инстанс редактора сюда
     tree,
-    activePos,
     onSelectHeading,
-    isOpen, // Состояние теперь приходит сверху
-    onToggle, // Функция переключения тоже сверху
+    isOpen,
+    onToggle,
   }: {
+    editor: Editor | null; // Тип из @tiptap/react
     tree: TocItem[];
-    activePos: number | null;
     onSelectHeading: (item: TocItem) => void;
     isOpen: boolean;
     onToggle: () => void;
   }) => {
-    console.log(tree);
+
+    const activePos = useActiveHeading(editor, tree || []);
     const handleItemClick = (item: TocItem) => {
       onSelectHeading(item);
     };

@@ -199,7 +199,6 @@ body,
 }
 
 .fb2-body-section {
-  scroll-margin-top: 80px;
   display: block;
 }
 
@@ -219,13 +218,12 @@ section.fb2-section {
   /* Сильно ускоряет рендер длинных списков */
   content-visibility: auto;
   contain-intrinsic-size: 1px 2000px;
-  scroll-margin-top: 80px !important;
   /* ЭТО ЗАМЕНИТ ВАШ ТРЯСУЩИЙСЯ JS РАСЧЕТ */
 }
 
 .section-node-wrapper {
   /* Резервируем место сверху (вместо -80px в JS) */
-  scroll-margin-top: 0px !important;
+  scroll-margin-top: 80px !important;
 }
 
 /* 3. Иерархия (лесенка) */
@@ -742,4 +740,25 @@ section.fb2-section {
   color: blue;
   text-decoration: underline;
   cursor: pointer;
+}
+
+@layer components {
+  /* 1. Создаем базовый набор стилей (общий для всех) */
+  .toolbar-btn {
+    @apply p-1.5 px-3 rounded text-xs font-bold transition-all flex items-center justify-center border border-transparent whitespace-nowrap;
+    @apply disabled:opacity-40 disabled:bg-gray-50 disabled:text-gray-300 disabled:border-gray-100 disabled:cursor-not-allowed disabled:shadow-none disabled:pointer-events-none;
+  }
+
+  /* 2. Для модификаторов ПОВТОРЯЕМ базу или используем композицию в JSX */
+  .toolbar-btn-default {
+    @apply p-1.5 px-3 rounded text-xs font-bold transition-all flex items-center justify-center border border-transparent whitespace-nowrap;
+    @apply disabled:opacity-40 disabled:bg-gray-50 disabled:text-gray-300 disabled:border-gray-100 disabled:cursor-not-allowed disabled:shadow-none disabled:pointer-events-none;
+    @apply text-gray-600 bg-white shadow-sm hover:bg-gray-100 hover:border-gray-200 active:bg-gray-200;
+  }
+
+  .toolbar-btn-active {
+    @apply p-1.5 px-3 rounded text-xs font-bold transition-all flex items-center justify-center border border-transparent whitespace-nowrap;
+    @apply disabled:opacity-40 disabled:bg-gray-50 disabled:text-gray-300 disabled:border-gray-100 disabled:cursor-not-allowed disabled:shadow-none disabled:pointer-events-none;
+    @apply bg-indigo-600 text-white shadow-inner border-indigo-700;
+  }
 }

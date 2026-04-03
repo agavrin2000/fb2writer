@@ -1,4 +1,4 @@
-import React, { useState, useImperativeHandle, forwardRef } from 'react';
+import React, { useState, useImperativeHandle, forwardRef, useEffect } from 'react';
 
 // Типы для настроек диалога
 type DialogVariant = 'default' | 'danger';
@@ -29,14 +29,25 @@ export const ConfirmDialog = forwardRef<ConfirmHandle, {}>((_, ref) => {
   }));
 
   const close = (value: boolean) => {
+    if (!config) return;
+
     setIsAnimate(false);
-    // Ждем окончания анимации перед размонтированием
+    // Извлекаем resolve сразу, чтобы не потерять его при быстрой смене config
+    const currentResolve = config.resolve;
+
     setTimeout(() => {
-      config?.resolve(value);
+      currentResolve(value); // Разрешаем Promise
       setConfig(null);
     }, 200);
   };
-
+  
+  useEffect(() => {
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && config) close(false);
+    };
+    window.addEventListener('keydown', handleEsc);
+    return () => window.removeEventListener('keydown', handleEsc);
+  }, [config]);
   if (!config) return null;
 
   const isDanger = config.variant === 'danger';
@@ -44,17 +55,15 @@ export const ConfirmDialog = forwardRef<ConfirmHandle, {}>((_, ref) => {
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
       {/* Overlay (Задний фон) */}
-      <div 
-        className={`absolute inset-0 bg-slate-900/40 backdrop-blur-sm transition-opacity duration-300 ${
-          isAnimate ? 'opacity-100' : 'opacity-0'
-        }`}
-        onClick={() => close(false)} 
+      <div
+        className={`absolute inset-0 bg-slate-900/40 backdrop-blur-sm transition-opacity duration-300 ${isAnimate ? 'opacity-100' : 'opacity-0'
+          }`}
+        onClick={() => close(false)}
       />
-      
+
       {/* Modal Card */}
-      <div className={`relative bg-white w-full max-w-sm rounded-2xl shadow-2xl border border-slate-200 overflow-hidden transform transition-all duration-300 ${
-        isAnimate ? 'scale-100 opacity-100 translate-y-0' : 'scale-95 opacity-0 translate-y-4'
-      }`}>
+      <div className={`relative bg-white w-full max-w-sm rounded-2xl shadow-2xl border border-slate-200 overflow-hidden transform transition-all duration-300 ${isAnimate ? 'scale-100 opacity-100 translate-y-0' : 'scale-95 opacity-0 translate-y-4'
+        }`}>
         <div className="p-6">
           <h3 className={`text-lg font-bold mb-2 ${isDanger ? 'text-red-600' : 'text-slate-900'}`}>
             {config.title}
@@ -63,7 +72,7 @@ export const ConfirmDialog = forwardRef<ConfirmHandle, {}>((_, ref) => {
             {config.message}
           </p>
         </div>
-        
+
         <div className="flex border-t border-slate-100 bg-slate-50/50 p-3 gap-3">
           <button
             type="button"
@@ -75,11 +84,10 @@ export const ConfirmDialog = forwardRef<ConfirmHandle, {}>((_, ref) => {
           <button
             type="button"
             onClick={() => close(true)}
-            className={`flex-1 px-4 py-2.5 text-sm font-bold text-white rounded-xl shadow-md transition-all active:scale-95 ${
-              isDanger 
-                ? 'bg-red-500 hover:bg-red-600 shadow-red-100' 
-                : 'bg-blue-600 hover:bg-blue-700 shadow-blue-100'
-            }`}
+            className={`flex-1 px-4 py-2.5 text-sm font-bold text-white rounded-xl shadow-md transition-all active:scale-95 ${isDanger
+              ? 'bg-red-500 hover:bg-red-600 shadow-red-100'
+              : 'bg-blue-600 hover:bg-blue-700 shadow-blue-100'
+              }`}
           >
             OK
           </button>

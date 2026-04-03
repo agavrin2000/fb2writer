@@ -16,28 +16,21 @@ import { LinkBubbleMenu } from "@/components/editor/LinkBubbleMenu";
 import { Fb2SectionMenu } from "@/components/editor/Fb2SectionMenu";
 import { Fb2PoemMenu } from "@/components/editor/Fb2PoemMenu";
 import { getFileName } from "@/utils/utils";
-import { ConfirmDialog, ConfirmHandle } from '@/components/ui/ConfirmDialog';
 
 export default function Page() {
-  // Добавляем локальное состояние сайдбара на уровне страницы
-  const toastRef = useRef<ToastHandle>(null);
-  const confirmRef = useRef<ConfirmHandle>(null);
-  // Передаем реф (теперь типы совпадут)
-  const fb2 = useEditorManager(toastRef, confirmRef);
-  const {
-    editor,
-    metadata,
-    handleMetaChange,
-    notes,
-    isLoading,
-    loaderConfig,
-    loadingFileName,
-    currentFilePath,
-    tocTree,
-    activeHeadingPos,
-    actions,
-    scrollToHeading,
-  } = fb2;
+const {
+  editor,
+  metadata,
+  handleMetaChange,
+  notes,
+  isLoading,
+  loaderConfig,
+  loadingFileName,
+  currentFilePath,
+  tocTree,
+  actions,
+  scrollToHeading,
+} = useEditorManager();
 
   const displayFileName = useMemo(() => getFileName(currentFilePath), [currentFilePath]);
   const [isContentsSidebarOpen, setIsContentsSidebarOpen] = useState(false);
@@ -75,7 +68,7 @@ export default function Page() {
       <div className="flex flex-1 overflow-hidden relative">
         <ContentsSidebar
           tree={tocTree}
-          activePos={activeHeadingPos}
+          editor={editor}
           onSelectHeading={scrollToHeading}
           isOpen={isContentsSidebarOpen}
           onToggle={toggleContentsSidebar}
@@ -119,9 +112,7 @@ export default function Page() {
           onDelete={notes.deleteFootnote}
         />
       )}
-      <Toast ref={toastRef} />
       <StatusBar fileName={displayFileName} loading={isLoading} />
-      <ConfirmDialog ref={confirmRef} />
     </div>
   );
 }

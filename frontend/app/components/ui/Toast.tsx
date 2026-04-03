@@ -1,4 +1,4 @@
-import React, { useState, useImperativeHandle, forwardRef, memo } from "react";
+import React, { useState, useImperativeHandle, forwardRef, memo, useEffect, useRef, useCallback } from "react";
 
 export type ToastType = "success" | "error" | "info";
 
@@ -69,40 +69,48 @@ export const Toast = memo(
     const [visible, setVisible] = useState(false);
     const [message, setMessage] = useState("");
     const [type, setType] = useState<ToastType>("success");
-    const [timer, setTimer] = useState<NodeJS.Timeout | null>(null);
 
-    const hide = () => {
+    const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    const hide = useCallback(() => {
       setVisible(false);
-      if (timer) {
-        clearTimeout(timer);
-        setTimer(null);
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+        timerRef.current = null;
       }
-    };
+    }, []);
+
+    // Очистка только при размонтировании
+    useEffect(() => {
+      return () => {
+        if (timerRef.current) clearTimeout(timerRef.current);
+      };
+    }, []);
 
     useImperativeHandle(ref, () => ({
       show(msg: string, t: ToastType = "success") {
-        if (timer) clearTimeout(timer);
+        // 1. Немедленно очищаем старый таймер, если он был
+        if (timerRef.current) clearTimeout(timerRef.current);
 
         setMessage(msg);
         setType(t);
         setVisible(true);
 
-        // Ошибки не закрываем автоматически, остальные — через 3 секунды
         if (t !== "error") {
-          const newTimer = setTimeout(() => setVisible(false), 3000);
-          setTimer(newTimer);
-        } else {
-          setTimer(null);
+          // 2. Устанавливаем новый таймер и сохраняем его в Ref
+          timerRef.current = setTimeout(() => {
+            setVisible(false);
+            timerRef.current = null;
+          }, 3000);
         }
       },
       hide,
     }));
-
     const currentConfig = config[type];
 
     return (
       <div
-        className={`fixed bottom-12 left-1/2 -translate-x-1/2 z-[100] transition-all duration-500 ease-out 
+        className={`fixed bottom-20 left-1/2 -translate-x-1/2 z-[100] transition-all duration-500 ease-out 
       ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8 pointer-events-none"}
       w-[calc(100%-2rem)] max-w-md`}
       >

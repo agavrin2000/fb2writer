@@ -1,5 +1,5 @@
 import { Editor } from "@tiptap/react";
-import React, { useEffect, useState, memo } from "react";
+import React, { memo, useMemo } from "react";
 import {
   Bold,
   Italic,
@@ -23,43 +23,12 @@ import { useEditorState } from "@tiptap/react";
 import { Fb2ActionIcon } from "../ui/Fb2ActionIcon";
 import { ImageDropdown } from "./ImageDropdown";
 import { NodeSelection } from "@tiptap/pm/state";
-import { Fb2Placeholder } from "./extensions/fb2placeholder";
+import { ImageDisplayType, COMMAND_NAMES, Fb2Commands } from "@/types/types";
 
-const COMMAND_NAMES = [
-  "Title",
-  "Epigraph",
-  "TextAuthor",
-  "Subtitle",
-  "Poem",
-  "Stanza",
-  "Annotation",
-  "Date",
-  "InlineImage",
-  "BlockImage",
-  "Section",
-] as const;
-
-type Capabilities = {
-  [K in (typeof COMMAND_NAMES)[number]as
-  | `canInsert${K}`
-  | `canRemove${K}`]: boolean;
-};
-
-type Fb2Commands = {
-  [K in (typeof COMMAND_NAMES)[number]as
-  | `insertFb2${K}`
-  | `removeFb2${K}`]: () => any;
-};
-
-declare module "@tiptap/core" {
-  interface Commands<ReturnType> {
-    fb2: Fb2Commands; // Все 16 команд создадутся автоматически
-  }
-}
 
 interface ToolbarProps {
   editor: Editor | null;
-  onSelectImage: (type: "block" | "inline" | "section") => void;
+  onSelectImage: (type: ImageDisplayType) => void;
   onAddFootnote: () => void;
   onAddLink: () => void;
 }
@@ -85,16 +54,10 @@ export const Toolbar: React.FC<ToolbarProps> = memo(({
         capabilities: {}
       };
 
-      const selection = ed.state.selection;
-      let nodeName = '';
-
-      if (selection instanceof NodeSelection) {
-        // Если выбрана нода целиком (картинка, секция)
-        nodeName = selection.node.type.name;
-      } else {
-        // Если курсор внутри текста
-        nodeName = selection.$from.parent.type.name;
-      }
+      const { selection } = ed.state;
+      const isNodeSel = selection instanceof NodeSelection;
+      const parentName = selection.$from.parent.type.name;
+      const nodeName = isNodeSel ? selection.node.type.name : parentName;
 
       // Проверки активности
       const active = {
@@ -116,14 +79,20 @@ export const Toolbar: React.FC<ToolbarProps> = memo(({
 
       const isCiteDisabled = active.fb2Title || active.Fb2Placeholder || active.fb2V || active.fb2TextAuthor || active.fb2Date || active.fb2Subtitle || active.fb2Section || active.fb2Poem;
       const isInsideParagraph = active.paragraph || active.fb2V || active.fb2TextAuthor || active.fb2Subtitle;
-      const isSelectionEmpty = (editor?.state.selection.empty ?? true) || !isInsideParagraph;
+      const isSelectionEmpty = (selection.empty ?? true) || !isInsideParagraph;
 
       // Динамические возможности (ваши кастомные команды)
       const caps = Object.fromEntries(
-        COMMAND_NAMES.flatMap((name) => [
-          [`canInsert${name}`, ed.can()[`insertFb2${name}`]?.() ?? false],
-          [`canRemove${name}`, ed.can()[`removeFb2${name}`]?.() ?? false],
-        ])
+        COMMAND_NAMES.flatMap((name) => {
+          const insertCommand = `insertFb2${name}` as keyof Fb2Commands<boolean>;
+          const removeCommand = `removeFb2${name}` as keyof Fb2Commands<boolean>;
+
+          return [
+            // Используем (undefined as any), чтобы удовлетворить сигнатуру вызова
+            [`canInsert${name}`, (ed.can() as any)[insertCommand]?.() ?? false],
+            [`canRemove${name}`, (ed.can() as any)[removeCommand]?.() ?? false],
+          ];
+        })
       );
 
       return {
@@ -133,7 +102,7 @@ export const Toolbar: React.FC<ToolbarProps> = memo(({
       };
     },
   });
-
+  console.log("capabilities", capabilities);
   if (!editor) return null;
 
   const handleImageSelect = (type: "block" | "inline" | "section") => {
@@ -143,18 +112,12 @@ export const Toolbar: React.FC<ToolbarProps> = memo(({
 
   const { isMarkDisabled, isCiteDisabled, isInsideParagraph, isSelectionEmpty } = disabledStates;
 
-  const btnClass = (type: string, attrs?: Record<string, any>) => {
-    const isActive = activeStates[type];
-    return `p-1.5 px-3 rounded text-xs font-bold transition-colors disabled:opacity-40 disabled:bg-gray-50 disabled:text-gray-300 disabled:border-gray-100 disabled:cursor-not-allowed disabled:shadow-none disabled:pointer-events-none ${isActive
-      ? "bg-indigo-600 text-white shadow-inner"
-      : "text-gray-600 hover:bg-gray-100 border border-transparent hover:border-gray-200"
-      }`;
+  const getBtnClass = (type: string) => {
+    return activeStates[type] ? "toolbar-btn-active" : "toolbar-btn-default";
   };
 
-  const btnCustomClass =
-    "p-1.5 px-3 rounded text-xs font-bold transition-all flex items-center justify-center border border-transparent bg-white text-gray-600 shadow-sm " +
-    "hover:bg-gray-100 hover:border-gray-200 active:bg-gray-200 " +
-    "disabled:opacity-40 disabled:bg-gray-50 disabled:text-gray-300 disabled:border-gray-100 disabled:cursor-not-allowed disabled:shadow-none disabled:pointer-events-none";
+  // Для кастомных кнопок (которые всегда выглядят одинаково)
+  const btnCustomClass = "toolbar-btn-default";
 
   return (
     <div className="bg-white border-b shadow-sm sticky top-0 z-20 flex flex-col items-center">
@@ -165,7 +128,7 @@ export const Toolbar: React.FC<ToolbarProps> = memo(({
           title="Bold"
           disabled={isMarkDisabled}
           onClick={() => editor.chain().focus().toggleBold().run()}
-          className={btnClass("bold")}
+          className={getBtnClass("bold")}
           onMouseDown={(e) => e.preventDefault()}
         >
           <Bold size={18} />
@@ -175,7 +138,7 @@ export const Toolbar: React.FC<ToolbarProps> = memo(({
           disabled={isMarkDisabled}
           title="Italic"
           onClick={() => editor.chain().focus().toggleItalic().run()}
-          className={btnClass("italic")}
+          className={getBtnClass("italic")}
         >
           <Italic size={18} />
         </button>
@@ -184,7 +147,7 @@ export const Toolbar: React.FC<ToolbarProps> = memo(({
           disabled={isMarkDisabled}
           title="Strike"
           onClick={() => editor.chain().focus().toggleStrike().run()}
-          className={btnClass("strike")}
+          className={getBtnClass("strike")}
         >
           <Strikethrough size={18} />
         </button>
@@ -196,7 +159,7 @@ export const Toolbar: React.FC<ToolbarProps> = memo(({
           disabled={isMarkDisabled}
           title="Superscript"
           onClick={() => editor.chain().focus().toggleSuperscript().run()}
-          className={btnClass("superscript")}
+          className={getBtnClass("superscript")}
         >
           <Superscript size={18} />
         </button>
@@ -205,7 +168,7 @@ export const Toolbar: React.FC<ToolbarProps> = memo(({
           disabled={isMarkDisabled}
           title="Subscript"
           onClick={() => editor.chain().focus().toggleSubscript().run()}
-          className={btnClass("subscript")}
+          className={getBtnClass("subscript")}
         >
           <Subscript size={18} />
         </button>
@@ -215,7 +178,7 @@ export const Toolbar: React.FC<ToolbarProps> = memo(({
           disabled={isMarkDisabled}
           title="Код"
           onClick={() => editor.chain().focus().toggleCode().run()}
-          className={btnClass("code")}
+          className={getBtnClass("code")}
         >
           <Code size={18} />
         </button>
@@ -229,7 +192,7 @@ export const Toolbar: React.FC<ToolbarProps> = memo(({
           disabled={isCiteDisabled}
           onClick={() => editor.chain().focus().toggleBlockquote().run()}
           // Проверяем активность именно по имени узла fb2Cite
-          className={btnClass("fb2Cite")}
+          className={getBtnClass("fb2Cite")}
         >
           <Quote size={20} />
         </button>
@@ -261,6 +224,7 @@ export const Toolbar: React.FC<ToolbarProps> = memo(({
           onSelect={handleImageSelect}
           canBlockImage={capabilities?.canInsertBlockImage}
           canInlineImage={capabilities?.canInsertInlineImage}
+          canSectionImage={capabilities?.canInsertSectionImage}
         />
       </div>
 
@@ -369,7 +333,7 @@ export const Toolbar: React.FC<ToolbarProps> = memo(({
         {/* Группа: Поэзия */}
         <button
           type="button"
-          onClick={() => editor.chain().focus().insertFb2Poem().run() }
+          onClick={() => editor.chain().focus().insertFb2Poem().run()}
           className={`${btnCustomClass} ${!capabilities?.canInsertPoem ? "opacity-50 pointer-events-auto" : ""}`}
           title="Добавить поэму"
         >
@@ -412,4 +376,4 @@ export const Toolbar: React.FC<ToolbarProps> = memo(({
   );
 });
 
-Toolbar.displayName = 'StatusBar';
+Toolbar.displayName = 'ToolBar';

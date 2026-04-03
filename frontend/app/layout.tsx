@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
-
+import { ConfirmProvider } from '@/hooks/ConfirmContext';
+import { ToastProvider } from '@/hooks/ToastContext';
 
 export const metadata: Metadata = {
   title: "FB2 Editor",
@@ -14,8 +15,12 @@ export default function RootLayout({
 }) {
   return (
     <html lang="ru">
-      <body>
-        {children}
+      <body className="antialiased">
+        <ToastProvider>
+        <ConfirmProvider>
+          {children}
+        </ConfirmProvider>
+        </ToastProvider>
       </body>
     </html>
   );

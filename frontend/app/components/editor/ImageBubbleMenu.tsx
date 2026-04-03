@@ -21,54 +21,61 @@ export const ImageBubbleMenu: React.FC<ImageBubbleMenuProps> = ({ editor }) => {
 
     const updateInfo = () => {
       const { selection } = editor.state;
-      if (selection instanceof NodeSelection) {
-        const typeName = selection.node.type.name;
-        if (typeName === "fb2InlineImage" || typeName === "fb2BlockImage") {
-          const src = selection.node.attrs.src || "";
 
-          // Находим DOM элемент ноды
-          const dom = editor.view.nodeDOM(selection.from) as HTMLElement;
-          // Ищем внутри саму картинку (важно, если у вас есть обертки в NodeView)
-          const img =
-            dom?.tagName === "IMG"
-              ? (dom as HTMLImageElement)
-              : dom?.querySelector("img");
+      // 1. Быстрая проверка: если это не картинка, сразу зануляем и выходим
+      if (!(selection instanceof NodeSelection)) {
+        setInfo(prev => prev === null ? null : null); // React оптимизирует повторный null
+        return;
+      }
 
-          if (img) {
-            const getDimensions = () => {
-              setInfo({
-                src,
-                size: src.startsWith("data:")
-                  ? ((src.length * 0.75) / 1024).toFixed(1) + " Кб"
-                  : "URL",
-                w: img.naturalWidth,
-                h: img.naturalHeight,
-              });
-            };
-
-            if (img.complete) {
-              getDimensions();
-            } else {
-              img.onload = getDimensions;
-            }
-          }
-        } else {
-          setInfo(null);
-        }
-      } else {
+      const node = selection.node;
+      if (node.type.name !== "fb2InlineImage" && node.type.name !== "fb2BlockImage") {
         setInfo(null);
+        return;
+      }
+
+      // 2. Извлекаем данные
+      const src = node.attrs.src || "";
+      const dom = editor.view.nodeDOM(selection.from) as HTMLElement;
+      const img = dom?.tagName === "IMG" ? (dom as HTMLImageElement) : dom?.querySelector("img");
+
+      if (img) {
+        const updateIfChanged = () => {
+          const newSize = src.startsWith("data:")
+            ? ((src.length * 0.75) / 1024).toFixed(1) + " Кб"
+            : "URL";
+          const newW = img.naturalWidth;
+          const newH = img.naturalHeight;
+
+          // 3. КРИТИЧНО: Сравниваем с предыдущим состоянием перед вызовом setState
+          setInfo(prev => {
+            if (
+              prev?.src === src &&
+              prev?.size === newSize &&
+              prev?.w === newW &&
+              prev?.h === newH
+            ) {
+              return prev; // Если ничего не изменилось, возвращаем старый объект (нет ререндера)
+            }
+            return { src, size: newSize, w: newW, h: newH };
+          });
+        };
+
+        if (img.complete) {
+          updateIfChanged();
+        } else {
+          img.onload = updateIfChanged;
+        }
       }
     };
 
-    // Слушаем и обновление выделения, и изменения транзакций
+    // Слушаем обновление только при смене выделения (этого достаточно для BubbleMenu)
     editor.on("selectionUpdate", updateInfo);
-    editor.on("transaction", updateInfo);
 
     return () => {
       editor.off("selectionUpdate", updateInfo);
-      editor.off("transaction", updateInfo);
     };
-  }, [editor]);
+  }, [editor]); // editor обычно стабилен, цикл прекратится
 
   const handleDownload = () => {
     if (!info?.src) return;
@@ -96,7 +103,7 @@ export const ImageBubbleMenu: React.FC<ImageBubbleMenuProps> = ({ editor }) => {
         flip: false,
       }}
     >
-      <div className="flex flex-col items-end pointer-events-none">
+      <div className="flex flex-col items-end">
         {/* Контейнер-обертка, который будет иметь ту же ширину, что и выделенная картинка */}
         <div className="flex bg-white border border-gray-200 rounded-lg shadow-2xl overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-200">
           {/* Плашка с информацией */}
