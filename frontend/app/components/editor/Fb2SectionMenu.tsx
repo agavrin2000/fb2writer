@@ -62,7 +62,6 @@ export const Fb2SectionMenu = ({ editor, onSelectImage }: Props) => {
     if (!editor) return;
 
     const updateMenu = () => {
-      console.log(isTyping.current);
       if (isOpen && isTyping.current) return;
       const { selection } = editor.state;
       const isSectionSelected =
@@ -295,7 +294,9 @@ export const Fb2SectionMenu = ({ editor, onSelectImage }: Props) => {
                 : editor.chain().focus().insertFb2Annotation().run()
             }
             className={twBtn}
-            title={canRemoveAnnotation ? "Удалить аннотацию" : "Добавить аннотацию"}
+            title={
+              canRemoveAnnotation ? "Удалить аннотацию" : "Добавить аннотацию"
+            }
           >
             <Fb2ActionIcon
               icon={FileText}

@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef, useMemo, useEffect } from "react";
 import { FlatNode, TocItem } from "../types/types";
 import { buildTree, debounce } from "../utils/utils";
+import { Editor } from "@tiptap/react";
 
 // useTOC.ts
 export const useTOC = () => {
@@ -11,15 +12,23 @@ export const useTOC = () => {
   const lastActivePos = useRef<number | null>(null);
   const lastFlatNodes = useRef<string>("");
 
-  const updateActiveHeading = useCallback((editor: any) => {
+  const updateActiveHeading = useCallback((editor: Editor) => {
     const { from } = editor.state.selection;
-    let active = null;
 
-    for (const node of flatNodesRef.current) {
-      if (node.pos <= from) active = node.pos;
-      else break;
+    // Берем данные напрямую из Ref, они обновляются мгновенно в onUpdate/onSelectionUpdate
+    const nodes = flatNodesRef.current;
+    if (!nodes.length) return;
+
+    let active = null;
+    for (const node of nodes) {
+      if (node.pos <= from) {
+        active = node.pos;
+      } else {
+        break;
+      }
     }
 
+    // Обновляем стейт только если позиция РЕАЛЬНО изменилась
     if (active !== lastActivePos.current) {
       lastActivePos.current = active;
       setActiveHeadingPos(active);
@@ -29,13 +38,8 @@ export const useTOC = () => {
   const debouncedSetToc = useMemo(
     () =>
       debounce((nodes: FlatNode[]) => {
-        // Добавляем n.pos, чтобы ловить перемещение заголовков без изменения текста
-        const currentCheck = nodes.map((n) => `${n.pos}:${n.text}`).join("|");
-
-        if (currentCheck !== lastFlatNodes.current) {
-          lastFlatNodes.current = currentCheck;
-          setTocTree(buildTree(nodes));
-        }
+        const tree = buildTree(nodes);
+        setTocTree(tree);
       }, 500),
     [],
   );
@@ -50,6 +54,7 @@ export const useTOC = () => {
   return {
     tocTree,
     setTocTree,
+    lastFlatNodes,
     activeHeadingPos,
     setActiveHeadingPos,
     flatNodesRef,

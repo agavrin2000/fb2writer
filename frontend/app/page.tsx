@@ -1,5 +1,4 @@
 "use client";
-import { Toast, ToastHandle } from "@/components/ui/Toast";
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { Header } from "@/components/layout/Header";
 import { ContentsSidebar } from "@/components/layout/ContentsSidebar";
@@ -18,23 +17,29 @@ import { Fb2PoemMenu } from "@/components/editor/Fb2PoemMenu";
 import { getFileName } from "@/utils/utils";
 
 export default function Page() {
-const {
-  editor,
-  metadata,
-  handleMetaChange,
-  notes,
-  isLoading,
-  loaderConfig,
-  loadingFileName,
-  currentFilePath,
-  tocTree,
-  actions,
-  scrollToHeading,
-} = useEditorManager();
+  const {
+    editor,
+    metadata,
+    handleMetaChange,
+    notes,
+    isLoading,
+    loaderConfig,
+    loadingFileName,
+    currentFilePath,
+    tocTree,
+    actions,
+    scrollToHeading,
+  } = useEditorManager();
 
-  const displayFileName = useMemo(() => getFileName(currentFilePath), [currentFilePath]);
+  const displayFileName = useMemo(
+    () => getFileName(currentFilePath),
+    [currentFilePath],
+  );
   const [isContentsSidebarOpen, setIsContentsSidebarOpen] = useState(false);
-  const toggleContentsSidebar = useCallback(() => setIsContentsSidebarOpen((v) => !v), []);
+  const toggleContentsSidebar = useCallback(
+    () => setIsContentsSidebarOpen((v) => !v),
+    [],
+  );
   const [isMetadataSidebarOpen, setIsMetadataSidebarOpen] = useState(false);
   const toggleMetadataSidebar = useCallback(
     () => setIsMetadataSidebarOpen((v) => !v),
@@ -63,7 +68,13 @@ const {
 
   return (
     <div className="flex flex-col h-screen overflow-hidden bg-white">
-      <Header editor={editor} onSave={actions.save} onNew={actions.newFile} onOpen={actions.open} fileName={displayFileName} />
+      <Header
+        editor={editor}
+        onSave={actions.save}
+        onNew={actions.newFile}
+        onOpen={actions.open}
+        fileName={displayFileName}
+      />
 
       <div className="flex flex-1 overflow-hidden relative">
         <ContentsSidebar
@@ -95,12 +106,16 @@ const {
       <ImageBubbleMenu editor={editor} />
       <LinkBubbleMenu editor={editor} />
 
-      <Fb2SectionMenu editor={editor}
-        onSelectImage={actions.selectImage}
-      />
+      <Fb2SectionMenu editor={editor} onSelectImage={actions.selectImage} />
       <Fb2PoemMenu editor={editor} />
 
-      {isLoading && <Loader fileName={loadingFileName} title={loaderConfig?.title} subtitle={loaderConfig?.subtitle} />}
+      {isLoading && (
+        <Loader
+          fileName={loadingFileName}
+          title={loaderConfig?.title}
+          subtitle={loaderConfig?.subtitle}
+        />
+      )}
 
       {notes.activeNote && (
         <NotePopup

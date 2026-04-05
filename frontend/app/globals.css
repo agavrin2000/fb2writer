@@ -16,9 +16,12 @@
 
 body {
   color: rgb(var(--foreground-rgb));
-  background: linear-gradient(to bottom,
+  background: linear-gradient(
+      to bottom,
       transparent,
-      rgb(var(--background-end-rgb))) rgb(var(--background-start-rgb));
+      rgb(var(--background-end-rgb))
+    )
+    rgb(var(--background-start-rgb));
 }
 
 /* Контейнер-обертка для имитации бумажного листа */
@@ -98,10 +101,7 @@ body {
 /* 3. Эффект: Показываем ползунок, когда мышь ВНУТРИ всего контейнера */
 /* Это заставит его проявиться, как только вы начнете двигать мышь по редактору */
 .custom-scrollbar:hover::-webkit-scrollbar-thumb {
-  background-color: rgba(148,
-      163,
-      184,
-      0.4);
+  background-color: rgba(148, 163, 184, 0.4);
   /* Нежно-серый (slate-400 с альфой) */
 }
 
@@ -283,20 +283,22 @@ section.fb2-section {
 
 /* 2. ПОДСВЕТКА ТОЛЬКО ПРЯМОЙ РУЧКИ */
 /* Заменяем .is-selected на системный класс ProseMirror */
-.section-node-wrapper.ProseMirror-selectednode>.section-handle {
+.section-node-wrapper.ProseMirror-selectednode > .section-handle {
   background-color: #3b82f6 !important;
   color: #ffffff !important;
   border-color: #2563eb !important;
 }
 
 /* 3. ТО ЖЕ САМОЕ ДЛЯ РАМКИ СЕКЦИИ */
-.section-node-wrapper.ProseMirror-selectednode>section.fb2-section {
+.section-node-wrapper.ProseMirror-selectednode > section.fb2-section {
   border-color: #3b82f6 !important;
   background-color: rgba(59, 130, 246, 0.02);
 }
 
 /* 4. СБРОС ДЛЯ ВЛОЖЕННЫХ */
-.section-node-wrapper.ProseMirror-selectednode .section-node-wrapper:not(.ProseMirror-selectednode)>.section-handle {
+.section-node-wrapper.ProseMirror-selectednode
+  .section-node-wrapper:not(.ProseMirror-selectednode)
+  > .section-handle {
   background-color: #ffffff !important;
   color: #94a3b8 !important;
   border-color: #e2e8f0 !important;
@@ -373,14 +375,14 @@ section.fb2-section {
 
 /* 2. ПОДСВЕТКА ТОЛЬКО ПРЯМОЙ РУЧКИ */
 /* Заменяем .is-selected на системный класс ProseMirror */
-.poem-node-wrapper.ProseMirror-selectednode>.poem-handle {
+.poem-node-wrapper.ProseMirror-selectednode > .poem-handle {
   background-color: #3b82f6 !important;
   color: #ffffff !important;
   border-color: #2563eb !important;
 }
 
 /* 3. ТО ЖЕ САМОЕ ДЛЯ РАМКИ СЕКЦИИ */
-.poem-node-wrapper.ProseMirror-selectednode>poem.fb2-poem {
+.poem-node-wrapper.ProseMirror-selectednode > poem.fb2-poem {
   border-color: #3b82f6 !important;
   background-color: rgba(59, 130, 246, 0.02);
 }
@@ -760,5 +762,39 @@ section.fb2-section {
     @apply p-1.5 px-3 rounded text-xs font-bold transition-all flex items-center justify-center border border-transparent whitespace-nowrap;
     @apply disabled:opacity-40 disabled:bg-gray-50 disabled:text-gray-300 disabled:border-gray-100 disabled:cursor-not-allowed disabled:shadow-none disabled:pointer-events-none;
     @apply bg-indigo-600 text-white shadow-inner border-indigo-700;
+  }
+
+  .header-menu-btn {
+    @apply px-3 py-1 text-sm rounded transition-colors hover:bg-gray-100;
+  }
+
+  .header-menu-btn-active {
+    @apply bg-indigo-100 text-indigo-700;
+    /* Если нужно принудительно перебить стили, пишем стандартный CSS: */
+    background-color: rgb(224 231 255) !important;
+    color: rgb(67 56 202) !important;
+  }
+
+  .header-dropdown {
+    @apply absolute top-full left-0 w-64 bg-white shadow-2xl border border-gray-200 py-1 z-50;
+    /* Простая анимация без плагинов */
+    animation: header-fade 75ms ease-out;
+  }
+
+  .header-item {
+    @apply w-full text-left px-4 py-1.5 flex justify-between items-center text-sm transition-colors;
+    @apply hover:bg-indigo-600 hover:text-white;
+    @apply disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-current;
+  }
+}
+
+@keyframes header-fade {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
   }
 }

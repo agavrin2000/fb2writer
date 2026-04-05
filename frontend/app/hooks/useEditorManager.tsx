@@ -2,17 +2,14 @@ import { useState, useCallback, useMemo, useRef, useEffect } from "react";
 import { useFB2Editor } from "./useFB2Editor";
 import { useFootnotes } from "./useFootnotes";
 import { usePhotinoEvents } from "./usePhotinoEvents";
-import {
-  Fb2Metadata,
-  EMPTY_FB2_TEMPLATE,
-} from "../types/types";
+import { Fb2Metadata, EMPTY_FB2_TEMPLATE } from "../types/types";
 import { getFileName } from "../utils/utils";
 import { photino } from "@/api/photino";
 import { EditorState } from "@tiptap/pm/state";
 import { ConfirmHandle } from "@/components/ui/ConfirmDialog";
-import isEqual from 'fast-deep-equal';
-import { useConfirm } from '@/hooks/ConfirmContext';
-import { useToast } from '@/hooks/ToastContext';
+import isEqual from "fast-deep-equal";
+import { useConfirm } from "@/hooks/ConfirmContext";
+import { useToast } from "@/hooks/ToastContext";
 
 export function useEditorManager() {
   const confirm = useConfirm();
@@ -20,13 +17,17 @@ export function useEditorManager() {
 
   // --- РЕФЫ И СОСТОЯНИЕ ---
   const footnotesRef = useRef<Record<string, any>>({});
-  const setActiveNoteRef = useRef<(note: any) => void>(() => { });
+  const setActiveNoteRef = useRef<(note: any) => void>(() => {});
 
-  const [metadata, setMetadata] = useState<Fb2Metadata | null>(EMPTY_FB2_TEMPLATE.Meta);
+  const [metadata, setMetadata] = useState<Fb2Metadata | null>(
+    EMPTY_FB2_TEMPLATE.Meta,
+  );
   const [savedMeta, setSavedMeta] = useState<any>(EMPTY_FB2_TEMPLATE.Meta); // Эталон в виде строки
   const [isLoading, setIsLoading] = useState(false);
   const [loadingFileName, setLoadingFileName] = useState("");
-  const [currentFilePath, setCurrentFilePath] = useState<string>(EMPTY_FB2_TEMPLATE.FilePath);
+  const [currentFilePath, setCurrentFilePath] = useState<string>(
+    EMPTY_FB2_TEMPLATE.FilePath,
+  );
 
   const [loaderConfig, setLoaderConfig] = useState<{
     title?: string;
@@ -74,25 +75,6 @@ export function useEditorManager() {
   // --- ОБРАБОТЧИКИ СОБЫТИЙ (Incoming) ---
   const onFb2Content = useCallback(
     (payload: string) => {
-      /*const debugComparison = (originalJSON, editor) => {
-  const resultJSON = editor.getJSON();
-
-  console.log("--- СРАВНЕНИЕ КОНТЕНТА ---");
-  console.log("Оригинал (JSON):", originalJSON);
-  console.log("В редакторе (JSON):", resultJSON);
-
-  // Простой способ найти отличия в строках
-  const originalStr = JSON.stringify(originalJSON);
-  const resultStr = JSON.stringify(resultJSON);
-
-  if (originalStr !== resultStr) {
-    console.warn("⚠️ ВНИМАНИЕ: Контент изменился при загрузке!");
-    // Здесь можно использовать любую библиотеку diff или просто посмотреть глазами
-  } else {
-    console.log("✅ Контент идентичен.");
-  }
-};
-*/
       const data = typeof payload === "string" ? JSON.parse(payload) : payload;
       if (!fb2.editor || !data) return;
 
@@ -104,7 +86,7 @@ export function useEditorManager() {
         clearHistory();
         //debugComparison(data.EditorContent, fb2.editor);
         // Устанавливаем курсор в позицию 0 (начало документа) и фокусируем редактор, чтобы сработали события onUpdate/onSelectionUpdate
-        fb2.editor.commands.focus('start');
+        fb2.editor.commands.focus("start");
       }
 
       if (data.FilePath) {
@@ -113,27 +95,29 @@ export function useEditorManager() {
       setLoadingFileName("");
       setIsLoading(false);
       setLoaderConfig(null);
-    }, [
-    fb2.editor,
-    clearHistory,
-    setMetadata,
-    setSavedMeta,
-    setCurrentFilePath,
-    setLoadingFileName,
-    setIsLoading,
-    setLoaderConfig
-  ],
+    },
+    [
+      fb2.editor,
+      clearHistory,
+      setMetadata,
+      setSavedMeta,
+      setCurrentFilePath,
+      setLoadingFileName,
+      setIsLoading,
+      setLoaderConfig,
+    ],
   );
 
   const onImageSelected = useCallback(
     (payload: string) => {
       try {
-        const imageData = typeof payload === "string" ? JSON.parse(payload) : payload;
+        const imageData =
+          typeof payload === "string" ? JSON.parse(payload) : payload;
         if (!imageData?.data) return; // Защита от пустых данных
 
         setIsLoading(false);
         setLoaderConfig(null);
-        if(!fb2.editor) return;
+        if (!fb2.editor) return;
 
         // Создаем цепочку
         const commandChain = fb2.editor.chain().focus();
@@ -142,39 +126,41 @@ export function useEditorManager() {
         if (imageData.display === "block") {
           commandChain.insertFb2BlockImage({
             src: imageData.data,
-            href: imageData.href
+            href: imageData.href,
           });
         } else if (imageData.display === "inline") {
           commandChain.insertFb2InlineImage({
             src: imageData.data,
-            href: imageData.href
+            href: imageData.href,
           });
         } else if (imageData.display === "section") {
           commandChain.insertFb2SectionImage({
             src: imageData.data,
-            href: imageData.href
+            href: imageData.href,
           });
         }
 
         // ВЫПОЛНЯЕМ цепочку
         commandChain.run();
-
       } catch (error) {
         console.error("Ошибка обработки изображения:", error);
         showToastError("Ошибка при вставке изображения");
       }
     },
-    [fb2.editor, setIsLoading, setLoaderConfig]
+    [fb2.editor, setIsLoading, setLoaderConfig],
   );
 
-  const onStartLoading = useCallback((name: string) => {
-    setIsLoading(true);
-    setLoaderConfig({
-      title: "Загрузка книги",
-      subtitle: "Парсинг XML и извлечение Binary",
-    });
-    setLoadingFileName(name || "Загрузка...");
-  }, [setLoadingFileName, setIsLoading, setLoaderConfig]);
+  const onStartLoading = useCallback(
+    (name: string) => {
+      setIsLoading(true);
+      setLoaderConfig({
+        title: "Загрузка книги",
+        subtitle: "Парсинг XML и извлечение Binary",
+      });
+      setLoadingFileName(name || "Загрузка...");
+    },
+    [setLoadingFileName, setIsLoading, setLoaderConfig],
+  );
 
   const onStartSaving = useCallback(() => {
     setIsLoading(true);
@@ -208,16 +194,19 @@ export function useEditorManager() {
       setCurrentFilePath,
       setLoadingFileName,
       setIsLoading,
-      setLoaderConfig
-    ]
-  );;
+      setLoaderConfig,
+    ],
+  );
 
-  const onError = useCallback((message: string) => {
-    setIsLoading(false);
-    setLoaderConfig(null);
-    setLoadingFileName("");
-    showToastError(message);
-  }, [setLoadingFileName, setIsLoading, setLoaderConfig]);
+  const onError = useCallback(
+    (message: string) => {
+      setIsLoading(false);
+      setLoaderConfig(null);
+      setLoadingFileName("");
+      showToastError(message);
+    },
+    [setLoadingFileName, setIsLoading, setLoaderConfig],
+  );
 
   // Регистрация событий Photino
   const eventHandlers = useMemo(
@@ -253,13 +242,11 @@ export function useEditorManager() {
     const confirmed = await confirm.ask(
       "Несохраненные изменения",
       "У вас есть несохраненные изменения. Продолжить без сохранения?",
-      "danger"
+      "danger",
     );
 
     return confirmed;
   }, [isDirty, confirm]);
-
-
 
   // Сохранение книги в файл
   const saveFile = useCallback(
@@ -268,7 +255,10 @@ export function useEditorManager() {
 
       setLoaderConfig({
         title: "Сохранение...",
-        subtitle: saveAs || !currentFilePath ? "Выбор пути сохранения" : "Запись данных на диск"
+        subtitle:
+          saveAs || !currentFilePath
+            ? "Выбор пути сохранения"
+            : "Запись данных на диск",
       });
       setIsLoading(true);
 
@@ -283,7 +273,16 @@ export function useEditorManager() {
       // Сериализуем в строку перед отправкой
       photino.send("save-file", JSON.stringify(payload));
     },
-    [fb2.editor, isLoading, metadata, notes, currentFilePath, setLoaderConfig, setIsLoading, photino],
+    [
+      fb2.editor,
+      isLoading,
+      metadata,
+      notes,
+      currentFilePath,
+      setLoaderConfig,
+      setIsLoading,
+      photino,
+    ],
   );
 
   // Выбрать файл для загрузки
@@ -296,7 +295,14 @@ export function useEditorManager() {
     setLoadingFileName("");
 
     photino.send("open-file", { action: "select_new" });
-  }, [isLoading, photino, ensureSafeToProceed, setLoadingFileName, setIsLoading, setLoaderConfig,]);
+  }, [
+    isLoading,
+    photino,
+    ensureSafeToProceed,
+    setLoadingFileName,
+    setIsLoading,
+    setLoaderConfig,
+  ]);
 
   const selectImage = useCallback(
     (type: "block" | "inline" | "section" = "block") => {
@@ -304,7 +310,7 @@ export function useEditorManager() {
       setIsLoading(true);
       setLoaderConfig({
         title: "Выбор изображения",
-        subtitle: "Открытие системного диалога..."
+        subtitle: "Открытие системного диалога...",
       });
       // Отправляем объект с данными, чтобы бэкенд знал, какой тип вставки использовать
       photino.send("select-image", { type });
@@ -338,9 +344,12 @@ export function useEditorManager() {
     onFb2Content(JSON.stringify(EMPTY_FB2_TEMPLATE));
   }, [onFb2Content, ensureSafeToProceed]);
 
-  const handleMetaChange = useCallback((newMeta: any) => {
-    setMetadata(newMeta);
-  }, [setMetadata]);
+  const handleMetaChange = useCallback(
+    (newMeta: any) => {
+      setMetadata(newMeta);
+    },
+    [setMetadata],
+  );
 
   // --- ИТОГОВЫЙ ОБЪЕКТ ---
   return {

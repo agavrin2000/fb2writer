@@ -20,7 +20,8 @@ export const useFB2Editor = (
 ) => {
   // 1. Логика оглавления (TOC)
   const { ...tocMethods } = useTOC();
-  const { debouncedSetToc, updateActiveHeading, flatNodesRef } = tocMethods;
+  const { debouncedSetToc, updateActiveHeading, flatNodesRef, lastFlatNodes } =
+    tocMethods;
 
   // Используем реф для функции обновления заголовка,
   // чтобы onUpdate/onSelectionUpdate всегда видели свежую версию без пересоздания опций редактора
@@ -30,43 +31,57 @@ export const useFB2Editor = (
   // 2. Вынесенные пропсы (обработка кликов по сноскам)
   const editorProps = useMemo(
     () => createEditorProps(footnotesRef, setActiveNoteRef),
-    [footnotesRef, setActiveNoteRef]
+    [footnotesRef, setActiveNoteRef],
   );
 
   // 4. Инициализация Tiptap
-  const editor = useEditor({
-    extensions: EditorExtensions,
-    content: EMPTY_FB2_TEMPLATE.EditorContent,
-    immediatelyRender: false,
-    editorProps: editorProps,
-    // Обработка изменений контента
-    onUpdate: ({
-      editor,
-      transaction,
-    }: {
-      editor: Editor;
-      transaction: Transaction;
-    }) => {
-      // 2. Если документ изменился — пересобираем структуру (TOC)
-      if (transaction.docChanged) {
+  const editor = useEditor(
+    {
+      extensions: EditorExtensions,
+      content: EMPTY_FB2_TEMPLATE.EditorContent,
+      immediatelyRender: false,
+      editorProps: editorProps,
+      // Обработка изменений контента
+      onUpdate: ({
+        editor,
+        transaction,
+      }: {
+        editor: Editor;
+        transaction: Transaction;
+      }) => {
+        // 2. Если документ изменился — пересобираем структуру (TOC)
+        if (transaction.docChanged) {
+          const nodes = collectNodes(editor.state.doc);
+          flatNodesRef.current = nodes;
+          // 2. Сравниваем текущую структуру с предыдущей (быстрая проверка)
+          const currentCheck = nodes
+            .map((n) => `${n.level}:${n.text}`)
+            .join("|");
+
+          if (currentCheck !== lastFlatNodes.current) {
+            // Только если изменился текст заголовка или его уровень — дергаем дебаунс
+            // ОБЯЗАТЕЛЬНО обновляем реф СРАЗУ, чтобы следующий ввод символа
+            // увидел, что структура уже в очереди на обновление и не сбрасывал дебаунс зря
+            lastFlatNodes.current = currentCheck;
+            debouncedSetToc(nodes);
+          }
+        }
+      },
+      // Обработка перемещения курсора / выделения
+      onSelectionUpdate: ({ editor }: { editor: Editor }) => {
+        // Только обновляем подсветку текущей главы в Sidebar
+        updateActiveHeadingRef.current(editor);
+      },
+      onCreate: ({ editor }: { editor: Editor }) => {
+        // При создании редактора сразу обновляем подсветку текущей главы
         const nodes = collectNodes(editor.state.doc);
         flatNodesRef.current = nodes;
         debouncedSetToc(nodes);
-      }
+        updateActiveHeadingRef.current(editor);
+      },
     },
-    // Обработка перемещения курсора / выделения
-    onSelectionUpdate: ({ editor }: { editor: Editor }) => {
-      // Только обновляем подсветку текущей главы в Sidebar
-      updateActiveHeadingRef.current(editor);
-    },
-    onCreate: ({ editor }: { editor: Editor }) => {
-      // При создании редактора сразу обновляем подсветку текущей главы
-      const nodes = collectNodes(editor.state.doc);
-      flatNodesRef.current = nodes;
-      debouncedSetToc(nodes);
-      updateActiveHeadingRef.current(editor);
-    },
-  }, []);
+    [],
+  );
   /* Старый вариант
     const scrollToHeading = useCallback(
       (item: TocItem) => {
@@ -107,30 +122,33 @@ export const useFB2Editor = (
         requestAnimationFrame(stabilize);
       }, [editor]);
   */
-  const scrollToHeading = useCallback((item: TocItem) => {
-    if (!editor || !item.id) return;
+  const scrollToHeading = useCallback(
+    (item: TocItem) => {
+      if (!editor || !item.id) return;
 
-    // 1. Переносим фокус и курсор
-    editor.commands.focus();
-    editor.commands.setTextSelection(item.pos);
+      // 1. Переносим фокус и курсор
+      editor.commands.focus();
+      editor.commands.setTextSelection(item.pos);
 
-    // 2. Находим элемент по ID
-    const element = document.getElementById(item.id);
+      // 2. Находим элемент по ID
+      const element = document.getElementById(item.id);
 
-    if (element) {
-      // 3. Просто вызываем скролл. 
-      // Благодаря CSS scroll-margin-top, браузер сам остановится на 80px выше элемента.
-      element.scrollIntoView({
-        behavior: "smooth",
-        block: "start",
-      });
+      if (element) {
+        // 3. Просто вызываем скролл.
+        // Благодаря CSS scroll-margin-top, браузер сам остановится на 80px выше элемента.
+        element.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        });
 
-      // Однократная проверка через 300мс на случай подгрузки тяжелых картинок
-      setTimeout(() => {
-        element.scrollIntoView({ behavior: "auto", block: "start" });
-      }, 300);
-    }
-  }, [editor]);
-  
+        // Однократная проверка через 300мс на случай подгрузки тяжелых картинок
+        setTimeout(() => {
+          element.scrollIntoView({ behavior: "auto", block: "start" });
+        }, 300);
+      }
+    },
+    [editor],
+  );
+
   return { editor, ...tocMethods, scrollToHeading };
 };

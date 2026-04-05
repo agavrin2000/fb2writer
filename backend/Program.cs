@@ -72,9 +72,6 @@ class Program
                             // Проверяем доступность сервера
                             await fetch(targetUrl, {{ mode: 'no-cors' }});
                             
-                            // Сообщаем C#, что пора возвращать рамки окна
-                            window.external.sendMessage('app_ready');
-                            
                             // Переходим в основное приложение
                             window.location.href = targetUrl;
                         }} catch (e) {{
