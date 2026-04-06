@@ -6,10 +6,10 @@ import { Fb2Metadata, EMPTY_FB2_TEMPLATE } from "../types/types";
 import { getFileName } from "../utils/utils";
 import { photino } from "@/api/photino";
 import { EditorState } from "@tiptap/pm/state";
-import { ConfirmHandle } from "@/components/ui/ConfirmDialog";
 import isEqual from "fast-deep-equal";
 import { useConfirm } from "@/hooks/ConfirmContext";
 import { useToast } from "@/hooks/ToastContext";
+import { FootnotesMap } from "@/types/types";
 
 export function useEditorManager() {
   const confirm = useConfirm();
@@ -17,7 +17,7 @@ export function useEditorManager() {
 
   // --- РЕФЫ И СОСТОЯНИЕ ---
   const footnotesRef = useRef<Record<string, any>>({});
-  const setActiveNoteRef = useRef<(note: any) => void>(() => {});
+  const setActiveNoteRef = useRef<(note: any) => void>(() => { });
 
   const [metadata, setMetadata] = useState<Fb2Metadata | null>(
     EMPTY_FB2_TEMPLATE.Meta,
@@ -75,6 +75,7 @@ export function useEditorManager() {
   // --- ОБРАБОТЧИКИ СОБЫТИЙ (Incoming) ---
   const onFb2Content = useCallback(
     (payload: string) => {
+
       const data = typeof payload === "string" ? JSON.parse(payload) : payload;
       if (!fb2.editor || !data) return;
 
@@ -84,8 +85,13 @@ export function useEditorManager() {
       if (data.EditorContent) {
         fb2.editor.commands.setContent(data.EditorContent);
         clearHistory();
-        //debugComparison(data.EditorContent, fb2.editor);
         // Устанавливаем курсор в позицию 0 (начало документа) и фокусируем редактор, чтобы сработали события onUpdate/onSelectionUpdate
+        if (data.Footnotes) {
+          notes.setFootnotes(data.Footnotes);
+          if (footnotesRef.current) footnotesRef.current = data.Footnotes;
+        } else {
+          notes.setFootnotes({});
+        }
         fb2.editor.commands.focus("start");
       }
 
@@ -232,7 +238,7 @@ export function useEditorManager() {
   usePhotinoEvents(eventHandlers);
 
   // --- МЕТОДЫ ДЕЙСТВИЙ (Outgoing) ---
-
+  // Проверка что файл не менялся
   const ensureSafeToProceed = useCallback(async () => {
     // Если правок нет — сразу разрешаем
     if (!isDirty) return true;
@@ -262,7 +268,23 @@ export function useEditorManager() {
       });
       setIsLoading(true);
 
-      const actualFootnotes = notes.cleanupOrphanNotes();
+      // Очистка сносок на которые нет сыылок в тексте документа
+      const usedIds = new Set<string>();
+      fb2.editor.state.doc.descendants((node) => {
+        const linkMark = node.marks.find(m => m.type.name === "link" && m.attrs.rel === "footnote");
+        if (linkMark) {
+          const id = linkMark.attrs.href?.replace("#", "");
+          if (id) usedIds.add(id);
+        }
+      });
+
+      const actualFootnotes = Object.keys(notes.footnotes)
+        .filter(id => usedIds.has(id))
+        .reduce((acc, id) => {
+          acc[id] = notes.footnotes[id];
+          return acc;
+        }, {} as FootnotesMap);
+
       const payload = {
         content: fb2.editor.getJSON(),
         footnotes: actualFootnotes,

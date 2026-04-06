@@ -10,12 +10,29 @@
 		<GenerateEmbeddedFilesManifest>true</GenerateEmbeddedFilesManifest>
 	</PropertyGroup>
 
-	<PropertyGroup>
-	<DebugType>portable</DebugType>
-	<DebugSymbols>true</DebugSymbols>
-	<Optimize>false</Optimize>
+	<PropertyGroup Condition="'$(Configuration)' == 'Debug'">
+		<DebugType>portable</DebugType>
+		<DebugSymbols>true</DebugSymbols>
+		<Optimize>false</Optimize>
 	</PropertyGroup>
-	
+
+	<PropertyGroup Condition="'$(Configuration)' == 'Release'">
+		<DebuggerSupport>false</DebuggerSupport>
+		<EnableUnsafeBinaryFormatterSerialization>false</EnableUnsafeBinaryFormatterSerialization>
+		<EventSourceSupport>false</EventSourceSupport>
+		<PublishSingleFile>true</PublishSingleFile>
+		<IncludeAllContentForSelfExtract>true</IncludeAllContentForSelfExtract>
+		<EnableDefaultContent>false</EnableDefaultContent>
+    	<EnableDefaultContentItems>false</EnableDefaultContentItems>
+		<SelfContained>true</SelfContained> <!-- Включает рантайм .NET внутрь EXE -->
+		<RuntimeIdentifier>win-x64</RuntimeIdentifier> <!-- Укажите нужную ОС: win-x64, linux-x4, osx-64 -->
+		<PublishReadyToRun>true</PublishReadyToRun> <!-- Ускоряет запуск -->
+		<IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+		<DebugType>none</DebugType>
+		<DebugSymbols>false</DebugSymbols>
+		<Optimize>true</Optimize>
+	</PropertyGroup>
+
 	<ItemGroup>
 		<PackageReference Include="Avalonia" Version="12.0.0-preview2" />
 		<PackageReference Include="Avalonia.Desktop" Version="12.0.0-preview2" />

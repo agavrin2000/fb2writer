@@ -6,6 +6,8 @@ using Avalonia.Controls;
 using FB2Editor.Services;
 using Newtonsoft.Json.Linq;
 using Newtonsoft.Json;
+using System.Reflection;
+using Microsoft.Extensions.FileProviders;
 
 namespace FB2Editor;
 //NOTE: To hide the console window, go to the project properties and change the Output Type to Windows Application.
@@ -13,24 +15,47 @@ namespace FB2Editor;
 
 class Program
 {
-    public static bool IsDebugMode = true;     //serve files from asp.net runtime
+#if DEBUG
+    public static bool IsDebugMode = true;
+#else
+    public static bool IsDebugMode = false;
+#endif    
+
     public static Window? DialogOwner { get; private set; }
 
 
     [STAThread]
     static void Main(string[] args)
     {
+        var assembly = Assembly.GetExecutingAssembly();
+        Console.WriteLine("Список всех встроенных ресурсов:");
+        foreach (var res in assembly.GetManifestResourceNames())
+        {
+            Console.WriteLine($" -> {res}");
+        }
         InitializeAvalonia();
 
-        var fileService = new FileService();
 
-        PhotinoServer
-            .CreateStaticFileServer(args, out string baseUrl)
-            .RunAsync();
+        var fileService = new FileService();
+        PhotinoServer.CreateStaticFileServer(args, out string baseUrl).RunAsync();
+            Console.WriteLine($" Base URL: {baseUrl}");
+        //baseUrl = "wwwroot"; //string.Empty;
+   /*         if (IsDebugMode)
+    {
+        // Стандартный запуск: ищем папку wwwroot на диске
+        // 0, 0 — порты выберутся автоматически
+        PhotinoServer.CreateStaticFileServer(args, 0, 0, "wwwroot", out baseUrl).RunAsync();
+    }
+    else
+    {
+        // Вызываем статический метод с ПРАВИЛЬНЫМ порядком аргументов
+        PhotinoServer.CreateStaticFileServer(args, 0, 0, "", out baseUrl).RunAsync();
+    }*/
 
         // The appUrl is set to the local development server when in debug mode.
         // This helps with hot reloading and debugging.
         string appUrl = IsDebugMode ? "http://localhost:3000" : $"{baseUrl}/index.html";
+
         // Loader на старте приложения
         string loadingHtml = $@"
             <!DOCTYPE html>
@@ -90,7 +115,7 @@ class Program
         var fb2Service = new Fb2Service();
 
         // Window title declared here for visibility
-        string windowTitle = "FB2 Editor";
+        string windowTitle = "FB2 Writer";
 
         // Creating a new PhotinoWindow instance with the fluent API
         var window = new PhotinoWindow()

@@ -108,7 +108,7 @@ export const MetadataSidebar = memo(
     // 3. Основной метод (исправленный setLocalMeta)
     const handleMetaUpdate = useCallback(
       (section: string, field: string, newValue: any) => {
-        setLocalMeta((prevMeta) => {
+        setLocalMeta((prevMeta: any) => {
           // Используем callback внутри сетера
           const nextFullMeta = processMetaUpdate(
             section,
@@ -338,7 +338,7 @@ export const MetadataSidebar = memo(
                       defaultOpen={false}
                     >
                       <RichTextEditor
-                        content={titleInfo.Annotation || []}
+                        content={titleInfo.Annotation}
                         onChange={(newJson) =>
                           handleMetaUpdate("TitleInfo", "Annotation", newJson)
                         }

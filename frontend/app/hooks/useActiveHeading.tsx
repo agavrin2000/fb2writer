@@ -1,48 +1,56 @@
-import { TocItem } from "@/types/types";
+import { useMemo, useEffect, useState } from "react";
 import { Editor } from "@tiptap/react";
-import React, { memo, useEffect, useState } from "react";
+import { TocItem } from "@/types/types";
 
-const flattenTree = (items: TocItem[]): TocItem[] => {
-  return items.reduce((acc, item) => {
-    // Добавляем сам элемент и рекурсивно всех его детей
-    return acc.concat(item, item.children ? flattenTree(item.children) : []);
-  }, [] as TocItem[]);
+// Выносим утилиту и мемоизируем её (или используем внутри useMemo)
+const getFlatItems = (items: TocItem[]): TocItem[] => {
+  const result: TocItem[] = [];
+  const flatten = (list: TocItem[]) => {
+    list.forEach(item => {
+      result.push(item);
+      if (item.children) flatten(item.children);
+    });
+  };
+  flatten(items);
+  // Сортируем один раз при изменении дерева, а не при движении курсора
+  return result.sort((a, b) => a.pos - b.pos);
 };
 
 export const useActiveHeading = (editor: Editor | null, tree: TocItem[] = []) => {
   const [activePos, setActivePos] = useState<number | null>(null);
 
+  // Плоский список пересчитывается ТОЛЬКО когда меняется дерево
+  const flatList = useMemo(() => getFlatItems(tree), [tree]);
+
   useEffect(() => {
-    // Защита: если нет редактора или дерево пустое
-    if (!editor || !tree?.length) return;
+    if (!editor || !flatList.length) return;
 
     const updateActive = () => {
-      const { selection } = editor.state;
-      const currentPos = selection.$from.pos;
-
-      // 1. Делаем дерево плоским для поиска
-      const flatList = flattenTree(tree);
-
-      // 2. Ищем последний заголовок, который "выше" курсора
-      // Сначала сортируем по позиции (на всякий случай), потом ищем с конца
-      const active = flatList
-        .sort((a, b) => a.pos - b.pos)
-        .reverse()
-        .find((item) => item.pos <= currentPos);
-
-      if (active && active.pos !== activePos) {
-        setActivePos(active.pos);
+      const { from } = editor.state.selection;
+      
+      // Ищем последний заголовок, позиция которого меньше или равна текущей
+      let currentActive: TocItem | null = null;
+      
+      for (let i = flatList.length - 1; i >= 0; i--) {
+        if (flatList[i].pos <= from) {
+          currentActive = flatList[i];
+          break;
+        }
       }
+
+      const newPos = currentActive?.pos ?? null;
+      // React сам сделает проверку на идентичность (newPos !== activePos)
+      setActivePos(newPos);
     };
 
-    editor.on('selectionUpdate', updateActive);
+    // 'transaction' лучше, чем 'selectionUpdate', так как ловит и ввод текста
+    editor.on("transaction", updateActive);
     updateActive();
 
     return () => {
-      editor.off('selectionUpdate', updateActive);
+      editor.off("transaction", updateActive);
     };
-  }, [editor, tree, activePos]); // Перезапускаем при смене структуры дерева
+  }, [editor, flatList]); // Убрали activePos, добавили flatList
 
   return activePos;
 };
-

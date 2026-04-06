@@ -62,9 +62,15 @@ export default function Page() {
   // Возвращаем фокус в редактор при закрытии через Alt+B
   useEffect(() => {
     if (!isContentsSidebarOpen && editor) {
-      setTimeout(() => editor.commands.focus(), 50);
+      setTimeout(() => editor.commands.focus(), 100);
     }
   }, [isContentsSidebarOpen, editor]);
+
+  useEffect(() => {
+    if (!isMetadataSidebarOpen && editor) {
+      setTimeout(() => editor.commands.focus(), 100);
+    }
+  }, [isMetadataSidebarOpen, editor]);
 
   return (
     <div className="flex flex-col h-screen overflow-hidden bg-white">

@@ -36,7 +36,7 @@ export function useGlobalShortcuts(actions: {
 
       if (isAlt && event.code === "KeyB") {
         event.preventDefault();
-        actions.toggleSidebar();
+        actions.toggleContentsSidebar();
       }
       if (isAlt && event.code === "KeyI") {
         event.preventDefault();

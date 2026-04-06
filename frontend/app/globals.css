@@ -16,31 +16,39 @@
 
 body {
   color: rgb(var(--foreground-rgb));
-  background: linear-gradient(
-      to bottom,
-      transparent,
-      rgb(var(--background-end-rgb))
-    )
-    rgb(var(--background-start-rgb));
+  background-color: rgb(var(--background-start-rgb));
+  background-image: linear-gradient(
+    to bottom,
+    transparent,
+    rgb(var(--background-end-rgb))
+  );
+  background-attachment: fixed;
 }
-
 /* Контейнер-обертка для имитации бумажного листа */
 .editor-paper-sheet {
   background-color: #fdfdfd;
-  /* Слегка теплый белый (цвет бумаги) */
   background-image: linear-gradient(#e1e1e1 1px, transparent 1px);
   background-size: 100% 2rem;
-  /* Тонкая линовка, если нужно, или просто чистый лист */
-  box-shadow:
-    0 10px 25px -5px rgba(0, 0, 0, 0.1),
-    0 8px 10px -6px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+  /* Оставляем одну сложную тень */
   border: 1px solid #e2e8f0;
   margin: 20px auto;
   max-width: 800px;
   min-height: 80vh;
   padding: 60px 80px;
-  /* Большие книжные поля */
   cursor: text;
+  position: relative;
+  /* Для позиционирования элементов внутри */
+}
+
+/* Более "умная" красная строка */
+.tiptap p {
+  margin-bottom: 0;
+  /* В книгах чаще отступ только строкой */
+  text-indent: 1.5em;
+  text-align: justify;
+  hyphens: auto;
+  /* Добавьте для красивого книжного выравнивания */
 }
 
 /* Настройка шрифтов внутри TipTap */
@@ -49,17 +57,9 @@ body {
   /* Классический книжный шрифт */
   font-size: 18px;
   line-height: 1.7;
+  min-height: 100%;
   color: #2c3e50;
   outline: none !important;
-}
-
-/* Обычный абзац с красной строкой (классика FB2) */
-.tiptap p {
-  margin-bottom: 0.5em;
-  text-indent: 1.5em;
-  /* Красная строка */
-  text-align: justify;
-  /* Выравнивание по ширине */
 }
 
 /* Подсветка выделения */
@@ -77,6 +77,11 @@ body {
   background: #cbd5e1;
   border: 2px solid #e2e8f0;
   border-radius: 10px;
+}
+
+.custom-scrollbar {
+  overflow-y: auto; /* Включаем прокрутку здесь */
+  scrollbar-gutter: stable; /* Резервирует место под скролл, чтобы контент не прыгал */
 }
 
 /* 1. Сама дорожка скроллбара */
@@ -117,11 +122,6 @@ body {
   background-color: rgba(0, 0, 0, 0.03);
 }
 
-/* Тень и эффект бумаги */
-.editor-paper-sheet {
-  box-shadow: 0 0 50px rgba(0, 0, 0, 0.1);
-}
-
 /* Отключаем скролл для всего окна браузера (Photino) */
 html,
 body,
@@ -133,10 +133,6 @@ body,
 }
 
 /* Настройка TipTap внутри листа */
-.tiptap {
-  outline: none !important;
-  min-height: 100%;
-}
 
 /* Подсветка выделенной картинки */
 .tiptap img.ProseMirror-selectednode {
@@ -161,11 +157,12 @@ body,
 .tiptap span[rel="footnote"] {
   color: #3b82f6;
   vertical-align: super;
-  /* Поднимаем как индекс */
-  font-size: 0.8em;
+  font-size: 0.75em; /* Чуть меньше для изящности */
+  line-height: 0;
   text-decoration: none;
   font-weight: bold;
   cursor: pointer;
+  padding: 0 2px;
 }
 
 .editor-wrapper {
@@ -210,7 +207,7 @@ section.fb2-section {
   border-radius: 8px;
   margin: 20px 0;
   padding: 30px;
-  background-color: #ffffff;
+  background-color: transparent;
   /* Белый фон перекрывает фон родителя */
   transition:
     border-color 0.2s,
@@ -283,22 +280,20 @@ section.fb2-section {
 
 /* 2. ПОДСВЕТКА ТОЛЬКО ПРЯМОЙ РУЧКИ */
 /* Заменяем .is-selected на системный класс ProseMirror */
-.section-node-wrapper.ProseMirror-selectednode > .section-handle {
+.section-node-wrapper.ProseMirror-selectednode>.section-handle {
   background-color: #3b82f6 !important;
   color: #ffffff !important;
   border-color: #2563eb !important;
 }
 
 /* 3. ТО ЖЕ САМОЕ ДЛЯ РАМКИ СЕКЦИИ */
-.section-node-wrapper.ProseMirror-selectednode > section.fb2-section {
+.section-node-wrapper.ProseMirror-selectednode>section.fb2-section {
   border-color: #3b82f6 !important;
   background-color: rgba(59, 130, 246, 0.02);
 }
 
 /* 4. СБРОС ДЛЯ ВЛОЖЕННЫХ */
-.section-node-wrapper.ProseMirror-selectednode
-  .section-node-wrapper:not(.ProseMirror-selectednode)
-  > .section-handle {
+.section-node-wrapper.ProseMirror-selectednode .section-node-wrapper:not(.ProseMirror-selectednode)>.section-handle {
   background-color: #ffffff !important;
   color: #94a3b8 !important;
   border-color: #e2e8f0 !important;
@@ -322,7 +317,14 @@ section.fb2-section {
 
 .fb2-poem:hover::before {
   content: "Поэма";
+  pointer-events: none;
   @apply absolute -top-6 right-3 bg-indigo-400 text-white text-[10px] px-2 py-0.5 rounded font-sans not-italic tracking-wider z-10;
+}
+
+/* Если мы навели на строфу внутри - прячем этикетку поэмы */
+.fb2-poem:has(.fb2-stanza:hover)::before {
+  opacity: 0;
+  transition: opacity 0.2s;
 }
 
 /* Базовое состояние ручки */
@@ -375,14 +377,14 @@ section.fb2-section {
 
 /* 2. ПОДСВЕТКА ТОЛЬКО ПРЯМОЙ РУЧКИ */
 /* Заменяем .is-selected на системный класс ProseMirror */
-.poem-node-wrapper.ProseMirror-selectednode > .poem-handle {
+.poem-node-wrapper.ProseMirror-selectednode>.poem-handle {
   background-color: #3b82f6 !important;
   color: #ffffff !important;
   border-color: #2563eb !important;
 }
 
 /* 3. ТО ЖЕ САМОЕ ДЛЯ РАМКИ СЕКЦИИ */
-.poem-node-wrapper.ProseMirror-selectednode > poem.fb2-poem {
+.poem-node-wrapper.ProseMirror-selectednode>poem.fb2-poem {
   border-color: #3b82f6 !important;
   background-color: rgba(59, 130, 246, 0.02);
 }
@@ -407,6 +409,16 @@ section.fb2-section {
 .fb2-title:hover::before {
   content: "Заголовок";
   @apply absolute -top-7 right-0 tracking-normal indent-0 bg-indigo-400 text-white text-[10px] px-2 py-1 rounded font-sans font-normal not-italic z-20 whitespace-nowrap;
+}
+
+/* Сброс рамки при наведении внутри попапа */
+.note-popup-editor .fb2-title:hover {
+  outline: none !important;
+}
+
+/* Скрытие этикетки "Заголовок" внутри попапа */
+.note-popup-container .fb2-title:hover::before {
+  display: none !important;
 }
 
 /* Базовое состояние (невидимое) */
@@ -528,7 +540,9 @@ section.fb2-section {
 
 .fb2-v {
   white-space: pre-wrap;
-  /* Сохраняет множественные пробелы в начале строк */
+  display: block;
+  text-indent: 0 !important; /* У стихов не должно быть красной строки из общих стилей <p> */
+  text-align: left !important;
 }
 
 /* Изолированные стили для аннотации в сайдбаре */
@@ -668,7 +682,7 @@ section.fb2-section {
   font-size: 1.1em;
 }
 
-.fb2-date-controls input[type="date"] {
+.fb2-date-controls input[type="date"]::-webkit-calendar-picker-indicator {
   position: absolute;
   top: 0;
   left: 0;
@@ -737,14 +751,16 @@ section.fb2-section {
 }
 
 .fb2-footnote {
-  pointer-events: auto;
+  @apply text-blue-600 underline decoration-blue-300 underline-offset-2 transition-colors;
   user-select: none;
-  color: blue;
-  text-decoration: underline;
   cursor: pointer;
+}
+.fb2-footnote:hover {
+  @apply text-blue-800 decoration-blue-500;
 }
 
 @layer components {
+
   /* 1. Создаем базовый набор стилей (общий для всех) */
   .toolbar-btn {
     @apply p-1.5 px-3 rounded text-xs font-bold transition-all flex items-center justify-center border border-transparent whitespace-nowrap;
@@ -793,6 +809,7 @@ section.fb2-section {
     opacity: 0;
     transform: scale(0.95);
   }
+
   to {
     opacity: 1;
     transform: scale(1);

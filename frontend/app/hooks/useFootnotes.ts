@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect, useRef, RefObject } from "react";
 import { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import { Editor } from "@tiptap/react";
 import { ActiveNote, FootnotesMap, TiptapContent } from "@/types/types";
+import { useToast } from "@/hooks/ToastContext";
 // 1. Объявляем интерфейс (или импортируем его)
 
 export const useFootnotes = (
@@ -11,33 +12,41 @@ export const useFootnotes = (
 ) => {
   const [footnotes, setFootnotes] = useState<FootnotesMap>({});
   const [activeNote, setActiveNote] = useState<ActiveNote | null>(null);
-  null;
-  const footnotesRef = useRef(footnotes);
+  const { success: showToastSuccess, error: showToastError } = useToast();
 
-  const setActiveNoteRef = useRef(setActiveNote);
-  setActiveNoteRef.current = setActiveNote;
+  // Синхронизируем функцию установки активной заметки
+useEffect(() => {
+  if (externalSetActiveNoteRef) {
+    // Мы создаем стабильную функцию-обертку один раз
+    const setter = (note: ActiveNote | null) => {
+      setActiveNote(note);
+    };
+    externalSetActiveNoteRef.current = setter;
+  }
+}, [externalSetActiveNoteRef]);
 
+  // Синхронизация данных для редактора
   useEffect(() => {
-    // Синхронизируем внешний и внутренний рефы при изменении стейта
     if (externalFootnotesRef) {
       externalFootnotesRef.current = footnotes;
     }
-    footnotesRef.current = footnotes; // если есть внутренний
-  }, [footnotes, externalFootnotesRef]);
-
-  // Синхронизируем функцию установки активной заметки
-
-  useEffect(() => {
-    // Связываем функцию из рефа (которую дергает handleClick) со стейтом хука
-    externalSetActiveNoteRef.current = (note: ActiveNote | null) => {
-      setActiveNote(note);
-    };
-  }, [externalSetActiveNoteRef]);
+  }, [footnotes]);
 
   // Функция для закрытия попапа сноски
-  const closeNotePopup = useCallback(() => {
-    setActiveNote(null);
-  }, []);
+const closeNotePopup = useCallback(() => {
+  setActiveNote((current) => {
+    // Если мы закрываем именно НОВУЮ сноску, которую так и не сохранили
+    if (current?.isNew) {
+      setFootnotes((prev) => {
+        const next = { ...prev };
+        delete next[current.id];
+        return next;
+      });
+    }
+    editor?.commands.focus();
+    return null; // Закрываем окно
+  });
+}, []);
 
   const updateNoteContent = useCallback(
     (newContent: TiptapContent[], newId?: string) => {
@@ -46,23 +55,17 @@ export const useFootnotes = (
       const oldId = activeNote.id;
       const finalId = newId?.trim() || oldId;
 
-      // 1. Проверка на дубликаты
-      if (finalId !== oldId && footnotes.hasOwnProperty(finalId)) {
-        alert(`Ошибка: Сноска с ID "${finalId}" уже существует!`);
-        return;
-      }
+      let editorSuccess = false;
 
-      // 2. РАБОТА С ТЕКСТОМ КНИГИ (EDITOR)
+      // Сначала пробуем обновить редактор
       if (activeNote.isNew && activeNote.pos !== undefined) {
-        // Сноска НОВАЯ: вставляем текст ссылки [ID]
-        const linkText = `[${finalId.substring(2)}]`;
-        editor
+        editorSuccess = editor
           .chain()
           .focus()
           .insertContentAt(activeNote.pos, [
             {
               type: "text",
-              text: linkText,
+              text: `[${finalId.replace(/^n_/, "")}]`, // Безопасная обрезка
               marks: [
                 {
                   type: "link",
@@ -70,47 +73,55 @@ export const useFootnotes = (
                 },
               ],
             },
-            { type: "text", text: " " },
           ])
           .run();
-      } else if (finalId !== oldId) {
-        // Сноска СТАРАЯ: обновляем ТОЛЬКО href ссылки в тексте, не трогая её текст
-        const oldHref = `#${oldId}`;
-        const newHref = `#${finalId}`;
-
-        editor.state.doc.descendants((node: ProseMirrorNode, pos: number) => {
-          const link = node.marks.find(
-            (m) => m.type.name === "link" && m.attrs.href === oldHref,
-          );
-          if (link) {
-            editor
-              .chain()
-              .setTextSelection({ from: pos, to: pos + node.nodeSize })
-              .extendMarkRange("link")
-              .setMark("link", { ...link.attrs, href: newHref })
-              .run();
-            return false;
-          }
-          return true;
+      } else {
+        editorSuccess = editor.commands.command(({ tr }) => {
+          const oldHref = `#${oldId}`;
+          const newHref = `#${finalId}`;
+          const { schema } = tr.doc.type;
+          let found = false;
+          tr.doc.descendants((node, pos) => {
+            const mark = node.marks.find(
+              (m) =>
+                m.type.name === "link" &&
+                m.attrs.href === oldHref &&
+                m.attrs.rel === "footnote",
+            );
+            if (mark) {
+              found = true;
+              if (oldId !== finalId) {
+                const newMark = schema.marks.link.create({
+                  ...mark.attrs,
+                  href: newHref,
+                });
+                tr.addMark(pos, pos + node.nodeSize, newMark);
+              }
+            }
+            return true;
+          });
+          return oldId === finalId ? true : found;
         });
       }
 
-      // 3. ОБНОВЛЕНИЕ ХРАНИЛИЩА ССЫЛОК (Без принудительной смены текста в fb2Title)
-      setFootnotes((prev) => {
-        const updated = { ...prev };
-        if (finalId !== oldId) {
-          delete updated[oldId];
-        }
-        // Сохраняем newContent "как есть", без модификации fb2Title
-        updated[finalId] = newContent;
-
-        footnotesRef.current = updated;
-        return updated;
-      });
-
-      setActiveNote(null);
+      if (editorSuccess) {
+        setFootnotes((prev) => {
+          // Проверка дублей внутри сеттера — теперь footnotes не нужна в зависимостях
+          if (finalId !== oldId && prev[finalId]) {
+            showToastError(`Ошибка: ID "${finalId}" занят`);
+            return prev;
+          }
+          const updated = { ...prev };
+          if (finalId !== oldId) delete updated[oldId];
+          updated[finalId] = newContent;
+          return updated;
+        });
+        setActiveNote(null);
+      } else {
+        showToastError("Не удалось привязать сноску к тексту.");
+      }
     },
-    [activeNote, editor, footnotes],
+    [activeNote, editor, showToastError, showToastSuccess], // footnotes убрали!
   );
 
   // Добавить ссылку
@@ -130,7 +141,7 @@ export const useFootnotes = (
         content: [
           {
             type: "paragraph",
-            content: [{ type: "text", text: `${id.substring(2)}` }],
+            content: [{ type: "text", text: `${id.replace(/^n_/, "")}` }],
           },
         ],
       },
@@ -144,87 +155,55 @@ export const useFootnotes = (
     // 4. Обновляем стейты
     setFootnotes((prev) => ({ ...prev, [id]: initialContent }));
     setActiveNote({ id, x, y, isNew: true, pos: from });
-  }, [editor, setFootnotes, setActiveNote]);
+  }, [editor]);
 
   // УДАЛИТЬ ССЫЛКУ
   const deleteFootnote = useCallback(
     (id: string) => {
       if (!editor) return;
 
-      // 1. Находим и удаляем все ссылки на этот ID в тексте книги
       const targetHref = `#${id}`;
-      editor.state.doc.descendants((node: ProseMirrorNode, pos: number) => {
-        const linkMark = node.marks.find(
-          (m) => m.type.name === "link" && m.attrs.href === targetHref,
-        );
-        if (linkMark) {
-          // Удаляем текст ссылки (например, "[n123]")
-          editor.commands.deleteRange({ from: pos, to: pos + node.nodeSize });
-        }
+
+      // Собираем все позиции ссылок, чтобы удалить их за один раз
+      editor.commands.command(({ tr }) => {
+        const deletions: { from: number; to: number }[] = [];
+
+        tr.doc.descendants((node, pos) => {
+          const isFootnote = node.marks.find(
+            (m) =>
+              m.type.name === "link" &&
+              m.attrs.href === targetHref &&
+              m.attrs.rel === "footnote",
+          );
+          if (isFootnote) {
+            deletions.push({ from: pos, to: pos + node.nodeSize });
+          }
+          return true;
+        });
+
+        // Удаляем с конца, чтобы не поплыли индексы
+        deletions.reverse().forEach(({ from, to }) => {
+          tr.delete(from, to);
+        });
+
         return true;
       });
 
-      // 2. Удаляем контент сноски из хранилища
       setFootnotes((prev) => {
         const updated = { ...prev };
         delete updated[id];
-        footnotesRef.current = updated;
         return updated;
       });
 
-      // 3. Закрываем окно
       setActiveNote(null);
     },
     [editor],
   );
 
-  // Удалить ссылки без упоминаний в тексте
-  const cleanupOrphanNotes = useCallback(() => {
-    if (!editor) return footnotes;
-
-    // 1. Собираем все уникальные ID сносок, на которые есть ссылки в тексте
-    const usedIds = new Set<string>();
-
-    editor.state.doc.descendants((node: ProseMirrorNode) => {
-      const linkMark = node.marks.find(
-        (m) => m.type.name === "link" && m.attrs.rel === "footnote",
-      );
-      if (linkMark) {
-        // Убираем решетку из href (#n123 -> n123)
-        const id = linkMark.attrs.href?.replace("#", "");
-        if (id) usedIds.add(id);
-      }
-      return true;
-    });
-
-    // 2. Создаем новый объект только с теми сносками, которые используются
-    const cleanedFootnotes: FootnotesMap = {};
-    let removedCount = 0;
-
-    Object.keys(footnotes).forEach((id) => {
-      if (usedIds.has(id)) {
-        cleanedFootnotes[id] = footnotes[id];
-      } else {
-        removedCount++;
-      }
-    });
-
-    if (removedCount > 0) {
-      setFootnotes(cleanedFootnotes);
-      footnotesRef.current = cleanedFootnotes;
-      // Можно вывести уведомление: toast.success(`Очищено сносок: ${removedCount}`);
-    }
-
-    return cleanedFootnotes;
-  }, [editor, footnotes]);
-
   return {
     activeNote,
     setActiveNote,
     setFootnotes,
-    footnotesRef,
-    setActiveNoteRef,
-    cleanupOrphanNotes,
     addFootnote,
     footnotes,
     updateNoteContent,

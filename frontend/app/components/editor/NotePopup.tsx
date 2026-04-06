@@ -7,7 +7,10 @@ import { Bold, Italic, Quote, Strikethrough, Superscript as SuperscriptIcon, Sub
 import Superscript from '@tiptap/extension-superscript';
 import Subscript from '@tiptap/extension-subscript';
 import { Fb2Title } from './extensions/fb2title';
-import React from 'react';
+import { Fb2Cite } from './extensions/fb2cite';
+import React, { useCallback } from 'react';
+import { useConfirm } from "@/hooks/ConfirmContext";
+import { createPortal } from 'react-dom';
 
 interface NotePopupProps {
   note: { id: string; x: number; y: number; isNew?: boolean; };
@@ -19,33 +22,44 @@ interface NotePopupProps {
 }
 
 export const NotePopup: React.FC<NotePopupProps> = ({ note, content, existingIds, onUpdate, onClose, onDelete }) => {
-
+  const confirm = useConfirm();
   const [editableId, setEditableId] = useState(note.id);
-  const handleDelete = () => {
-    if (window.confirm(`Вы уверены, что хотите полностью удалить сноску ${note.id}?`)) {
+  const [isConfirming, setIsConfirming] = useState(false);
+  const [, setUpdateTick] = useState(0);
+  const forceUpdate = useCallback(() => setUpdateTick(tick => tick + 1), []);
+  const handleDelete = async () => {
+    setIsConfirming(true); // Блокируем onClose
+    const confirmed = await confirm.ask(
+      "Удаление сноски",
+      "Удалить сноску? Отменить действие невозможно.",
+      "danger",
+    );
+    if (confirmed) {
       onDelete(note.id);
     }
+    setIsConfirming(false);
   };
   useEffect(() => {
     setEditableId(note.id);
   }, [note.id]);
 
-
   useEffect(() => {
-    const handleEvent = () => {
-      // Закрываем окно при любом движении страницы или изменении размера
+    const handleEvent = (e: any) => {
+      if (isConfirming || e.target.closest('.note-popup-container')) return;
       onClose();
     };
 
     // Слушаем прокрутку на всем документе (включая захват событий)
-    window.addEventListener('scroll', handleEvent, true);
+    window.addEventListener('scroll', handleEvent, false);
     window.addEventListener('resize', handleEvent);
 
     return () => {
-      window.removeEventListener('scroll', handleEvent, true);
+      window.removeEventListener('scroll', handleEvent, false);
       window.removeEventListener('resize', handleEvent);
     };
-  }, [onClose]);
+  }, [onClose, isConfirming]);
+
+
 
   // Константы размеров для расчета позиционирования
   const POPUP_WIDTH = 384; // w-96 в Tailwind
@@ -82,27 +96,66 @@ export const NotePopup: React.FC<NotePopupProps> = ({ note, content, existingIds
   const hasError = isEmpty || isDuplicate;
 
   const safeContent = useMemo(() => {
+    // Если контента нет вообще
     if (!content) return { type: 'doc', content: [] };
+
+    // Если пришел массив (часто для сносок FB2), оборачиваем его в формат Tiptap
     if (Array.isArray(content)) return { type: 'doc', content: content };
-    return content;
+
+    // Если это уже готовый объект документа
+    if (content.type === 'doc') return content;
+
+    // Резервный случай: если контент — это массив узлов внутри объекта
+    return { type: 'doc', content: content.content || [] };
   }, [content]);
 
   const editor = useEditor({
-    extensions: [StarterKit, Superscript, Subscript, Fb2Title],
+    extensions: [StarterKit.configure({
+      gapcursor: false,
+    }), Superscript, Subscript, Fb2Title, Fb2Cite],
     content: safeContent,
     immediatelyRender: false,
     editorProps: {
       attributes: {
-        class: 'note-popup-editor prose prose-sm font-serif outline-none min-h-[120px] max-h-[300px] overflow-y-auto p-2 border rounded focus:ring-2 focus:ring-blue-400 transition-all',
+        class: 'note-popup-editor prose prose-sm font-serif outline-none p-3 min-h-[120px] focus:outline-none',
       },
     },
+    // Фокусируемся в конец текста при создании
+    onCreate: ({ editor }) => {
+      setTimeout(() => editor.commands.focus('end'), 100);
+    },
+    onUpdate: forceUpdate,
+    onSelectionUpdate: forceUpdate, // Это заставит кнопки "оживать" при движении курсора
+    onTransaction: forceUpdate,
   });
 
+  // 3. Синхронизация контента при смене сноски
   useEffect(() => {
     if (editor && !editor.isDestroyed && safeContent) {
-      editor.commands.setContent(safeContent, { emitUpdate: false });
+      const currentJson = JSON.stringify(editor.getJSON());
+      const nextJson = JSON.stringify(safeContent);
+      if (currentJson !== nextJson) {
+        editor.commands.setContent(safeContent, { emitUpdate: false });
+      }
     }
   }, [note.id, editor, safeContent]);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Если нажата клавиша Escape и сейчас не открыто окно подтверждения (Confirm)
+      if (e.key === 'Escape' && !isConfirming) {
+        onClose();
+      }
+    };
+
+    // Добавляем слушатель на всё окно
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      // Чистим за собой
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [onClose, isConfirming]);
 
   if (!editor) return null;
 
@@ -112,26 +165,27 @@ export const NotePopup: React.FC<NotePopupProps> = ({ note, content, existingIds
     onClose();
   };
 
-  return (
+  return createPortal(
     <>
       {/* 1. Фоновая подложка (Backdrop) */}
       <div
-        className="fixed inset-0 z-90 bg-slate-900/20 backdrop-blur-[2px]"
+        className="fixed inset-0 z-[90] bg-slate-900/20 backdrop-blur-[2px]"
         onClick={onClose}
       />
 
       {/* 2. Само окно (Popup) */}
       <div
-        className="fixed z-100 bg-white shadow-2xl border border-blue-100 rounded-2xl w-100 overflow-hidden"
+        className="note-popup-container fixed z-[100] bg-white shadow-2xl border border-blue-100 rounded-2xl w-96 overflow-hidden flex flex-col" // Добавили flex flex-col
         style={{
           top: adjustedPosition.top,
-          left: adjustedPosition.left
+          left: adjustedPosition.left,
+          height: '250px' // ЗАДАЙТЕ ФИКСИРОВАННУЮ ВЫСОТУ
         }}
         onClick={(e) => e.stopPropagation()}
       >
 
         {/* Шапка */}
-        <div className={`flex justify-between items-center px-3 py-2 border-b transition-colors duration-200 ${isDuplicate ? 'bg-red-50 border-red-200' :
+        <div className={`flex flex-none justify-between items-center px-3 py-2 border-b transition-colors duration-200 ${isDuplicate ? 'bg-red-50 border-red-200' :
           isEmpty ? 'bg-amber-50 border-amber-200' :
             'bg-slate-50 border-slate-100'
           }`}>
@@ -139,6 +193,8 @@ export const NotePopup: React.FC<NotePopupProps> = ({ note, content, existingIds
             <Hash size={12} className={isDuplicate ? 'text-red-500' : isEmpty ? 'text-amber-500' : 'text-blue-500'} />
             <input
               type="text"
+              spellCheck="false"
+              onFocus={(e) => e.target.select()}
               value={editableId}
               onChange={(e) => setEditableId(e.target.value)}
               placeholder="Введите ID..."
@@ -147,7 +203,7 @@ export const NotePopup: React.FC<NotePopupProps> = ({ note, content, existingIds
             />
           </div>
 
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex flex-none items-center gap-2">
             {isDuplicate && <span className="text-[8px] text-red-500 font-black animate-pulse whitespace-nowrap">ID ЗАНЯТ</span>}
             {isEmpty && <span className="text-[8px] text-amber-600 font-black whitespace-nowrap">ПУСТО</span>}
             {/* КНОПКА УДАЛЕНИЯ */}
@@ -167,19 +223,54 @@ export const NotePopup: React.FC<NotePopupProps> = ({ note, content, existingIds
         </div>
 
         {/* Тулбар */}
-        <div className="flex items-center gap-1 px-2 py-1 bg-white border-b border-slate-100">
-          <ToolbarButton onClick={() => editor.chain().focus().toggleBold().run()} active={editor.isActive('bold')} icon={<Bold size={14} />} />
-          <ToolbarButton onClick={() => editor.chain().focus().toggleItalic().run()} active={editor.isActive('italic')} icon={<Italic size={14} />} />
-          <ToolbarButton onClick={() => editor.chain().focus().toggleStrike().run()} active={editor.isActive('strike')} icon={<Strikethrough size={14} />} />
-          <ToolbarButton onClick={() => editor.chain().focus().toggleSuperscript().run()} active={editor.isActive('superscript')} icon={<SuperscriptIcon size={14} />} />
-          <ToolbarButton onClick={() => editor.chain().focus().toggleSubscript().run()} active={editor.isActive('subscript')} icon={<SubscriptIcon size={14} />} />
-          <ToolbarButton onClick={() => editor.chain().focus().toggleBlockquote().run()} active={editor.isActive('blockquote')} icon={<Quote size={14} />} title="Цитата" />
+        <div className="flex flex-none items-center gap-1 px-2 py-1 bg-white border-b border-slate-100">
+          <ToolbarButton
+            onClick={() => editor.chain().focus().toggleBold().run()}
+            active={editor.isActive('bold')}
+            disabled={!editor.can().chain().toggleBold()} // ПРОВЕРКА
+            icon={<Bold size={14} />}
+          />
+          <ToolbarButton
+            onClick={() => editor.chain().focus().toggleItalic().run()}
+            active={editor.isActive('italic')}
+            disabled={!editor.can().chain().toggleItalic()} // ПРОВЕРКА
+            icon={<Italic size={14} />}
+          />
+          <ToolbarButton
+            onClick={() => editor.chain().focus().toggleStrike().run()}
+            active={editor.isActive('strike')}
+            disabled={!editor.can().chain().toggleStrike()}
+            icon={<Strikethrough size={14} />}
+          />
+          <ToolbarButton
+            onClick={() => editor.chain().focus().toggleSuperscript().run()}
+            active={editor.isActive('superscript')}
+            disabled={!editor.can().chain().toggleSuperscript()}
+            icon={<SuperscriptIcon size={14} />}
+          />
+          <ToolbarButton
+            onClick={() => editor.chain().focus().toggleSubscript().run()}
+            active={editor.isActive('subscript')}
+            disabled={!editor.can().chain().toggleSubscript()}
+            icon={<SubscriptIcon size={14} />}
+          />
+          <ToolbarButton
+            onClick={() => editor.chain().focus().toggleBlockquote().run()}
+            active={editor.isActive("fb2Cite")}
+            disabled={!editor.can().chain().toggleBlockquote()}
+            icon={<Quote size={14} />}
+            title="Цитата"
+          />
         </div>
 
-        <EditorContent editor={editor} />
+        {/* Центрируем редактор и ограничиваем его ширину */}
+        <div className="flex-1 overflow-y-auto bg-white custom-scrollbar">
+          {/* Убрали лишние обертки с max-w-3xl и flex-center */}
+          <EditorContent editor={editor} />
+        </div>
 
         {/* Подвал */}
-        <div className="px-4 py-2 bg-slate-50 flex justify-end gap-2 border-t border-slate-100">
+        <div className="flex-none px-4 py-2 bg-slate-50 flex justify-end gap-2 border-t border-slate-100">
           <button type="button" title="Отмена" onClick={onClose} className="text-[11px] text-slate-500 px-3 hover:text-slate-700">Отмена</button>
           <button type="button" title="Готово"
             onClick={handleSave}
@@ -191,15 +282,21 @@ export const NotePopup: React.FC<NotePopupProps> = ({ note, content, existingIds
           </button>
         </div>
       </div>
-    </>
-  );
+    </>,
+    document.body);
 };
 
-const ToolbarButton = ({ onClick, active, icon }: any) => (
+const ToolbarButton = ({ onClick, active, disabled, icon }: any) => (
   <button
     type="button"
     onClick={onClick}
-    className={`p-1.5 rounded transition-colors ${active ? 'bg-blue-100 text-blue-600' : 'text-gray-400 hover:bg-gray-100'}`}
+    disabled={disabled}
+    className={`p-1.5 rounded transition-colors ${active
+      ? 'bg-blue-100 text-blue-600'
+      : disabled
+        ? 'opacity-25 cursor-default grayscale text-gray-300' // Сделали чуть прозрачнее
+        : 'text-gray-600 hover:bg-gray-100 hover:text-gray-800'
+      }`}
   >
     {icon}
   </button>
