@@ -60,12 +60,31 @@
 	<!-- Запускаем билд только для Release-конфигурации -->
 	<Target Name="BuildNextJs" BeforeTargets="Build" Condition="'$(Configuration)' == 'Release'">
 	<Message Importance="high" Text="Собираем финальный билд фронтенда..." />
+	
+	<!-- 1. Сборка фронтенда -->
 	<Exec WorkingDirectory="$(FrontendRoot)" Command="npm install" />
 	<Exec WorkingDirectory="$(FrontendRoot)" Command="npm run build" />
 	
-	<ItemGroup>
-		<NextFiles Include="$(FrontendRoot)\out\**\*.*" />
-	</ItemGroup>
-	<Copy SourceFiles="@(NextFiles)" DestinationFolder="wwwroot\%(RecursiveDir)" SkipUnchangedFiles="true" />
+    <!-- 2. Очистка старых файлов в целевой папке (опционально, но полезно) -->
+    <RemoveDir Directories="Resources\wwwroot\" />
+
+    <!-- 3. Копирование файлов из /out в /Resources/wwwroot -->
+    <ItemGroup>
+        <NextFiles Include="$(FrontendRoot)\out\**\*.*" />
+    </ItemGroup>
+    
+    <Copy 
+        SourceFiles="@(NextFiles)" 
+        DestinationFolder="Resources\wwwroot\%(RecursiveDir)" 
+        SkipUnchangedFiles="true" 
+    />
+
+    <!-- 4. Важно для Photino: говорим .NET, что эти файлы являются контентом -->
+    <ItemGroup>
+        <Content Include="Resources\wwwroot\**\*.*">
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+        </Content>
+    </ItemGroup>
+
 	</Target>
 </Project>

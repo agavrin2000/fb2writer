@@ -38,22 +38,8 @@ class Program
 
         var fileService = new FileService();
         PhotinoServer.CreateStaticFileServer(args, out string baseUrl).RunAsync();
-            Console.WriteLine($" Base URL: {baseUrl}");
-        //baseUrl = "wwwroot"; //string.Empty;
-   /*         if (IsDebugMode)
-    {
-        // Стандартный запуск: ищем папку wwwroot на диске
-        // 0, 0 — порты выберутся автоматически
-        PhotinoServer.CreateStaticFileServer(args, 0, 0, "wwwroot", out baseUrl).RunAsync();
-    }
-    else
-    {
-        // Вызываем статический метод с ПРАВИЛЬНЫМ порядком аргументов
-        PhotinoServer.CreateStaticFileServer(args, 0, 0, "", out baseUrl).RunAsync();
-    }*/
+        Console.WriteLine($" Base URL: {baseUrl}");
 
-        // The appUrl is set to the local development server when in debug mode.
-        // This helps with hot reloading and debugging.
         string appUrl = IsDebugMode ? "http://localhost:3000" : $"{baseUrl}/index.html";
 
         // Loader на старте приложения

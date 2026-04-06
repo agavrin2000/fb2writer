@@ -1,16 +1,16 @@
 {
-    "version": "0.2.0",
-    "configurations": [
-        {
-            "name": "Launch Photino (Debug)",
-            "type": "coreclr",
-            "request": "launch",
-            "preLaunchTask": "build", // Сначала соберет, потом запустит
-            "program": "${workspaceFolder}/backend/bin/Debug/net10.0/FB2Editor.dll",
-            "args": [],
-            "cwd": "${workspaceFolder}/backend",
-            "console": "internalConsole",
-            "stopAtEntry": false
-        }
-    ]
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Launch Photino (Debug)",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build", // Сначала соберет, потом запустит
+      "program": "${workspaceFolder}/backend/bin/Debug/net10.0/FB2Editor.dll",
+      "args": [],
+      "cwd": "${workspaceFolder}/backend",
+      "console": "internalConsole",
+      "stopAtEntry": false
+    }
+  ]
 }
