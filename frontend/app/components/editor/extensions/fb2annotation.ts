@@ -9,6 +9,21 @@ export const Fb2Annotation = Node.create({
   content: "(paragraph | fb2Poem | fb2Subtitle | fb2Cite)+",
   parseHTML: () => [{ tag: "annotation" }],
   renderHTML: () => ["cite", { class: "fb2-annotation" }, 0],
+  addAttributes() {
+    return {
+      id: {
+        default: null,
+        renderHTML: (attributes) => {
+          if (!attributes.id) {
+            return {};
+          }
+          return { id: attributes.id };
+        },
+        parseHTML: (element) => element.getAttribute("id"),
+      },
+    };
+  },
+
   addCommands(): any {
     return {
       insertFb2Annotation:

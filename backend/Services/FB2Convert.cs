@@ -1,15 +1,22 @@
 using System.Xml.Linq;
 using System.Text;
-using Newtonsoft.Json;
 using System.IO.Compression;
 using System.Xml.Schema;
-using Newtonsoft.Json.Linq;
+using System.Text.Json;
 
 namespace FB2Editor.Services;
 
-// Вспомогательный класс для расширений
+/// <summary>
+/// Вспомогательный класс, содержащий методы расширения для коллекций.
+/// </summary>
 public static class EnumerableExtensions
 {
+    /// <summary>
+    /// Преобразует перечисляемую последовательность в список или возвращает null, если последовательность пуста или равна null.
+    /// </summary>
+    /// <typeparam name="T">Тип элементов в последовательности.</typeparam>
+    /// <param name="source">Исходная перечисляемая последовательность.</param>
+    /// <returns>Список элементов или null, если последовательность пуста или равна null.</returns>
     public static List<T>? ToListOrNull<T>(this IEnumerable<T> source)
     {
         if (source == null || !source.Any())
@@ -20,18 +27,34 @@ public static class EnumerableExtensions
     }
 }
 
+/// <summary>
+/// Сервис для обработки FB2-документов: загрузка, парсинг, валидация и сохранение.
+/// Обеспечивает двустороннее преобразование между FB2-файлом и JSON-структурой для frontend.
+/// </summary>
 public class Fb2Service
 {
+    /// <summary>
+    /// Кэш для хранения бинарных данных изображений в формате Base64.
+    /// Ключ — ID изображения (без #), значение — кортеж с Base64-строкой и MIME-типом.
+    /// Используется регистронезависимое сравнение ключей.
+    /// </summary>
+    private readonly Dictionary<string, (string Base64, string ContentType)> _binaryCache = new(StringComparer.OrdinalIgnoreCase);
 
-    private readonly Dictionary<string, (string Base64, string ContentType)> _binaryCache =
-    new(StringComparer.OrdinalIgnoreCase);
-
+    /// <summary>
+    /// Пространство имён по умолчанию для FictionBook 2.0.
+    /// </summary>
     private static readonly XNamespace ns = "http://www.gribuser.ru/xml/fictionbook/2.0";
+
+    /// <summary>
+    /// Пространство имён для XLink, используемое для ссылок на изображения.
+    /// </summary>
     private static readonly XNamespace xlink = "http://www.w3.org/1999/xlink";
 
-    // Метод для заполнения кеша (вызовите его при инициализации документа)
-    // Собираем все картинки (ID -> Base64)
-    // Очищаем Base64 от переносов строк, иначе браузер их не поймет
+    /// <summary>
+    /// Заполняет внутренний кэш изображений на основе XML-документа FB2.
+    /// Собирает все элементы &lt;binary&gt; и сохраняет их содержимое в Base64 без лишних символов.
+    /// </summary>
+    /// <param name="doc">XML-документ FB2, из которого извлекаются бинарные данные.</param>
     private void FillBinaryCache(XDocument doc)
     {
         _binaryCache.Clear();
@@ -61,7 +84,11 @@ public class Fb2Service
         }
     }
 
-    // Получение контента изображения по ссылке
+    /// <summary>
+    /// Получает строку data URL для изображения по его ссылке (href).
+    /// </summary>
+    /// <param name="href">Ссылка на изображение вида #cover.jpg.</param>
+    /// <returns>Строка data URL или пустая строка, если изображение не найдено.</returns>
     private string GetImage(string? href)
     {
         if (string.IsNullOrWhiteSpace(href))
@@ -83,12 +110,13 @@ public class Fb2Service
     }
 
     /// <summary>
-    /// загрузка книги и конвертация для передачи во frontend
+    /// Загружает FB2-документ (из файла или ZIP-архива), парсит его и конвертирует в JSON для передачи во frontend.
+    /// Выполняет валидацию документа перед обработкой.
     /// </summary>
-    /// <param name="fileStream"></param>
-    /// <param name="fileName"></param>
-    /// <returns></returns>
-    /// <exception cref="Exception"></exception>
+    /// <param name="fileStream">Поток, содержащий данные FB2 или ZIP-архива.</param>
+    /// <param name="fileName">Имя файла, определяющее формат (FB2 или ZIP).</param>
+    /// <returns>JSON-строка с метаданными, контентом, сносками и путём к файлу.</returns>
+    /// <exception cref="Exception">Выбрасывается при ошибках валидации, отсутствии FB2 внутри архива или других критических ошибках.</exception>
     public string LoadAndConvertToJson(Stream fileStream, string fileName)
     {
         // Обязательно для поддержки русских кодировок (windows-1251) в FB2
@@ -146,7 +174,7 @@ public class Fb2Service
                 return []; // Возвращаем пустой список, если целевой элемент не найден
 
             List<object> nodes = [];
-            ParseElement(target, ns, xlink, [], nodes); // Предполагается, что ns и xlink доступны в контексте
+            ParseElement(target, nodes); // Предполагается, что ns и xlink доступны в контексте
             return nodes;
         }
 
@@ -180,7 +208,7 @@ public class Fb2Service
                 if (string.IsNullOrEmpty(id)) continue;
 
                 var notesNodes = new List<object>();
-                ParseElement(section, ns, xlink, [], notesNodes);
+                ParseElement(section, notesNodes);
 
                 footnotesList[id] = notesNodes;
             }
@@ -201,7 +229,7 @@ public class Fb2Service
                 new { type = "fb2Placeholder" }
             };
 
-            ParseElement(body, ns, xlink, _binaryCache, bodyContent);
+            ParseElement(body, bodyContent);
 
             contentNodes.Add(new
             {
@@ -211,10 +239,19 @@ public class Fb2Service
             });
         }
 
-
-        return JsonConvert.SerializeObject(new
+        var options = new JsonSerializerOptions
         {
-            Meta = new
+            // Включаем camelCase
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+            // Игнорируем null-поля (аналог NullValueHandling.Ignore)
+            DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull,
+            // Чтобы русский текст не превращался в \u0444
+            Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+        };
+
+        return JsonSerializer.Serialize(new
+        {
+            Metadata = new
             {
                 TitleInfo = new // Данные о произведении
                 {
@@ -289,45 +326,46 @@ public class Fb2Service
                     }).ToListOrNull(),
                 }
             },
-            EditorContent = new { type = "doc", content = contentNodes }, // Контент, включая картинки
+            Content = new { type = "doc", content = contentNodes }, // Контент, включая картинки
             Footnotes = footnotesList, // Передаем список сносок отдельно
             FilePath = fileName, // Полный путь к файлу для сохранения
-        }, new JsonSerializerSettings
-        {
-            // ВАЖНО! Игнорировать свойства со значением null
-            NullValueHandling = NullValueHandling.Ignore,
-        });
+        }, options);
     }
 
+    /// <summary>
+    /// Ленивый кэш набора XSD-схем для валидации FB2-документов.
+    /// Схемы загружаются один раз при первом обращении.
+    /// </summary>
     private static readonly Lazy<XmlSchemaSet> _schemaCache = new(() =>
+    {
+        var schemas = new XmlSchemaSet();
+        try
         {
-            var schemas = new XmlSchemaSet();
-            try
-            {
-                // Пути к файлам в папке приложения (убедитесь, что файлы копируются в Output Directory)
-                string schemaPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Schemas");
+            // Пути к файлам в папке приложения (убедитесь, что файлы копируются в Output Directory)
+            string schemaPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Schemas");
 
-                // 1. Добавляем XLink (обязателен для валидации атрибутов изображений)
-                schemas.Add(null, Path.Combine(schemaPath, "xlink.xsd"));
-                schemas.Add("http://www.w3.org/XML/1998/namespace", Path.Combine(schemaPath, "FictionBookLang.xsd"));
-                schemas.Add("http://www.gribuser.ru/xml/fictionbook/2.0/genres", Path.Combine(schemaPath, "FictionBookGenres.xsd"));
-                // 2. Добавляем обе версии FB2. Валидатор сам выберет нужную по xmlns в файле.
-                schemas.Add(null, Path.Combine(schemaPath, "FictionBook.xsd"));
+            // 1. Добавляем XLink (обязателен для валидации атрибутов изображений)
+            schemas.Add(null, Path.Combine(schemaPath, "xlink.xsd"));
+            schemas.Add("http://www.w3.org/XML/1998/namespace", Path.Combine(schemaPath, "FictionBookLang.xsd"));
+            schemas.Add("http://www.gribuser.ru/xml/fictionbook/2.0/genres", Path.Combine(schemaPath, "FictionBookGenres.xsd"));
+            // 2. Добавляем обе версии FB2. Валидатор сам выберет нужную по xmlns в файле.
+            schemas.Add(null, Path.Combine(schemaPath, "FictionBook.xsd"));
 
-                schemas.Compile();
-                return schemas;
-            }
-            catch (Exception ex)
-            {
-                throw new Exception("Критическая ошибка при загрузке XSD схем из папки Schemas.", ex);
-            }
-        });
+            schemas.Compile();
+            return schemas;
+        }
+        catch (Exception ex)
+        {
+            throw new Exception("Критическая ошибка при загрузке XSD схем из папки Schemas.", ex);
+        }
+    });
 
     /// <summary>
-    /// Валидация fb2 документа на основе xsd-схем
+    /// Выполняет валидацию XML-документа FB2 с использованием предопределённых XSD-схем.
+    /// При обнаружении ошибок собирает их и выбрасывает исключение.
     /// </summary>
-    /// <param name="doc"></param>
-    /// <exception cref="Exception"></exception>
+    /// <param name="doc">XML-документ FB2 для валидации.</param>
+    /// <exception cref="Exception">Выбрасывается при наличии ошибок валидации.</exception>
     private static void ValidateFb2(XDocument doc)
     {
         List<string> errors = [];
@@ -349,13 +387,22 @@ public class Fb2Service
         }
     }
 
-    // Парсинг fb2-элементов
-    private void ParseElement(XElement container, XNamespace ns, XNamespace xlink, Dictionary<string, (string Base64, string ContentType)> binarySaveCache, List<object> nodes)
+    /// <summary>
+    /// Рекурсивно парсит структуру FB2-документа и преобразует её в объектную модель, совместимую с TipTap.
+    /// Обрабатывает секции, заголовки, абзацы, цитаты, стихи и изображения.
+    /// </summary>
+    /// <param name="container">Корневой элемент XML, с которого начинается обход.</param>
+    /// <param name="ns">Пространство имён FB2.</param>
+    /// <param name="xlink">Пространство имён XLink.</param>
+    /// <param name="binarySaveCache">Кэш для хранения данных изображений.</param>
+    /// <param name="nodes">Список, в который добавляются преобразованные узлы.</param>
+    private void ParseElement(XElement container, List<object> nodes)
     {
         foreach (var el in container.Elements())
         {
             string name = el.Name.LocalName;
-
+            var attrs = el.Attributes()
+                .ToDictionary(a => a.Name.LocalName, a => a.Value);
             if (name == "section")
             {
                 if (!el.Elements().Any())
@@ -369,7 +416,7 @@ public class Fb2Service
                 var sectionContent = new List<object>();
 
                 // Рекурсивно наполняем его (заголовки, p, вложенные секции пойдут сюда)
-                ParseElement(el, ns, xlink, binarySaveCache, sectionContent);
+                ParseElement(el, sectionContent);
 
                 // Добавляем всю секцию как единый блок в общий список
                 nodes.Add(new
@@ -382,7 +429,7 @@ public class Fb2Service
             else if (name is "title" or "epigraph" or "cite" or "poem" or "stanza")
             {
                 var contentList = new List<object>();
-                ParseElement(el, ns, xlink, binarySaveCache, contentList);
+                ParseElement(el, contentList);
                 // Сопоставляем имя тега с типом в TipTap
                 string type = name switch
                 {
@@ -394,7 +441,12 @@ public class Fb2Service
                     _ => "fb2Title"
                 };
 
-                nodes.Add(new { type, content = contentList });
+                nodes.Add(new
+                {
+                    type,
+                    attrs = attrs.Count > 0 ? attrs : null,
+                    content = contentList
+                });
             }
             else if (name is "text-author" or "subtitle" or "p" or "v")
             {
@@ -413,7 +465,12 @@ public class Fb2Service
                     _ => "paragraph"
                 };
 
-                nodes.Add(new { type, content = inlineContent });
+                nodes.Add(new
+                {
+                    type,
+                    attrs = attrs.Count > 0 ? attrs : null,
+                    content = inlineContent
+                });
             }
             else if (name == "empty-line")
             {
@@ -434,7 +491,13 @@ public class Fb2Service
         }
     }
 
-    // Рекурсивная функция для обработки inline элементов
+    /// <summary>
+    /// Рекурсивно обрабатывает инлайновые элементы (текст, стили, ссылки, изображения).
+    /// Применяет текстовые метки (жирный, курсив и т.д.) и преобразует их в соответствующие XML-теги.
+    /// </summary>
+    /// <param name="node">Текущий XML-узел (XNode).</param>
+    /// <param name="container">Список, в который добавляется результат обработки.</param>
+    /// <param name="activeMarks">Список активных текстовых стилей (меток), применяемых к текущему тексту.</param>
     private void ProcessInline(XNode node, List<object> container, List<object> activeMarks)
     {
         if (node is XText textNode)
@@ -442,8 +505,10 @@ public class Fb2Service
             string val = textNode.Value;
             if (!string.IsNullOrWhiteSpace(val)) // Лучше проверять на пробелы тоже
             {
-                var textElement = new Dictionary<string, object>();
-                textElement.Add("type", "text");
+                var textElement = new Dictionary<string, object>
+                {
+                    { "type", "text" }
+                };
 
                 // ПОРЯДОК: Сначала добавляем marks, если они есть
                 if (activeMarks.Count > 0)
@@ -520,83 +585,108 @@ public class Fb2Service
     // Формирование и сохранение XML-документа из JSON-строки, полученной из frontend   
     //--------------------------------------------------------------------------------------------
     /// <summary>
-    /// Convert json to FB2-content
+    /// Сохраняет JSON-представление документа обратно в FB2-формат (XML) и записывает в поток.
+    /// Поддерживает экспорт в обычный FB2-файл или упаковку в ZIP-архив.
     /// </summary>
-    /// <param name="stream"></param>
-    /// <param name="fileName"></param>
-    /// <param name="jsonContent"></param>
+    /// <param name="outputStream">Выходной поток, в который будет записан результат.</param>
+    /// <param name="fileName">Имя файла, определяющее формат выхода (FB2 или ZIP).</param>
+    /// <param name="jsonContent">JSON-строка с данными редактора (метаданные, контент, сноски).</param>
     public void SaveJsonToFb2(Stream outputStream, string fileName, string jsonContent)
     {
-        using var sr = new StringReader(jsonContent);
-        using var reader = new JsonTextReader(sr);
-        var data = JToken.ReadFrom(reader);
+        if (string.IsNullOrWhiteSpace(jsonContent)) return;
 
-        if (data.Type == JTokenType.String)
+        // 1. Парсим JSON через JsonDocument
+        using JsonDocument doc = JsonDocument.Parse(jsonContent);
+        JsonElement root = doc.RootElement;
+
+        // Логика обработки "строки в строке" (аналог проверки data.Type == JTokenType.String)
+        if (root.ValueKind == JsonValueKind.String)
         {
-            using var innerSr = new StringReader(data.ToString());
-            using var innerReader = new JsonTextReader(innerSr);
-            data = JToken.ReadFrom(innerReader);
+            string? innerJson = root.GetString();
+            if (!string.IsNullOrEmpty(innerJson))
+            {
+                using JsonDocument innerDoc = JsonDocument.Parse(innerJson);
+                ProcessData(innerDoc.RootElement, outputStream, fileName);
+            }
         }
+        else
+        {
+            ProcessData(root, outputStream, fileName);
+        }
+    }
 
-        var content = data["content"];
-        var metadata = data["metadata"];
-        var footnotes = data["footnotes"] as JObject;
+    // <summary>
+    /// Обрабатывает JSON-данные и формирует из них FB2-документ.
+    /// Вызывается из <see cref="SaveJsonToFb2"/> после парсинга JSON.
+    /// </summary>
+    /// <param name="data">Корневой элемент JSON-документа.</param>
+    /// <param name="outputStream">Поток для записи результата.</param>
+    /// <param name="fileName">Имя файла для определения формата сохранения.</param>
+    private void ProcessData(JsonElement data, Stream outputStream, string fileName)
+    {
+        // Извлекаем элементы (используем GetProperty или TryGetProperty)
+        // Если элемента нет, передаем "пустой" JsonElement (ValueKind == Undefined)
+        data.TryGetProperty("content", out JsonElement content);
+        data.TryGetProperty("metadata", out JsonElement metadata);
+        data.TryGetProperty("footnotes", out JsonElement footnotes);
 
         // Очищаем кэш перед каждой сборкой
         _binaryCache.Clear();
 
         // 1. Создаем корневой элемент
-        XElement rootElement = new XElement(ns + "FictionBook",
-            new XAttribute(XNamespace.Xmlns + "xlink", xlink.NamespaceName), // Добавляем объявление xlink
+        XElement rootElement = new(ns + "FictionBook",
+            new XAttribute(XNamespace.Xmlns + "xlink", xlink.NamespaceName),
             new XAttribute(XNamespace.Xml + "lang", "ru"),
-            BuildDescription(metadata),
+            BuildDescription(metadata), // Эти методы теперь должны принимать JsonElement
             BuildBody(content),
             BuildNotesBody(footnotes)
         );
 
-        // 2. ПОСЛЕ того как отработал BuildBody и ConvertNode, 
-        // в _binaryCache уже лежат все найденные картинки. Добавляем их.
+        // 2. Добавляем бинарные данные из кэша
         foreach (var item in _binaryCache)
         {
-            var binaryEl = new XElement(ns + "binary", item.Value.Base64);
+            var binaryEl = new XElement(ns + "binary", item.Value.Base64); // Контент сразу здесь
+            binaryEl.Add(new XAttribute("id", item.Key));
+            binaryEl.Add(new XAttribute("content-type", item.Value.ContentType));
             binaryEl.Add(new XAttribute("id", item.Key));
             binaryEl.Add(new XAttribute("content-type", item.Value.ContentType));
             rootElement.Add(binaryEl);
         }
 
         // 3. Формируем финальный документ
-        XDocument doc = new(
+        XDocument fb2Doc = new(
             new XDeclaration("1.0", "utf-8", null),
             rootElement
         );
-        ValidateFb2(doc);
-        // 2. Логика сохранения: обычный FB2 или ZIP
+
+        ValidateFb2(fb2Doc);
+
+        // 4. Логика сохранения (ZIP или FB2)
         bool isZip = fileName.EndsWith(".zip", StringComparison.OrdinalIgnoreCase);
 
         if (isZip)
         {
-            // Создаем архив. leaveOpen: true критичен, чтобы не закрыть основной outputStream раньше времени
             using var archive = new ZipArchive(outputStream, ZipArchiveMode.Create, leaveOpen: true);
-
-            // Имя файла внутри архива (убираем .zip)
             string entryName = fileName.EndsWith(".fb2.zip", StringComparison.OrdinalIgnoreCase)
                 ? fileName[..^4]
                 : Path.ChangeExtension(fileName, ".fb2");
 
             var entry = archive.CreateEntry(entryName, CompressionLevel.Optimal);
             using var entryStream = entry.Open();
-            using var writer = new StreamWriter(entryStream, Encoding.UTF8);
-            doc.Save(writer);
+            fb2Doc.Save(entryStream); // XDocument умеет сохранять напрямую в Stream
         }
         else
         {
-            // Обычное сохранение в поток
-            using var writer = new StreamWriter(outputStream, Encoding.UTF8, 1024, leaveOpen: true);
-            doc.Save(writer);
+            fb2Doc.Save(outputStream);
         }
     }
 
-    // Проверка description перед сохранением
+    /// <summary>
+    /// Проверяет обязательные поля в элементе &lt;description&gt; перед сохранением.
+    /// Гарантирует соответствие FB2-стандарту.
+    /// </summary>
+    /// <param name="description">Элемент &lt;description&gt;, подлежащий проверке.</param>
+    /// <exception cref="InvalidOperationException">Выбрасывается при отсутствии обязательных полей.</exception>
     private static void ValidateDescription(XElement? description)
     {
         // Вспомогательная функция для проверки title-info и src-title-info
@@ -672,89 +762,150 @@ public class Fb2Service
         }
     }
 
-    // Создание description
-    private XElement BuildDescription(JToken? meta)
+    /// <summary>
+    /// Создаёт XML-элемент &lt;description&gt;, содержащий основные метаданные книги в FB2-документе.
+    /// Включает информацию о заглавии, документе, издательстве и пользовательские поля.
+    /// </summary>
+    /// <param name="meta">JSON-элемент, содержащий метаданные из frontend.</param>
+    /// <returns>Элемент &lt;description&gt; со всеми вложенными тегами.</returns>
+    private XElement BuildDescription(JsonElement meta)
     {
         var description = new XElement(ns + "description");
 
-        // 1 & 2. Обработка TitleInfo и SrcTitleInfo через один метод
-        description.Add(BuildTitleInfo(ns + "title-info", meta?["TitleInfo"]));
-        description.Add(BuildTitleInfo(ns + "src-title-info", meta?["SrcTitleInfo"]));
+        // 1 & 2. Обработка TitleInfo и SrcTitleInfo
+        // Если свойства нет, передаем пустой JsonElement (ValueKind.Undefined)
+        meta.TryGetProperty("titleInfo", out var titleInfoNode);
+        description.Add(BuildTitleInfo(ns + "title-info", titleInfoNode));
+
+        meta.TryGetProperty("srcTitleInfo", out var srcTitleInfoNode);
+        if (srcTitleInfoNode.ValueKind != JsonValueKind.Undefined)
+            description.Add(BuildTitleInfo(ns + "src-title-info", srcTitleInfoNode));
 
         // 3. Document Info
-        var docInfoNode = meta?["DocumentInfo"];
-        if (docInfoNode != null)
+        if (meta.TryGetProperty("documentInfo", out var docInfoNode))
         {
             var docInfo = new XElement(ns + "document-info");
-            AddPersons(docInfo, ns + "author", docInfoNode["Authors"]);
-            AddTo(docInfo, ns + "program-used", docInfoNode["Program"]);
-            AddDate(docInfo, ns + "date", docInfoNode["Date"], docInfoNode["DateValue"]);
-            AddMultipleTo(docInfo, ns + "src-url", docInfoNode["SrcUrl"]);
-            AddTo(docInfo, ns + "src-ocr", docInfoNode["SrcOcr"]);
-            AddTo(docInfo, ns + "id", docInfoNode["Id"]);
-            AddTo(docInfo, ns + "version", docInfoNode["Version"]);
-            AddRichText(docInfo, ns + "history", docInfoNode["History"]);
+
+            docInfoNode.TryGetProperty("authors", out var docAuthors);
+            AddPersons(docInfo, ns + "author", docAuthors);
+
+            docInfoNode.TryGetProperty("program", out var program);
+            AddTo(docInfo, ns + "program-used", program);
+
+            docInfoNode.TryGetProperty("date", out var date);
+            docInfoNode.TryGetProperty("dateValue", out var dateVal);
+            AddDate(docInfo, ns + "date", date, dateVal);
+
+            docInfoNode.TryGetProperty("srcUrl", out var srcUrl);
+            AddMultipleTo(docInfo, ns + "src-url", srcUrl);
+
+            docInfoNode.TryGetProperty("srcOcr", out var srcOcr);
+            AddTo(docInfo, ns + "src-ocr", srcOcr);
+
+            docInfoNode.TryGetProperty("id", out var docId);
+            AddTo(docInfo, ns + "id", docId);
+
+            docInfoNode.TryGetProperty("version", out var version);
+            AddTo(docInfo, ns + "version", version);
+
+            docInfoNode.TryGetProperty("history", out var history);
+            AddRichText(docInfo, ns + "history", history);
 
             if (docInfo.HasElements) description.Add(docInfo);
         }
 
         // 4. Publish Info
-        var pubNode = meta?["PublishInfo"];
-        if (pubNode != null)
+        if (meta.TryGetProperty("publishInfo", out var pubNode))
         {
             var pubInfo = new XElement(ns + "publish-info");
-            AddTo(pubInfo, ns + "book-name", pubNode["BookName"]);
-            AddTo(pubInfo, ns + "publisher", pubNode["Publisher"]);
-            AddTo(pubInfo, ns + "city", pubNode["City"]);
-            AddTo(pubInfo, ns + "year", pubNode["Year"]);
-            AddTo(pubInfo, ns + "isbn", pubNode["ISBN"]);
-            AddSequences(pubInfo, ns + "sequence", pubNode["Sequence"]);
+
+            pubNode.TryGetProperty("bookName", out var bName);
+            AddTo(pubInfo, ns + "book-name", bName);
+
+            pubNode.TryGetProperty("publisher", out var publr);
+            AddTo(pubInfo, ns + "publisher", publr);
+
+            pubNode.TryGetProperty("city", out var city);
+            AddTo(pubInfo, ns + "city", city);
+
+            pubNode.TryGetProperty("year", out var year);
+            AddTo(pubInfo, ns + "year", year);
+
+            pubNode.TryGetProperty("isbn", out var isbn);
+            AddTo(pubInfo, ns + "isbn", isbn);
+
+            pubNode.TryGetProperty("sequence", out var seq);
+            AddSequences(pubInfo, ns + "sequence", seq);
 
             if (pubInfo.HasElements) description.Add(pubInfo);
         }
 
         // 5. Custom Info
-        if (meta?["CustomInfo"] is JArray customInfoArray)
+        if (meta.TryGetProperty("customInfo", out var customArray) && customArray.ValueKind == JsonValueKind.Array)
         {
-            foreach (var item in customInfoArray)
+            foreach (var item in customArray.EnumerateArray())
             {
-                var type = item["infoType"]?.ToString();
-                if (!string.IsNullOrEmpty(type))
-                    description.Add(new XElement(ns + "custom-info", new XAttribute("info-type", type), item["value"]?.ToString()));
+                item.TryGetProperty("infoType", out var infoType);
+                item.TryGetProperty("value", out var val);
+
+                string? typeStr = infoType.GetString();
+                if (!string.IsNullOrEmpty(typeStr))
+                {
+                    description.Add(new XElement(ns + "custom-info",
+                        new XAttribute("info-type", typeStr),
+                        val.GetString()));
+                }
             }
         }
 
         return description;
     }
 
-    // Создание title-info и src-title-info
-    private XElement? BuildTitleInfo(XName name, JToken? node)
+    /// <summary>
+    /// Создаёт элемент &lt;title-info&gt; или &lt;src-title-info&gt; на основе переданных данных.
+    /// Содержит жанры, авторов, название, аннотацию и другую информацию о произведении.
+    /// </summary>
+    /// <param name="name">Имя элемента: <c>title-info</c> или <c>src-title-info</c>.</param>
+    /// <param name="node">JSON-узел с данными для заполнения.</param>
+    /// <returns>Готовый элемент XML или <see langword="null"/>, если данные отсутствуют.</returns>
+    private XElement? BuildTitleInfo(XName name, JsonElement node)
     {
-        if (node == null) return null;
+        // Проверка, существует ли узел
+        if (node.ValueKind == JsonValueKind.Undefined || node.ValueKind == JsonValueKind.Null) return null;
+
         var el = new XElement(name);
-        AddMultipleTo(el, ns + "genre", node["Genres"]);
-        AddPersons(el, ns + "author", node["Authors"]);
-        AddTo(el, ns + "book-title", node["Title"] ?? node["BookTitle"]); // Обработка разных ключей
-        AddRichText(el, ns + "annotation", node["Annotation"]);
-        AddTo(el, ns + "keywords", node["Keywords"]);
-        AddDate(el, ns + "date", node["Date"], node["DateValue"]);
+
+        node.TryGetProperty("genres", out var genres);
+        AddMultipleTo(el, ns + "genre", genres);
+
+        node.TryGetProperty("authors", out var authors);
+        AddPersons(el, ns + "author", authors);
+
+        // Обработка разных ключей (Title или BookTitle)
+        if (node.TryGetProperty("title", out var title) || node.TryGetProperty("bookTitle", out title))
+            AddTo(el, ns + "book-title", title);
+
+        node.TryGetProperty("annotation", out var annotation);
+        AddRichText(el, ns + "annotation", annotation);
+
+        node.TryGetProperty("keywords", out var keywords);
+        AddTo(el, ns + "keywords", keywords);
+
+        node.TryGetProperty("date", out var date);
+        node.TryGetProperty("dateValue", out var dateVal);
+        AddDate(el, ns + "date", date, dateVal);
 
         // Обложка
         var coverId = (name == ns + "title-info") ? "cover.jpg" : "src-cover.jpg";
-        var coverNode = node["CoverPage"];
-        if (coverNode != null && coverNode.Type != JTokenType.Null)
+        if (node.TryGetProperty("coverPage", out var coverNode) && coverNode.ValueKind != JsonValueKind.Null)
         {
-            // НОРМАЛИЗАЦИЯ: если пришла строка, упаковываем её в объект, который понимает CreateImage
-            JToken finalCoverNode = coverNode;
-            if (coverNode.Type == JTokenType.String)
+            JsonElement finalCoverNode = coverNode;
+
+            // НОРМАЛИЗАЦИЯ: если пришла строка, создаем временный документ с нужной структурой
+            if (coverNode.ValueKind == JsonValueKind.String)
             {
-                finalCoverNode = new JObject
-                {
-                    ["attrs"] = new JObject
-                    {
-                        ["src"] = coverNode.ToString(),
-                    }
-                };
+                var rawJson = $"{{\"attrs\": {{\"src\": \"{coverNode.GetString()}\" }} }}";
+                finalCoverNode = JsonDocument.Parse(rawJson).RootElement;
             }
 
             var img = CreateImage(finalCoverNode, coverId);
@@ -763,160 +914,235 @@ public class Fb2Service
                 el.Add(new XElement(ns + "coverpage", img));
             }
         }
-        AddTo(el, ns + "lang", node["Lang"]);
-        AddTo(el, ns + "src-lang", node["SrcLang"]);
-        AddPersons(el, ns + "translator", node["Translators"]);
-        AddSequences(el, ns + "sequence", node["Sequence"]);
+
+        node.TryGetProperty("lang", out var lang);
+        AddTo(el, ns + "lang", lang);
+
+        node.TryGetProperty("srcLang", out var srcLang);
+        AddTo(el, ns + "src-lang", srcLang);
+
+        node.TryGetProperty("translators", out var translators);
+        AddPersons(el, ns + "translator", translators);
+
+        node.TryGetProperty("sequence", out var sequence);
+        AddSequences(el, ns + "sequence", sequence);
 
         return el.HasElements ? el : null;
     }
 
-    // Создание узла аннотаций/истории
-    private void AddRichText(XElement parent, XName name, JToken? node)
+    /// <summary>
+    /// Добавляет форматированный текст (например, аннотацию или историю) как дочерний элемент.
+    /// Поддерживает сложную структуру с абзацами, стилями и вложениями.
+    /// </summary>
+    /// <param name="parent">Родительский XML-элемент, к которому добавляется содержимое.</param>
+    /// <param name="name">Имя создаваемого элемента (например, <c>annotation</c>).</param>
+    /// <param name="node">JSON-представление rich-текста.</param>
+    private void AddRichText(XElement parent, XName name, JsonElement node)
     {
-        // 1. Проверяем на физический null и на JSON null ("key": null)
-        if (node == null || node.Type == JTokenType.Null) return;
+        if (node.ValueKind == JsonValueKind.Undefined || node.ValueKind == JsonValueKind.Null) return;
 
-        // 2. Если это просто пустая строка или пробелы, ничего не создаем
-        var nodeValue = node.ToString();
-        if (string.IsNullOrWhiteSpace(nodeValue)) return;
+        // Для RichText (который может быть сложным объектом или массивом) 
+        // логика пустой строки обычно проверяется внутри ConvertNode или по ValueKind
+        if (node.ValueKind == JsonValueKind.String && string.IsNullOrWhiteSpace(node.GetString())) return;
 
         var converted = ConvertNode(node);
 
         if (converted is XElement tempEl)
         {
-            // Проверяем, есть ли внутри хоть какой-то контент (элементы или текст)
             bool hasContent = tempEl.HasElements || !string.IsNullOrWhiteSpace(tempEl.Value);
 
             if (hasContent)
             {
-                // Если это был временный контейнер "temp", берем только его детей
                 var content = tempEl.Name == "temp" ? tempEl.Nodes() : (object)tempEl;
                 parent.Add(new XElement(name, content));
             }
         }
     }
 
-    // Создание основного body
-    private XElement BuildBody(JToken? content)
+    /// <summary>
+    /// Создаёт корневой элемент &lt;body&gt; документа на основе JSON-структуры контента.
+    /// Используется для восстановления основного текста книги.
+    /// </summary>
+    /// <param name="content">JSON-элемент, представляющий структуру контента.</param>
+    /// <returns>Элемент &lt;body&gt; с вложенной структурой разделов и параграфов.</returns>
+    private XElement BuildBody(JsonElement content)
     {
-        // 1. Проверяем наличие массива узлов
-        if (content?["content"] is JArray nodes && nodes.Count > 0)
+        // В System.Text.Json проверяем наличие свойства и что это массив
+        if (content.TryGetProperty("content", out var nodes) &&
+            nodes.ValueKind == JsonValueKind.Array &&
+            nodes.GetArrayLength() > 0)
         {
-            return (XElement?)ConvertNode(nodes[0]) ?? new XElement(ns + "body");
+            // EnumerateArray().First() — аналог nodes[0]
+            return (XElement?)ConvertNode(nodes.EnumerateArray().First()) ?? new XElement(ns + "body");
         }
 
-        // 3. Возвращаем пустой body, если контента нет или массив пуст
         return new XElement(ns + "body");
     }
 
-    // Рекурсивная конвертация узла JSON в XElement
-    private object? ConvertNode(JToken node)
+    /// <summary>
+    /// Рекурсивно преобразует узел JSON в соответствующий XML-элемент FB2.
+    /// Обрабатывает блоки, инлайны, стили, изображения и другие типы контента.
+    /// </summary>
+    /// <param name="node">Текущий JSON-узел для преобразования.</param>
+    /// <returns>Соответствующий XML-элемент или массив элементов, либо <see langword="null"/>.</returns>
+    private object? ConvertNode(JsonElement node)
     {
-        if (node == null || node.Type == JTokenType.Null) return null;
+        // 1. Проверка на пустоту
+        if (node.ValueKind == JsonValueKind.Undefined || node.ValueKind == JsonValueKind.Null)
+            return null;
 
-        // 1. Если пришел МАССИВ (JArray), обрабатываем каждый элемент рекурсивно
-        if (node is JArray array)
+        // 2. Если пришел МАССИВ, обрабатываем элементы рекурсивно
+        if (node.ValueKind == JsonValueKind.Array)
         {
-            return array.Select(ConvertNode).Where(x => x != null).ToArray();
+            return node.EnumerateArray()
+                .Select(ConvertNode)
+                .Where(x => x != null)
+                .ToArray();
         }
-        string type = node["type"]?.ToString() ?? "";
 
-        // 1. Сначала определяем, были ли в JSON вообще какие-то дети до фильтрации
-        var rawChildNodes = node["content"] as JArray;
+        // 3. Извлекаем тип узла
+        node.TryGetProperty("type", out var typeProp);
+        string type = typeProp.GetString() ?? "";
 
-        // 2. Собираем отфильтрованные дети (где hardBreak вернет null)
-        var children = rawChildNodes != null
-            ? rawChildNodes.Select(ConvertNode).Where(x => x != null).ToArray()
-            : [];
+        // 4. Собираем отфильтрованные дочерние узлы
+        object[] children = [];
+        if (node.TryGetProperty("content", out var rawChildNodes) && rawChildNodes.ValueKind == JsonValueKind.Array)
+        {
+            children = [.. rawChildNodes.EnumerateArray()
+                .Select(ConvertNode)
+                .Where(x => x != null)
+                .Cast<object>()];
+        }
 
         return type switch
         {
-            // "doc" возвращает временный контейнер (XElement)
             "doc" => new XElement("temp", children),
-            "paragraph" => children.Length > 0
-                    ? new XElement(ns + "p", children) // Есть полезный контент
-                    : new XElement(ns + "empty-line"), // Если были дети (br), но отфильтровались — null. Если детей не было вообще — empty-line.
-            "text" => WrapTextWithMarks(node), // Возвращает XText или XElement (если есть марки)
-
-            "fb2Section" => new XElement(ns + "section", children),
+            "paragraph" => CreateParagraph(node, children),
+            "text" => WrapTextWithMarks(node),
+            "fb2Section" => CreateElementWithId("section", node, children),
             "fb2BodySection" => new XElement(ns + "body", children),
-            "fb2Annotation" => new XElement(ns + "annotation", children),
+            "fb2Annotation" => CreateElementWithId("annotation", node, children),
             "fb2Title" => new XElement(ns + "title", children),
-            "fb2Cite" => new XElement(ns + "cite", children),
-            "fb2Epigraph" => new XElement(ns + "epigraph", children),
-            "fb2TextAuthor" => new XElement(ns + "text-author", children),
-            "fb2Poem" => new XElement(ns + "poem", children),
+            "fb2Cite" => CreateElementWithId("cite", node, children),
+            "fb2Epigraph" => CreateElementWithId("epigraph", node, children),
+            "fb2TextAuthor" => CreateElementWithId("text-author", node, children),
+            "fb2Poem" => CreateElementWithId("poem", node, children),
             "fb2Stanza" => new XElement(ns + "stanza", children),
-            "fb2V" => new XElement(ns + "v", children),
-            "fb2Subtitle" => new XElement(ns + "subtitle", children),
+            "fb2V" => CreateElementWithId("v", node, children),
+            "fb2Subtitle" => CreateElementWithId("subtitle", node, children),
             "fb2Date" => CreateDate(node),
             "fb2BlockImage" => CreateImage(node),
             "fb2InlineImage" => CreateImage(node),
             _ => null
-            //            "fb2Placeholder" => null,
-            //            _ => !string.IsNullOrEmpty(type) ? new XComment($"Unknown type: {type}") : null
         };
     }
 
-    // Обработка текстовых узлов с форматированием
-    private static object WrapTextWithMarks(JToken node) // Возвращаем object для гибкости
+    private static XElement CreateParagraph(JsonElement node, object[] children)
     {
-        var textValue = node["text"]?.ToString() ?? "";
+        var p = children.Length > 0 ? new XElement(ns + "p", children) : new XElement(ns + "empty-line");
 
-        if (node["marks"] is not JArray marks || !marks.Any())
+        if (p.Name == ns + "p" && node.TryGetProperty("attrs", out var attrs))
+        {
+            SetAttr(p, "id", attrs);
+            SetAttr(p, "style", attrs);
+        }
+
+        return p;
+    }
+    private static XElement CreateElementWithId(string nodeName, JsonElement node, object[] children)
+    {
+        var el = children.Length > 0 ? new XElement(ns + nodeName, children) : new XElement(ns + nodeName);
+
+        if (node.TryGetProperty("attrs", out var attrs))
+        {
+            if (nodeName == "section")
+            {
+                SetAttr(el, "elementId", attrs, "id");
+            }
+            else
+            {
+                SetAttr(el, "id", attrs);
+            }
+        }
+
+        return el;
+    }
+    private static void SetAttr(XElement el, string name, JsonElement attrs, string targetName = "")
+    {
+        targetName = string.IsNullOrWhiteSpace(targetName) ? name : targetName.Trim();
+
+        if (attrs.TryGetProperty(name, out var prop))
+        {
+            var val = prop.GetString();
+            if (!string.IsNullOrWhiteSpace(val)) el.SetAttributeValue(targetName, val);
+        }
+    }
+
+
+    /// <summary>
+    /// Оборачивает текстовые узлы с учётом применённых стилей (жирный, курсив, ссылки и т.д.).
+    /// Преобразует массив меток в цепочку вложенных XML-тегов.
+    /// </summary>
+    /// <param name="node">JSON-узел с текстом и массивом меток (marks).</param>
+    /// <returns>Объект (обычно строка или XElement), обёрнутый в соответствующие теги стилей.</returns>
+    private static object WrapTextWithMarks(JsonElement node)
+    {
+        node.TryGetProperty("text", out var textProp);
+        string textValue = textProp.GetString() ?? "";
+
+        if (!node.TryGetProperty("marks", out var marks) || marks.ValueKind != JsonValueKind.Array)
             return textValue;
-        // ВАЖНО: Начинаем с XNode, чтобы гарантировать корректную работу методов XML
+
         object result = textValue;
 
-        foreach (var mark in marks)
+        foreach (var mark in marks.EnumerateArray())
         {
-            string markType = mark["type"]?.ToString() ?? "";
-            var attrs = mark["attrs"];
+            mark.TryGetProperty("type", out var markTypeProp);
+            string markType = markTypeProp.GetString() ?? "";
+            mark.TryGetProperty("attrs", out var attrs);
 
             result = markType switch
             {
                 "bold" => new XElement(ns + "strong", result),
                 "italic" => new XElement(ns + "emphasis", result),
-                "strikethrough" => new XElement(ns + "strikethrough", result), // Исправлено имя
+                "strikethrough" => new XElement(ns + "strikethrough", result),
                 "code" => new XElement(ns + "code", result),
                 "sub" => new XElement(ns + "sub", result),
                 "sup" => new XElement(ns + "sup", result),
-                "link" => CreateLinkFromMark(result, attrs),
+                "link" => CreateLinkFromMark(result, attrs), // attrs здесь JsonElement
                 _ => result
             };
         }
         return result;
     }
 
-    // Создание body с секцией примечаний
-    private XElement? BuildNotesBody(JObject? footnotes)
+    /// <summary>
+    /// Создаёт секцию &lt;body name="notes"&gt;, содержащую все сноски книги.
+    /// Каждая сноска добавляется как &lt;section&gt; с уникальным ID.
+    /// </summary>
+    /// <param name="footnotes">JSON-объект, где ключ — ID сноски, значение — её содержимое.</param>
+    /// <returns>Элемент &lt;body&gt; с именем "notes" и вложенными сносками, или <see langword="null"/>, если нет данных.</returns>
+    private XElement? BuildNotesBody(JsonElement footnotes)
     {
-        if (footnotes == null || !footnotes.Properties().Any())
-        {
-            return null;
-        }
+        // Проверка: footnotes должен быть объектом с полями
+        if (footnotes.ValueKind != JsonValueKind.Object) return null;
+
         var notesBody = new XElement(ns + "body", new XAttribute("name", "notes"));
 
-        // 2. Добавляем общий заголовок всей секции примечаний
         notesBody.Add(new XElement(ns + "title",
             new XElement(ns + "p", "Примечания")
         ));
 
         bool hasAddedAnyContent = false;
 
-        foreach (var property in footnotes.Properties())
+        // EnumerateObject() заменяет footnotes.Properties()
+        foreach (var property in footnotes.EnumerateObject())
         {
             string id = property.Name;
-            var noteContent = property.Value;
+            JsonElement noteContent = property.Value;
 
             var section = new XElement(ns + "section", new XAttribute("id", id));
 
-            // Заголовок конкретной сноски (например, "2")
-            //var titleId = id.Contains("_") ? id.Split('_').Last() : id;
-            //section.Add(new XElement(ns + "title", new XElement(ns + "p", titleId)));
-
-            // Контент сноски (параграфы и форматирование)
             var converted = ConvertNode(noteContent);
             if (converted != null)
             {
@@ -930,25 +1156,38 @@ public class Fb2Service
             }
         }
 
-        // Возвращаем body, только если в него реально добавились секции со сносками
         return hasAddedAnyContent ? notesBody : null;
     }
 
-    // Добавляет один элемент, если значение не пустое
-    private static void AddTo(XContainer parent, XName name, JToken? token)
+    /// <summary>
+    /// Добавляет один XML-элемент с текстовым содержимым, если значение не пустое.
+    /// Используется для простых полей вроде &lt;title&gt;, &lt;publisher&gt; и т.п.
+    /// </summary>
+    /// <param name="parent">Родительский контейнер, в который добавляется элемент.</param>
+    /// <param name="name">Имя создаваемого элемента.</param>
+    /// <param name="token">Значение элемента в виде JSON-узла.</param>
+    private static void AddTo(XContainer parent, XName name, JsonElement token)
     {
-        var val = token?.ToString();
+        if (token.ValueKind == JsonValueKind.Undefined || token.ValueKind == JsonValueKind.Null) return;
+
+        var val = token.ToString()?.Trim();
         if (!string.IsNullOrWhiteSpace(val)) parent.Add(new XElement(name, val));
     }
 
-    // Добавляет один или несколько элементов (если это массив)
-    private static void AddMultipleTo(XContainer parent, XName name, JToken? token)
+    /// <summary>
+    /// Добавляет один или несколько элементов, в зависимости от типа значения (массив или скаляр).
+    /// Используется для полей, которые могут повторяться, например &lt;home-page&gt;.
+    /// </summary>
+    /// <param name="parent">Родительский контейнер.</param>
+    /// <param name="name">Имя добавляемых элементов.</param>
+    /// <param name="token">JSON-значение (массив или одиночное значение).</param>
+    private static void AddMultipleTo(XContainer parent, XName name, JsonElement token)
     {
-        if (token == null || token.Type == JTokenType.Null) return;
+        if (token.ValueKind == JsonValueKind.Undefined || token.ValueKind == JsonValueKind.Null) return;
 
-        if (token is JArray arr)
+        if (token.ValueKind == JsonValueKind.Array)
         {
-            foreach (var item in arr)
+            foreach (var item in token.EnumerateArray())
                 AddTo(parent, name, item);
         }
         else
@@ -957,109 +1196,144 @@ public class Fb2Service
         }
     }
 
-    // Добавление набора серий
-    private static void AddSequences(XContainer parent, XName tagName, JToken? token)
+    /// <summary>
+    /// Добавляет один или несколько элементов &lt;sequence&gt; в указанный контейнер.
+    /// Поддерживает как массив серий, так и одиночный объект.
+    /// </summary>
+    /// <param name="parent">Родительский элемент (например, &lt;title-info&gt;).</param>
+    /// <param name="tagName">Имя тега, по умолчанию &lt;sequence&gt;.</param>
+    /// <param name="token">JSON-данные о серии или массиве серий.</param>
+    private static void AddSequences(XContainer parent, XName tagName, JsonElement token)
     {
-        if (token == null || token.Type == JTokenType.Null) return;
+        if (token.ValueKind == JsonValueKind.Undefined || token.ValueKind == JsonValueKind.Null) return;
 
-        // Явно указываем тип переменной, а в тернарном операторе приводим к IEnumerable<JToken>
-        IEnumerable<JToken> sequenceNodes = token is JArray arr
-            ? arr.AsEnumerable()
-            : [token];
-
-        foreach (var item in sequenceNodes)
+        if (token.ValueKind == JsonValueKind.Array)
         {
-            // Проверяем, что это объект, прежде чем пытаться извлечь из него Name/Number
-            if (item is JObject)
+            foreach (var item in token.EnumerateArray())
             {
-                AddSingleSequence(parent, tagName, item);
+                if (item.ValueKind == JsonValueKind.Object)
+                    AddSingleSequence(parent, tagName, item);
             }
+        }
+        else if (token.ValueKind == JsonValueKind.Object)
+        {
+            AddSingleSequence(parent, tagName, token);
         }
     }
 
-    // Добавление одной серии
-    private static void AddSingleSequence(XContainer parent, XName name, JToken? token)
+    /// <summary>
+    /// Добавляет один элемент &lt;sequence&gt; с атрибутами name и number.
+    /// Используется внутренне методом <see cref="AddSequences"/>.
+    /// </summary>
+    /// <param name="parent">Контейнер, в который добавляется серия.</param>
+    /// <param name="name">Имя тега, обычно &lt;sequence&gt;.</param>
+    /// <param name="token">JSON-объект с полями name и number.</param>
+    private static void AddSingleSequence(XContainer parent, XName name, JsonElement token)
     {
-        // 1. Защита от Null и пустых объектов
-        if (token == null || token.Type == JTokenType.Null || !token.HasValues)
-            return;
-        // 1. Извлекаем имя — в FB2 это обязательный атрибут для <sequence>
-        var seqName = ((string?)token["Name"])?.Trim();
+        if (token.ValueKind != JsonValueKind.Object) return;
 
-        // Если имени нет, элемент <sequence> невалиден по схеме FB2
+        // Извлекаем имя (name в FB2 — обязательный атрибут)
+        token.TryGetProperty("name", out var nameProp);
+        var seqName = nameProp.GetString()?.Trim();
+
         if (string.IsNullOrWhiteSpace(seqName)) return;
 
-        // 2. Создаем элемент. В FB2 <sequence> НЕ ДОЛЖЕН иметь текстового контента.
         var seqElement = new XElement(name, new XAttribute("name", seqName));
 
-        // 3. Номер серии (опционально)
-        var rawNumber = token["Number"]?.ToString()?.Trim();
-        if (!string.IsNullOrWhiteSpace(rawNumber) && int.TryParse(rawNumber, out int number))
+        // Номер серии
+        if (token.TryGetProperty("number", out var numProp))
         {
-            seqElement.Add(new XAttribute("number", number));
+            // Пробуем достать как число, если не вышло — как строку
+            string? numStr = numProp.ValueKind == JsonValueKind.Number
+                ? numProp.GetInt32().ToString()
+                : numProp.GetString()?.Trim();
+
+            if (!string.IsNullOrWhiteSpace(numStr) && int.TryParse(numStr, out int number))
+            {
+                seqElement.Add(new XAttribute("number", number));
+            }
         }
         parent.Add(seqElement);
     }
 
-    // Универсальный метод для добавления персон (авторов, переводчиков)
-    private static void AddPersons(XContainer parent, XName tagName, JToken? token)
+    /// <summary>
+    /// Универсальный метод для добавления персон (авторов, переводчиков) в указанный элемент.
+    /// Поддерживает как одиночные объекты, так и массивы.
+    /// </summary>
+    /// <param name="parent">Родительский элемент (например, &lt;title-info&gt;).</param>
+    /// <param name="tagName">Имя тега персоны: &lt;author&gt;, &lt;translator&gt;.</param>
+    /// <param name="token">JSON-данные о персоне или массиве персон.</param>
+    private static void AddPersons(XContainer parent, XName tagName, JsonElement token)
     {
-        if (token == null || token.Type == JTokenType.Null) return;
+        if (token.ValueKind == JsonValueKind.Undefined || token.ValueKind == JsonValueKind.Null) return;
 
-        // Безопасное получение списка объектов
-        IEnumerable<JToken> persons = token is JArray arr ? arr.Children() : new[] { token };
-
+        // Создаем список элементов для итерации
+        var persons = token.ValueKind == JsonValueKind.Array
+            ? (IEnumerable<JsonElement>)token.EnumerateArray()
+            : [token]; // Массив эффективнее, чем List, для одного элемента
         foreach (var p in persons)
         {
-            if (p is not JObject obj) continue; // Пропускаем, если это не объект
+            if (p.ValueKind != JsonValueKind.Object) continue;
 
             var personEl = new XElement(tagName);
 
-            // 1. Текстовые поля (в строгом порядке FB2)
-            AddTo(personEl, ns + "first-name", obj["FirstName"]);
-            AddTo(personEl, ns + "middle-name", obj["MiddleName"]);
-            AddTo(personEl, ns + "last-name", obj["LastName"]);
-            AddTo(personEl, ns + "nickname", obj["Nickname"]);
+            p.TryGetProperty("firstName", out var fn);
+            AddTo(personEl, ns + "first-name", fn);
 
-            // 2. Ссылки и контакты (home-page ОБЯЗАТЕЛЬНО перед email)
-            AddMultipleTo(personEl, ns + "home-page", obj["HomePage"]);
-            AddMultipleTo(personEl, ns + "email", obj["Email"]);
-            AddTo(personEl, ns + "id", obj["Id"]);
+            p.TryGetProperty("middleName", out var mn);
+            AddTo(personEl, ns + "middle-name", mn);
 
-            // 3. Добавляем только если есть реальный текстовый контент, а не пустые теги
+            p.TryGetProperty("lastName", out var ln);
+            AddTo(personEl, ns + "last-name", ln);
+
+            p.TryGetProperty("nickname", out var nn);
+            AddTo(personEl, ns + "nickname", nn);
+
+            p.TryGetProperty("homePage", out var hp);
+            AddMultipleTo(personEl, ns + "home-page", hp);
+
+            p.TryGetProperty("email", out var em);
+            AddMultipleTo(personEl, ns + "email", em);
+
+            p.TryGetProperty("id", out var idNode);
+            AddTo(personEl, ns + "id", idNode);
+
+            // Добавляем, если есть хоть какой-то текст внутри
             if (personEl.Elements().Any(e => !string.IsNullOrWhiteSpace(e.Value)))
             {
-                // Опционально: добавляем ID если он есть
-                var id = obj["id"]?.ToString();
-                if (!string.IsNullOrWhiteSpace(id)) personEl.Add(new XAttribute("id", id));
-
+                // Атрибут id (если есть в объекте)
+                if (idNode.ValueKind == JsonValueKind.String)
+                {
+                    var idVal = idNode.GetString();
+                    if (!string.IsNullOrWhiteSpace(idVal))
+                        personEl.Add(new XAttribute("id", idVal));
+                }
                 parent.Add(personEl);
             }
         }
     }
 
-    // Добавление даты в description
-    private static void AddDate(XContainer parent, XName name, JToken? textToken, JToken? valueToken)
+    /// <summary>
+    /// Добавляет элемент &lt;date&gt; с текстовым значением и опциональным машинным атрибутом value.
+    /// Используется в &lt;title-info&gt;, &lt;document-info&gt; и &lt;poem&gt;.
+    /// </summary>
+    /// <param name="parent">Родительский элемент.</param>
+    /// <param name="name">Имя создаваемого тега, обычно &lt;date&gt;.</param>
+    /// <param name="textToken">Отображаемое значение даты.</param>
+    /// <param name="valueToken">Машинно-читаемое значение (ISO-формат).</param>
+    private static void AddDate(XContainer parent, XName name, JsonElement textToken, JsonElement valueToken)
     {
-        // Используем явное приведение (string?), оно корректно достает значение из JValue
-        var dateText = (textToken?.Type == JTokenType.String || textToken?.Type == JTokenType.Date)
-            ? textToken.ToString().Trim()
-            : textToken?.ToString().Trim();
-
-        var dateValue = valueToken?.ToString().Trim();
+        var dateText = textToken.ValueKind != JsonValueKind.Undefined ? textToken.ToString()?.Trim() : null;
+        var dateValue = valueToken.ValueKind != JsonValueKind.Undefined ? valueToken.ToString()?.Trim() : null;
 
         bool hasText = !string.IsNullOrWhiteSpace(dateText);
         bool hasValue = !string.IsNullOrWhiteSpace(dateValue);
 
-        // 1. Если данных нет совсем — выходим
         if (!hasText && !hasValue) return;
 
-        // 2. Определяем видимый текст: текст из редактора или, если его нет, техническое значение
         string content = hasText ? dateText! : dateValue!;
-
         var dateEl = new XElement(name, content);
 
-        // 3. Добавляем атрибут value только если он есть
         if (hasValue)
         {
             dateEl.Add(new XAttribute("value", dateValue!));
@@ -1068,28 +1342,35 @@ public class Fb2Service
         parent.Add(dateEl);
     }
 
-    // Создание даты в poem
-    private XElement CreateDate(JToken node)
+    /// <summary>
+    /// Создаёт элемент &lt;date&gt; внутри стихотворения с возможностью вложенного форматирования.
+    /// Поддерживает как простой текст, так и rich-контент.
+    /// </summary>
+    /// <param name="node">JSON-узел с данными о дате.</param>
+    /// <returns>Элемент &lt;date&gt; с атрибутом value и содержимым.</returns>
+    private XElement CreateDate(JsonElement node)
     {
         // 1. Безопасно достаем атрибут value
-        var attrs = node["attrs"];
-        var dateValue = attrs?["value"]?.ToString()?.Trim() ?? "";
+        node.TryGetProperty("attrs", out var attrs);
+        attrs.TryGetProperty("value", out var valueProp);
+        string dateValue = valueProp.GetString()?.Trim() ?? "";
 
-        // 2. Явно приводим JArray к IEnumerable<JToken>, чтобы Select не "ломался"
-        var rawContent = node["content"] as JArray;
-
-        // Используем .Children() или явное приведение типов
-        var children = rawContent?
-            .Cast<JToken>()
-            .Select(n => ConvertNode(n)) // Явно вызываем метод, чтобы помочь компилятору с типами
-            .Where(x => x != null)
-            .ToArray();
+        // 2. Обрабатываем дочерние узлы
+        object[] children = [];
+        if (node.TryGetProperty("content", out var rawContent) && rawContent.ValueKind == JsonValueKind.Array)
+        {
+            children = rawContent.EnumerateArray()
+                .Select(n => ConvertNode(n))
+                .Where(x => x != null)
+                .Cast<object>()
+                .ToArray();
+        }
 
         // 3. Создаем элемент. Если контента нет, используем дату как текст (fallback)
-        var dateContent = (children != null && children.Length > 0) ? (object)children : dateValue;
+        object dateContent = children.Length > 0 ? children : dateValue;
         var dateEl = new XElement(ns + "date", dateContent);
 
-        // 4. Добавляем машиночитаемый атрибут, если он есть
+        // 4. Добавляем машиночитаемый атрибут
         if (!string.IsNullOrWhiteSpace(dateValue))
         {
             dateEl.Add(new XAttribute("value", dateValue));
@@ -1098,17 +1379,32 @@ public class Fb2Service
         return dateEl;
     }
 
-    // Создание элемента с изображением
-    private object? CreateImage(JToken node, string? forcedId = null)
+    /// <summary>
+    /// Создаёт элемент &lt;image&gt; с ссылкой на бинарные данные через xlink:href.
+    /// Автоматически извлекает Base64-данные и сохраняет их в кэш.
+    /// </summary>
+    /// <param name="node">JSON-узел с атрибутами изображения (src, href, title).</param>
+    /// <param name="forcedId">Опциональный ID изображения, переопределяющий href.</param>
+    /// <returns>Элемент &lt;image&gt; или комментарий при ошибке.</returns>
+    private object? CreateImage(JsonElement node, string? forcedId = null)
     {
-        if (node is not JObject obj) return null;
+        if (node.ValueKind != JsonValueKind.Object) return null;
 
-        // Tiptap обычно вкладывает всё в attrs. Если attrs нет, берем сам объект.
-        var attrs = obj["attrs"] as JObject ?? obj;
+        // Tiptap обычно вкладывает всё в attrs.
+        if (!node.TryGetProperty("attrs", out var attrs))
+        {
+            attrs = node;
+        }
 
-        string? rawData = attrs["src"]?.ToString();
-        string? rawHref = attrs["href"]?.ToString();
-        string? title = attrs["title"]?.ToString();
+        attrs.TryGetProperty("src", out var srcProp);
+        attrs.TryGetProperty("href", out var hrefProp);
+        attrs.TryGetProperty("title", out var titleProp);
+        attrs.TryGetProperty("id", out var idProp);
+
+        string? rawData = srcProp.GetString();
+        string? rawHref = hrefProp.GetString();
+        string? title = titleProp.GetString();
+        string? id = idProp.GetString();
 
         // 1. Очистка ID
         string lookupId = (rawHref ?? "").Replace("#", "").Trim();
@@ -1119,7 +1415,7 @@ public class Fb2Service
 
         if (string.IsNullOrEmpty(rawData)) return null;
 
-        // 2. Надежный парсинг Data URL без Split(',')
+        // 2. Парсинг Data URL
         string base64Only;
         string contentType = "image/jpeg";
 
@@ -1128,10 +1424,9 @@ public class Fb2Service
             int commaIndex = rawData.IndexOf(',');
             if (commaIndex == -1) return new XComment(" Invalid Data URL: comma missing ");
 
-            string header = rawData[..commaIndex]; // "data:image/png;base64"
+            string header = rawData[..commaIndex];
             base64Only = rawData[(commaIndex + 1)..];
 
-            // Извлекаем MIME-тип: ищем между "data:" и первым ";"
             int semiColonIndex = header.IndexOf(';');
             if (semiColonIndex > 5)
             {
@@ -1143,35 +1438,48 @@ public class Fb2Service
             base64Only = rawData;
         }
 
-        // 3. Защита от дублей ID в кэше (если два разных изображения имеют один ID)
-        // В FB2 бинарные данные должны быть уникальны. 
-        // Если ID уже занят, а контент другой — нужно либо генерировать новый ID, либо логировать ошибку.
+        // 3. Запись в кэш
         _binaryCache.TryAdd(finalId, (base64Only, contentType));
 
-        // 4. Формирование XML. Убедитесь, что xlink — это XNamespace ("http://w3.org")
+        // 4. Формирование XML
         var img = new XElement(ns + "image",
-            new XAttribute(XNamespace.Xmlns + "xlink", xlink.NamespaceName), // На всякий случай для валидности
+            new XAttribute(XNamespace.Xmlns + "xlink", xlink.NamespaceName),
             new XAttribute(xlink + "href", "#" + finalId)
         );
 
         if (!string.IsNullOrWhiteSpace(title))
             img.Add(new XAttribute("alt", title));
 
+        if (!string.IsNullOrWhiteSpace(id))
+            img.Add(new XAttribute("id", id));
+
         return img;
     }
 
-
-    // Создание ссылки из метки
-    private static object CreateLinkFromMark(object content, JToken? attrs)
+    /// <summary>
+    /// Создаёт гиперссылку &lt;a&gt; на основе данных из JSON.
+    /// Поддерживает обычные ссылки и сноски (через rel="footnote").
+    /// </summary>
+    /// <param name="content">Содержимое ссылки (текст или вложенные элементы).</param>
+    /// <param name="attrs">Атрибуты ссылки: href, rel, target.</param>
+    /// <returns>Элемент &lt;a&gt; с соответствующими атрибутами и содержимым.</returns>
+    private static object CreateLinkFromMark(object content, JsonElement attrs)
     {
-        var href = attrs?["href"]?.ToString()?.Trim() ?? "";
+        if (attrs.ValueKind == JsonValueKind.Undefined || attrs.ValueKind == JsonValueKind.Null)
+            return content;
+
+        attrs.TryGetProperty("href", out var hrefProp);
+        string href = hrefProp.GetString()?.Trim() ?? "";
+
         if (string.IsNullOrWhiteSpace(href))
             return content;
 
         var linkEl = new XElement(ns + "a");
 
         // Определяем тип ссылки
-        bool isFootnote = attrs?["rel"]?.ToString() == "footnote";
+        attrs.TryGetProperty("rel", out var relProp);
+        bool isFootnote = relProp.GetString() == "footnote";
+
         if (isFootnote)
         {
             var internalHref = href.StartsWith('#') ? href : "#" + href;
@@ -1183,9 +1491,8 @@ public class Fb2Service
             linkEl.Add(new XAttribute(xlink + "href", href));
         }
 
-        // Добавляем контент ПОСЛЕ атрибутов для чистоты структуры
         linkEl.Add(content);
-
         return linkEl;
     }
+
 }

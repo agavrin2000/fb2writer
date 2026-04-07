@@ -1,16 +1,28 @@
 using Avalonia.Platform.Storage;
-using Newtonsoft.Json;
+//using Newtonsoft.Json;
+using System.Text.Json;
+using System.Text.Encodings.Web;
 
 namespace FB2Editor.Services;
 
+/// <summary>
+/// Сервис для работы с файлами: открытие, выбор изображений и сохранение FB2-документов.
+/// Интегрируется с Avalonia через StorageProvider и взаимодействует с <see cref="Fb2Service"/> для конвертации форматов.
+/// </summary>
 public class FileService
 {
     private readonly Fb2Service _fb2Converter = new();
 
-    // Событие для отправки любых сообщений во фронтенд
-    // Параметр string — это готовый JSON для отправки через SendWebMessage
+    /// <summary>
+    /// Событие, возникающее при отправке сообщения во frontend.
+    /// Параметр — JSON-строка, готовая к передаче через механизм Web-сообщений.
+    /// </summary>
     public event Action<string>? OnMessageEmitted;
 
+    /// <summary>
+    /// Возвращает главное окно приложения, используемое как владелец диалогов выбора файлов.
+    /// </summary>
+    /// <returns>Экземпляр главного окна или <see langword="null"/>, если не установлено.</returns>
     private static Avalonia.Controls.Window? GetTopLevel()
     {
         // Возвращаем наше окно-заглушку из Program
@@ -18,9 +30,23 @@ public class FileService
     }
 
     /// <summary>
-    /// Open fb2-file
+    /// Настройки сериализации JSON для формирования сообщений.
+    /// Обеспечивает использование camelCase и корректное отображение кириллицы.
     /// </summary>
-    /// <returns></returns>
+    private static readonly JsonSerializerOptions _jsonOptions = new()
+    {
+        // camelCase для имен свойств (type, payload)
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull,
+        // Чтобы русский текст и спецсимволы в payload не превращались в \uXXXX
+        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+    };
+
+    /// <summary>
+    /// Асинхронно открывает FB2-файл (или архив .fb2.zip), читает его содержимое и преобразует в JSON.
+    /// Отправляет результат во frontend или уведомляет о cancell-событии и ошибках.
+    /// </summary>
+    /// <returns>Задача, представляющая асинхронную операцию.</returns>
     public async Task OpenFileAsync()
     {
         var topLevel = GetTopLevel();
@@ -68,9 +94,11 @@ public class FileService
     }
 
     /// <summary>
-    /// Open image file
+    /// Асинхронно открывает диалог выбора изображения (JPG, PNG) и возвращает его содержимое в формате Data URL.
+    /// Используется для вставки изображений в редактор.
     /// </summary>
-    /// <returns></returns>
+    /// <param name="DiplayType">Тип отображения изображения (например, "block" или "inline").</param>
+    /// <returns>Задача, представляющая асинхронную операцию.</returns>
     public async Task SelectImageAsync(string DiplayType)
     {
         var topLevel = GetTopLevel();
@@ -111,8 +139,7 @@ public class FileService
 
             string dataUrl = $"data:image/{ext};base64,{base64Image}";
 
-            // Формируем JSON-строку для payload вручную
-            var imageInfo = JsonConvert.SerializeObject(new
+            var imageInfo = JsonSerializer.Serialize(new
             {
                 data = dataUrl,
                 display = DiplayType,
@@ -128,10 +155,11 @@ public class FileService
     }
 
     /// <summary>
-    /// Save fb2-file
+    /// Асинхронно сохраняет JSON-представление документа обратно в FB2-файл или ZIP-архив.
+    /// Позволяет пользователю выбрать путь и формат сохранения.
     /// </summary>
-    /// <param name="jsonContent">JSON-content to save</param>
-    /// <returns></returns>
+    /// <param name="jsonContent">JSON-строка с данными редактора, подлежащая конвертации в FB2.</param>
+    /// <returns>Задача, представляющая асинхронную операцию.</returns>
     public async Task SaveFileAsync(string jsonContent)
     {
         var topLevel = GetTopLevel();
@@ -175,15 +203,14 @@ public class FileService
         }
     }
 
-
     /// <summary>
-    /// Helper to pack to json and invoke message
+    /// Вспомогательный метод для формирования и отправки JSON-сообщения через событие <see cref="OnMessageEmitted"/>.
     /// </summary>
-    /// <param name="type">Message type</param>
-    /// <param name="payload">Payload string</param>
+    /// <param name="type">Тип сообщения (например, "fb2-content", "error", "start-loading").</param>
+    /// <param name="payload">Полезная нагрузка сообщения в виде строки (может быть JSON).</param>
     private void Emit(string type, string payload)
     {
-        var message = JsonConvert.SerializeObject(new { type, payload });
+        var message = JsonSerializer.Serialize(new { type, payload }, _jsonOptions);
         OnMessageEmitted?.Invoke(message);
     }
 }

@@ -38,7 +38,7 @@ export const useFB2Editor = (
   const editor = useEditor(
     {
       extensions: EditorExtensions,
-      content: EMPTY_FB2_TEMPLATE.EditorContent,
+      content: EMPTY_FB2_TEMPLATE.content,
       immediatelyRender: false,
       editorProps: editorProps,
       // Обработка изменений контента

@@ -1,7 +1,6 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
 	<PropertyGroup>
-		<OutputType>Exe</OutputType>
 		<TargetFramework>net10.0</TargetFramework>
 		<Platforms>AnyCPU</Platforms>
 		<ImplicitUsings>enable</ImplicitUsings>
@@ -11,26 +10,38 @@
 	</PropertyGroup>
 
 	<PropertyGroup Condition="'$(Configuration)' == 'Debug'">
+		<OutputType>WinExe</OutputType>
 		<DebugType>portable</DebugType>
 		<DebugSymbols>true</DebugSymbols>
 		<Optimize>false</Optimize>
 	</PropertyGroup>
 
 	<PropertyGroup Condition="'$(Configuration)' == 'Release'">
+		<OutputType>WinExe</OutputType>
 		<DebuggerSupport>false</DebuggerSupport>
 		<EnableUnsafeBinaryFormatterSerialization>false</EnableUnsafeBinaryFormatterSerialization>
 		<EventSourceSupport>false</EventSourceSupport>
 		<PublishSingleFile>true</PublishSingleFile>
-		<IncludeAllContentForSelfExtract>true</IncludeAllContentForSelfExtract>
+		<IncludeAllContentForSelfExtract>false</IncludeAllContentForSelfExtract>
 		<EnableDefaultContent>false</EnableDefaultContent>
     	<EnableDefaultContentItems>false</EnableDefaultContentItems>
 		<SelfContained>true</SelfContained> <!-- Включает рантайм .NET внутрь EXE -->
 		<RuntimeIdentifier>win-x64</RuntimeIdentifier> <!-- Укажите нужную ОС: win-x64, linux-x4, osx-64 -->
-		<PublishReadyToRun>true</PublishReadyToRun> <!-- Ускоряет запуск -->
+		<!-- Настройки для Windows -->
 		<IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
 		<DebugType>none</DebugType>
 		<DebugSymbols>false</DebugSymbols>
+		<!-- Запрещает копирование .pdb файлов зависимостей в выходную директорию -->
+		<CopyOutputSymbolsToPublishDirectory>false</CopyOutputSymbolsToPublishDirectory>
 		<Optimize>true</Optimize>
+	</PropertyGroup>
+	<PropertyGroup Condition="'$(RuntimeIdentifier)' == 'win-x64'">
+		<PublishReadyToRun>true</PublishReadyToRun>
+	</PropertyGroup>
+	<!-- Настройки для Linux -->
+	<PropertyGroup Condition="'$(RuntimeIdentifier)' == 'linux-x64'">
+		<!-- На Linux ReadyToRun может требовать дополнительных настроек среды -->
+		<PublishReadyToRun>false</PublishReadyToRun> 
 	</PropertyGroup>
 
 	<ItemGroup>
@@ -45,11 +56,18 @@
 	<ItemGroup>
 		<EmbeddedResource Include="Resources\**" />
 	</ItemGroup>
-
+	<!--Маска **/*.xsd подхватит все файлы схем в папке Schemas и её подпапках 
 	<ItemGroup>
-	<!-- Маска **/*.xsd подхватит все файлы схем в папке Schemas и её подпапках -->
 	<None Update="Schemas\*.xsd">
 		<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	</None>
+	</ItemGroup>
+	-->
+	<ItemGroup>
+	<None Include="Schemas\**\*.xsd">
+		<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		<!-- Этот флаг заставит файл остаться в папке при SingleFile сборке -->
+		<ExcludeFromSingleFile>true</ExcludeFromSingleFile>
 	</None>
 	</ItemGroup>
 	
@@ -85,6 +103,14 @@
             <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
         </Content>
     </ItemGroup>
-
 	</Target>
+
+	<Target Name="CleanupNativePdb" AfterTargets="Publish" Condition="'$(Configuration)' == 'Release'">
+    <ItemGroup>
+        <PdbToDelete Include="$(PublishDir)*.pdb" />
+    </ItemGroup>
+    
+    <Message Importance="high" Text="--- [CLEANUP] Удаление лишних символов отладки из $(PublishDir) ---" />
+    <Delete Files="@(PdbToDelete)" />
+</Target>
 </Project>

@@ -6,6 +6,16 @@ export const Fb2Cite = BlockQuote.extend({
     return {
       ...this.parent?.(),
       class: { default: "fb2-cite" },
+      id: {
+        default: null,
+        renderHTML: (attributes) => {
+          if (!attributes.id) {
+            return {};
+          }
+          return { id: attributes.id };
+        },
+        parseHTML: (element) => element.getAttribute("id"),
+      },
     };
   },
 });

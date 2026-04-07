@@ -19,6 +19,7 @@ import { Fb2BlockImage } from "./extensions/fb2blockimage";
 import { Fb2InlineImage } from "./extensions/fb2inlineimage";
 import { Fb2Placeholder } from "./extensions/fb2placeholder";
 import { Fb2Annotation } from "./extensions/fb2annotation";
+import { Fb2Paragraph } from "./extensions/fb2paragraph";
 import Document from '@tiptap/extension-document'
 
 const CustomDocument = Document.extend({
@@ -32,6 +33,7 @@ export const EditorExtensions = [
     gapcursor: false,
     link: false,
     document: false, 
+    paragraph: false,
     // Заголовки разных уровней
     heading: { levels: [1, 2, 3, 4] },
     // Настройка цитат
@@ -71,6 +73,7 @@ export const EditorExtensions = [
     },
     validate: (href) => /^https?:\/\/|^\#/.test(href),
   }),
+  Fb2Paragraph,
   Fb2InlineImage,
   Fb2BlockImage,
   Fb2Section,

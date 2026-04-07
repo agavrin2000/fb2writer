@@ -4,14 +4,9 @@ using System.Text;
 using Avalonia;
 using Avalonia.Controls;
 using FB2Editor.Services;
-using Newtonsoft.Json.Linq;
-using Newtonsoft.Json;
-using System.Reflection;
-using Microsoft.Extensions.FileProviders;
+using System.Text.Json;
 
 namespace FB2Editor;
-//NOTE: To hide the console window, go to the project properties and change the Output Type to Windows Application.
-// Or edit the .csproj file and change the <OutputType> tag from "WinExe" to "Exe".
 
 class Program
 {
@@ -23,26 +18,51 @@ class Program
 
     public static Window? DialogOwner { get; private set; }
 
-
     [STAThread]
     static void Main(string[] args)
     {
-        var assembly = Assembly.GetExecutingAssembly();
-        Console.WriteLine("Список всех встроенных ресурсов:");
-        foreach (var res in assembly.GetManifestResourceNames())
-        {
-            Console.WriteLine($" -> {res}");
-        }
         InitializeAvalonia();
-
-
         var fileService = new FileService();
+        var fb2Service = new Fb2Service();
+
         PhotinoServer.CreateStaticFileServer(args, out string baseUrl).RunAsync();
-        Console.WriteLine($" Base URL: {baseUrl}");
 
         string appUrl = IsDebugMode ? "http://localhost:3000" : $"{baseUrl}/index.html";
 
-        // Loader на старте приложения
+        // Console.WriteLine($"Serving React app at {appUrl}");
+
+        // Creating a new PhotinoWindow instance with the fluent API
+        var window = new PhotinoWindow()
+            .SetTitle("FB2 Writer")
+            .SetUseOsDefaultSize(false)
+            .SetSize(new System.Drawing.Size(800, 600))
+            .Center()
+            .SetMinWidth(600)
+            .SetResizable(true)
+            .SetDevToolsEnabled(true)
+            .SetContextMenuEnabled(true)
+            .SetBrowserControlInitParameters("--disable-http-cache") // Запрет кеширования, чтобы запускалась последняя версия
+            .RegisterCustomSchemeHandler("app", (sender, scheme, url, out contentType) =>
+            {
+                contentType = "text/javascript";
+                return new MemoryStream(Encoding.UTF8.GetBytes(@"
+                        (() =>{
+                            window.setTimeout(() => {
+                                alert(`🎉 Dynamically inserted JavaScript.`);
+                            }, 1000);
+                        })();
+                    "));
+            });
+
+        // Регистрация обработчика сообщений
+        window.RegisterWebMessageReceivedHandler((sender, message) =>
+        {
+            if (sender is not PhotinoWindow w) return;
+            ProcessMessage(message, fileService, window);
+        });
+        fileService.OnMessageEmitted += (json) => window.SendWebMessage(json);
+
+        // Загружаем строку с лоадером, который будет сам переключаться на приложение после ответа сервера
         string loadingHtml = $@"
             <!DOCTYPE html>
             <html>
@@ -95,78 +115,20 @@ class Program
                 </script>
             </body>
             </html>";
-
-        Console.WriteLine($"Serving React app at {appUrl}");
-
-        var fb2Service = new Fb2Service();
-
-        // Window title declared here for visibility
-        string windowTitle = "FB2 Writer";
-
-        // Creating a new PhotinoWindow instance with the fluent API
-        var window = new PhotinoWindow()
-            .SetTitle(windowTitle)
-            // Resize to a percentage of the main monitor work area
-            //.Resize(50, 50, "%")
-            .SetUseOsDefaultSize(false)
-            .SetSize(new System.Drawing.Size(800, 600))
-            // Center window in the middle of the screen
-            .Center()
-            .SetMinWidth(600)
-            // Users can resize windows by default.
-            // Let's make this one fixed instead.
-            .SetResizable(true)
-            .SetDevToolsEnabled(true)
-            .SetContextMenuEnabled(true)
-            .RegisterCustomSchemeHandler("app", (sender, scheme, url, out contentType) =>
-            {
-                contentType = "text/javascript";
-                return new MemoryStream(Encoding.UTF8.GetBytes(@"
-                        (() =>{
-                            window.setTimeout(() => {
-                                alert(`🎉 Dynamically inserted JavaScript.`);
-                            }, 1000);
-                        })();
-                    "));
-            });
-
-        window.RegisterWebMessageReceivedHandler((sender, message) =>
-        {
-            if (sender is not PhotinoWindow w) return;
-            ProcessMessage(message, fileService, window);
-        });
-        fileService.OnMessageEmitted += (json) => window.SendWebMessage(json);
-
-        // Загружаем строку с лоадером, который будет сам переключаться на приложение после ответа сервера
         window.LoadRawString(loadingHtml);
-
         window.WaitForClose();
     }
 
-    private static void InitializeAvalonia()
-    {
-        AppBuilder.Configure<App>()
-            .UsePlatformDetect()
-            .SetupWithoutStarting();
-
-        DialogOwner = new Window
-        {
-            WindowDecorations = WindowDecorations.None,
-            ShowInTaskbar = false,
-            Opacity = 0,
-            WindowStartupLocation = WindowStartupLocation.Manual,
-            Position = new PixelPoint(-20000, -20000) // Уводим максимально далеко
-        };
-
-        DialogOwner.Show();
-        DialogOwner.Hide();
-    }
-
+    /// <summary>
+    /// Обработка сообщений от веб-интерфейса
+    /// </summary>
+    /// <param name="message">Сообщение</param>
+    /// <param name="fileService">Сервис для работы с файлами</param>
+    /// <param name="window">Окно Photino</param>
     private static void ProcessMessage(string message, FileService fileService, PhotinoWindow window)
     {
         if (string.IsNullOrWhiteSpace(message)) return;
 
-        // Разделяем строку на две части по первому двоеточию
         // Разделяем команду и полезную нагрузку по первому двоеточию
         // "save-file:{"text":"..."}" -> ["save-file", "{"text":"..."}"]
         var separatorIndex = message.IndexOf(':');
@@ -196,13 +158,19 @@ class Program
                 {
                     try
                     {
-                        var obj = JObject.Parse(payload);
-                        type = obj["type"]?.ToString() ?? "block"; ;
+                        // Используем JsonDocument для доступа к свойствам "на лету"
+                        using (JsonDocument doc = JsonDocument.Parse(payload))
+                        {
+                            if (doc.RootElement.TryGetProperty("type", out JsonElement typeElement))
+                            {
+                                type = typeElement.GetString() ?? "block";
+                            }
+                        }
                     }
                     catch (JsonException ex)
                     {
                         Console.WriteLine($"[C# JSON Parse Error]: {ex.Message}");
-                        // Используем значение по умолчанию
+                        type = "block"; // Используем значение по умолчанию "block"
                     }
                 }
                 _ = fileService.SelectImageAsync(type);
@@ -218,9 +186,33 @@ class Program
         }
     }
 
-    // 3. Минимальный класс App для инициализации Avalonia
+    /// Минимальный класс App для инициализации Avalonia
     public class App : Avalonia.Application
     {
         public override void Initialize() => base.Initialize();
     }
+
+    /// <summary>
+    /// Initialize Avalonia
+    /// </summary>
+    private static void InitializeAvalonia()
+    {
+        AppBuilder.Configure<App>()
+            .UsePlatformDetect()
+            .SetupWithoutStarting();
+
+        DialogOwner = new Window
+        {
+            WindowDecorations = WindowDecorations.None,
+            ShowInTaskbar = false,
+            Opacity = 0,
+            WindowStartupLocation = WindowStartupLocation.Manual,
+            Position = new PixelPoint(-20000, -20000) // Уводим максимально далеко
+        };
+
+        DialogOwner.Show();
+        DialogOwner.Hide();
+    }
+
+
 }

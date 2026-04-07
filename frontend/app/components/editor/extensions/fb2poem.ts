@@ -9,6 +9,21 @@ export const Fb2Poem = Node.create({
   defining: true,
   isolating: true,
   selectable: true,
+  addAttributes() {
+    return {
+      id: {
+        default: null,
+        renderHTML: (attributes) => {
+          if (!attributes.id) {
+            return {};
+          }
+          return { id: attributes.id };
+        },
+        parseHTML: (element) => element.getAttribute("id"),
+      },
+    };
+  },
+
   addNodeView() {
     return ({ node, editor, getPos }) => {
       const dom = document.createElement("div");

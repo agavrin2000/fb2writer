@@ -1,57 +1,58 @@
 // Основной интерфейс для персон (авторы, переводчики)
 export interface Fb2Person {
-  FirstName?: string;
-  MiddleName?: string;
-  LastName?: string;
-  Nickname?: string;
-  Emails?: string[];
-  Id?: string;
+  firstName?: string;
+  middleName?: string;
+  lastName?: string;
+  nickname?: string;
+  emails?: string[];
+  homePages?: string[];
+  id?: string;
 }
 
 // Интерфейс для серий
 export interface Fb2Sequence {
-  Name: string;
-  Number: number;
+  name: string;
+  number: number;
 }
 
 // Общие поля для TitleInfo и SrcTitleInfo
 export interface Fb2TitleInfo {
-  Genres: string[];
-  Authors: Fb2Person[];
-  Title: string;
-  Annotation?: any; // TipTap JSON
-  Keywords?: string;
-  Date?: string;
-  DateValue?: string;
-  CoverPage?: string;
-  SourcePage?: string;
-  Lang: string;
-  SrcLang?: string;
-  Translators?: Fb2Person[];
-  Sequence?: Fb2Sequence[];
+  genres: string[];
+  authors: Fb2Person[];
+  title: string;
+  annotation?: any; // TipTap JSON
+  keywords?: string;
+  date?: string;
+  dateValue?: string;
+  coverPage?: string;
+  sourcePage?: string;
+  lang: string;
+  srcLang?: string;
+  translators?: Fb2Person[];
+  sequence?: Fb2Sequence[];
 }
 
 // Данные о документе
 export interface Fb2DocumentInfo {
-  Authors: Fb2Person[];
-  Program?: string;
-  Date: string;
-  DateValue: string;
-  Id: string;
-  SrcUrl?: string;
-  SrcOcr?: string;
-  Version: string;
-  History?: any;
+  authors: Fb2Person[];
+  program?: string;
+  date: string;
+  dateValue: string;
+  id: string;
+  srcUrl?: string;
+  srcOcr?: string;
+  version: string;
+  history?: any;
 }
 
 // Издательские данные
 export interface Fb2PublishInfo {
-  BookName: string;
-  Publisher: string;
-  City: string;
-  Year: string;
-  ISBN: string;
-  Sequence: Fb2Sequence[];
+  bookName: string;
+  publisher: string;
+  city: string;
+  year: string;
+  isbn: string;
+  sequence: Fb2Sequence[];
 }
 
 // Кастомные поля
@@ -62,21 +63,21 @@ export interface Fb2CustomInfo {
   }[];
 }
 
-// ГЛАВНЫЙ ИНТЕРФЕЙС МЕТАДАННЫХ
+// Метаданные
 export interface Fb2Metadata {
-  TitleInfo: Fb2TitleInfo;
-  SrcTitleInfo?: Fb2TitleInfo;
-  DocumentInfo: Fb2DocumentInfo;
-  PublishInfo?: Fb2PublishInfo;
-  CustomInfo?: Fb2CustomInfo;
+  titleInfo: Fb2TitleInfo;
+  srcTitleInfo?: Fb2TitleInfo;
+  documentInfo: Fb2DocumentInfo;
+  publishInfo?: Fb2PublishInfo;
+  customInfo?: Fb2CustomInfo;
 }
 
-// Корневой объект, который приходит с бэкенда
+// Корневой объект для взаимодествия с бэкендом
 export interface Fb2Data {
-  Meta: Fb2Metadata;
-  EditorContent: any;
-  Footnotes: Record<string, any>;
-  FilePath: string;
+  metadata: Fb2Metadata;
+  content: any;
+  footnotes: Record<string, any>;
+  filePath: string;
 }
 
 // Элемент оглавления
@@ -115,8 +116,11 @@ export interface TiptapContent {
 
 // Ссловарь сносок
 export type FootnotesMap = Record<string, TiptapContent[]>;
+
+// Тип отображения изображения
 export type ImageDisplayType = "block" | "inline" | "section";
-// Корневой объект, который приходит с бэкенда
+
+// Объект с изображением, который приходит с бэкенда
 export interface Fb2ImageData {
   data: string;
   href: string;
@@ -125,33 +129,33 @@ export interface Fb2ImageData {
 
 // Шаблон для новой книги
 export const EMPTY_FB2_TEMPLATE: Fb2Data = {
-  Meta: {
-    TitleInfo: {
-      Genres: ["antique"], // Обязательный тег для валидности FB2
-      Authors: [
+  metadata: {
+    titleInfo: {
+      genres: ["antique"], // Обязательный тег для валидности FB2
+      authors: [
         {
-          FirstName: "Безымянный автор",
-          LastName: "Безымянный автор",
+          firstName: "Безымянный автор",
+          lastName: "Безымянный автор",
         },
       ],
-      Title: "Новая книга",
-      Lang: "ru",
+      title: "Новая книга",
+      lang: "ru",
     },
-    DocumentInfo: {
-      Authors: [
+    documentInfo: {
+      authors: [
         {
-          FirstName: "Безымянный автор",
-          LastName: "Безымянный автор",
+          firstName: "Безымянный автор",
+          lastName: "Безымянный автор",
         },
       ],
-      Program: "FB2 Editor",
-      Date: new Date().toISOString().split("T")[0],
-      DateValue: new Date().toISOString().split("T")[0],
-      Id: crypto.randomUUID?.() || "", // Генерация уникального ID документа
-      Version: "1.0",
+      program: "FB2 Editor",
+      date: new Date().toISOString().split("T")[0],
+      dateValue: new Date().toISOString().split("T")[0],
+      id: crypto.randomUUID?.() || "", // Генерация уникального ID документа
+      version: "1.0",
     },
   },
-  EditorContent: {
+  content: {
     type: "doc",
     content: [
       {
@@ -197,8 +201,8 @@ export const EMPTY_FB2_TEMPLATE: Fb2Data = {
       },
     ],
   },
-  Footnotes: [],
-  FilePath: "new_book.fb2",
+  footnotes: [],
+  filePath: "new_book.fb2",
 };
 
 // Список жанров

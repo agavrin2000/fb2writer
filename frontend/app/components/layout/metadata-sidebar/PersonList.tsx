@@ -3,34 +3,26 @@ import { User, Plus, X, Globe, Fingerprint } from 'lucide-react';
 import { Field } from './Field'; // Путь к твоему компоненту Field
 import { EditableList } from './EditableList';
 import { useConfirm } from '@/hooks/ConfirmContext';
+import { Fb2Person } from "@/types/types";
 
-interface Person {
-    FirstName?: string;
-    MiddleName?: string;
-    LastName?: string;
-    Nickname?: string;
-    Emails?: string[];
-    HomePages?: string[];
-    Id: string;
-}
 
 interface PersonListProps {
     title: string;
-    items: Person[];
-    onUpdate: (newItems: Person[]) => void;
+    items: Fb2Person[];
+    onUpdate: (newItems: Fb2Person[]) => void;
     icon?: any;
 }
 
 export const PersonList = ({ title, items = [], onUpdate, icon: Icon = User }: PersonListProps) => {
     const confirm = useConfirm();
     const addPerson = () => {
-        const newPerson: Person = { FirstName: '', MiddleName: '', LastName: '', Nickname: '', Emails: [], Id: '' };
+        const newPerson: Fb2Person = { firstName: '', middleName: '', lastName: '', nickname: '', emails: [], id: '' };
         onUpdate([...items, newPerson]);
     };
 
     const  removePerson = async(index: number) => {
         const person = items[index];
-        const displayName = [person.LastName, person.FirstName].filter(Boolean).join(' ') || person.Nickname || "запись";
+        const displayName = [person.lastName, person.firstName].filter(Boolean).join(' ') || person.nickname || "запись";
         const isConfirmed = await confirm.ask(
             "Удаление",
             `Вы уверены, что хотите удалить ${displayName}?`,
@@ -43,7 +35,7 @@ export const PersonList = ({ title, items = [], onUpdate, icon: Icon = User }: P
 
     };
 
-    const updatePerson = (index: number, updatedFields: Partial<Person>) => {
+    const updatePerson = (index: number, updatedFields: Partial<Fb2Person>) => {
         const newItems = [...items];
         newItems[index] = { ...newItems[index], ...updatedFields };
         onUpdate(newItems);
@@ -63,33 +55,33 @@ export const PersonList = ({ title, items = [], onUpdate, icon: Icon = User }: P
                         <X size={12} strokeWidth={3} />
                     </button>
 
-                    <Field label="Имя" value={person.FirstName} onChange={(val) => updatePerson(idx, { FirstName: val })} />
-                    <Field label="Отчество" value={person.MiddleName} onChange={(val) => updatePerson(idx, { MiddleName: val })} />
-                    <Field label="Фамилия" value={person.LastName} onChange={(val) => updatePerson(idx, { LastName: val })} />
+                    <Field label="Имя" value={person.firstName} onChange={(val) => updatePerson(idx, { firstName: val })} />
+                    <Field label="Отчество" value={person.middleName} onChange={(val) => updatePerson(idx, { middleName: val })} />
+                    <Field label="Фамилия" value={person.lastName} onChange={(val) => updatePerson(idx, { lastName: val })} />
                     <Field
                         label="Никнейм"
-                        value={person.Nickname}
+                        value={person.nickname}
                         icon={User}
                         className="font-bold text-blue-600"
-                        onChange={(val) => updatePerson(idx, { Nickname: val })}
+                        onChange={(val) => updatePerson(idx, { nickname: val })}
                     />
                     <Field
                         label="ID"
-                        value={person.Id}
+                        value={person.id}
                         icon={Fingerprint}
-                        onChange={(val) => updatePerson(idx, { Id: val })}
+                        onChange={(val) => updatePerson(idx, { id: val })}
                     />
                     <EditableList
                         label="Email"
-                        items={person.Emails || []}
-                        onUpdate={(newEmails) => updatePerson(idx, { Emails: newEmails })}
+                        items={person.emails || []}
+                        onUpdate={(newEmails) => updatePerson(idx, { emails: newEmails })}
                     />
                     <EditableList
                         label="Домашняя страница"
-                        items={person.HomePages || []}
+                        items={person.homePages || []}
                         icon={Globe}
                         placeholder='http://www.homepage'
-                        onUpdate={(newHomePages) => updatePerson(idx, { HomePages: newHomePages })}
+                        onUpdate={(newHomePages) => updatePerson(idx, { homePages: newHomePages })}
                     />
                 </div>
             ))}

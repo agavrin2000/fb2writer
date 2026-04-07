@@ -37,7 +37,19 @@ export const Fb2BlockImage = Image.extend({
         parseHTML: (element) => element.getAttribute("href"),
         renderHTML: (attributes) => ({ href: attributes.href }),
       },
-      class: { default: "block mx-auto my-4 rounded-lg shadow-md max-w-full" },
+            id: {
+        default: null,
+        // Отрисовка в HTML: добавляем атрибут id к тегу <p>
+        renderHTML: attributes => {
+          if (!attributes.id) {
+            return {}
+          }
+          return { id: attributes.id }
+        },
+        // Парсинг из HTML: ищем атрибут id в теге <p>
+        parseHTML: element => element.getAttribute('id'),
+      },
+      class: { default: "fb2-block-image" },
     };
   },
   addCommands(): any {

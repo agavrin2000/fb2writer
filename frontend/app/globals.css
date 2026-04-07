@@ -17,13 +17,12 @@
 body {
   color: rgb(var(--foreground-rgb));
   background-color: rgb(var(--background-start-rgb));
-  background-image: linear-gradient(
-    to bottom,
-    transparent,
-    rgb(var(--background-end-rgb))
-  );
+  background-image: linear-gradient(to bottom,
+      transparent,
+      rgb(var(--background-end-rgb)));
   background-attachment: fixed;
 }
+
 /* Контейнер-обертка для имитации бумажного листа */
 .editor-paper-sheet {
   background-color: #fdfdfd;
@@ -80,8 +79,10 @@ body {
 }
 
 .custom-scrollbar {
-  overflow-y: auto; /* Включаем прокрутку здесь */
-  scrollbar-gutter: stable; /* Резервирует место под скролл, чтобы контент не прыгал */
+  overflow-y: auto;
+  /* Включаем прокрутку здесь */
+  scrollbar-gutter: stable;
+  /* Резервирует место под скролл, чтобы контент не прыгал */
 }
 
 /* 1. Сама дорожка скроллбара */
@@ -157,7 +158,8 @@ body,
 .tiptap span[rel="footnote"] {
   color: #3b82f6;
   vertical-align: super;
-  font-size: 0.75em; /* Чуть меньше для изящности */
+  font-size: 0.75em;
+  /* Чуть меньше для изящности */
   line-height: 0;
   text-decoration: none;
   font-weight: bold;
@@ -541,7 +543,8 @@ section.fb2-section {
 .fb2-v {
   white-space: pre-wrap;
   display: block;
-  text-indent: 0 !important; /* У стихов не должно быть красной строки из общих стилей <p> */
+  text-indent: 0 !important;
+  /* У стихов не должно быть красной строки из общих стилей <p> */
   text-align: left !important;
 }
 
@@ -755,8 +758,13 @@ section.fb2-section {
   user-select: none;
   cursor: pointer;
 }
+
 .fb2-footnote:hover {
   @apply text-blue-800 decoration-blue-500;
+}
+
+.fb2-block-image {
+  @apply block mx-auto my-4 rounded-lg shadow-md max-w-full;
 }
 
 @layer components {

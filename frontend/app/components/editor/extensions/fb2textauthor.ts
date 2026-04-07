@@ -15,6 +15,21 @@ export const Fb2TextAuthor = Node.create({
     mergeAttributes(HTMLAttributes, { class: "fb2-text-author" }),
     0,
   ],
+  addAttributes() {
+    return {
+      id: {
+        default: null,
+        renderHTML: (attributes) => {
+          if (!attributes.id) {
+            return {};
+          }
+          return { id: attributes.id };
+        },
+        parseHTML: (element) => element.getAttribute("id"),
+      },
+    };
+  },
+
   addCommands(): any {
     return {
       insertFb2TextAuthor:
