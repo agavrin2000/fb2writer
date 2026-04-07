@@ -24,7 +24,8 @@ class Program
         InitializeAvalonia();
         var fileService = new FileService();
         var fb2Service = new Fb2Service();
-
+        // Проверяем, передан ли путь к файлу (обычно это первый аргумент после имени exe)
+        string? fileToOpen = args.Length > 0 && File.Exists(args[0]) ? args[0] : null;
         PhotinoServer.CreateStaticFileServer(args, out string baseUrl).RunAsync();
 
         string appUrl = IsDebugMode ? "http://localhost:3000" : $"{baseUrl}/index.html";
@@ -58,7 +59,7 @@ class Program
         window.RegisterWebMessageReceivedHandler((sender, message) =>
         {
             if (sender is not PhotinoWindow w) return;
-            ProcessMessage(message, fileService, window);
+            ProcessMessage(message, fileService, window, fileToOpen);
         });
         fileService.OnMessageEmitted += (json) => window.SendWebMessage(json);
 
@@ -125,7 +126,7 @@ class Program
     /// <param name="message">Сообщение</param>
     /// <param name="fileService">Сервис для работы с файлами</param>
     /// <param name="window">Окно Photino</param>
-    private static void ProcessMessage(string message, FileService fileService, PhotinoWindow window)
+    private static void ProcessMessage(string message, FileService fileService, PhotinoWindow window, string? fileToOpen)
     {
         if (string.IsNullOrWhiteSpace(message)) return;
 
@@ -150,6 +151,19 @@ class Program
             case "save-file":
                 if (!string.IsNullOrEmpty(payload))
                     _ = fileService.SaveFileAsync(payload);
+                break;
+
+            case "app-ready":
+                // Если при запуске был передан файл — открываем его сейчас
+                if (!string.IsNullOrEmpty(fileToOpen))
+                {
+                    _ = fileService.LoadFileByPathAsync(fileToOpen);
+                }
+                else
+                {
+                    // Файла нет, разрешаем фронтенду показать шаблон
+                    fileService.Emit("cancel-loading", string.Empty);
+                }
                 break;
 
             case "select-image":

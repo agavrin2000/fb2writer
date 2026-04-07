@@ -2,14 +2,29 @@ import { useState, useCallback, useMemo, useRef, useEffect } from "react";
 import { useFB2Editor } from "./useFB2Editor";
 import { useFootnotes } from "./useFootnotes";
 import { usePhotinoEvents } from "./usePhotinoEvents";
-import { Fb2Metadata, EMPTY_FB2_TEMPLATE } from "../types/types";
+import { Fb2Metadata, TocItem, EMPTY_FB2_TEMPLATE } from "../types/types";
 import { getFileName } from "../utils/utils";
 import { photino } from "@/api/photino";
 import { EditorState } from "@tiptap/pm/state";
+import { Editor } from "@tiptap/react";
 import isEqual from "fast-deep-equal";
 import { useConfirm } from "@/hooks/ConfirmContext";
 import { useToast } from "@/hooks/ToastContext";
 import { FootnotesMap } from "@/types/types";
+
+interface EditorManager {
+  editor: Editor | null; // Замените any на тип вашего редактора (например, Editor | null)
+  metadata: Fb2Metadata | null;
+  handleMetaChange: (data: any) => void;
+  notes: any;
+  isLoading: boolean;
+  loaderConfig: { title?: string; subtitle?: string } | null;
+  loadingFileName: string;
+  currentFilePath: string;
+  tocTree: TocItem[];
+  actions: any;
+  scrollToHeading: (item: TocItem) => void;
+}
 
 /**
  * Хук для управления редактором FB2-документов.
@@ -17,7 +32,7 @@ import { FootnotesMap } from "@/types/types";
  *
  * @returns {Object} Объект с состоянием редактора, метаданными, флагами загрузки и действиями.
  */
-export function useEditorManager(): object {
+export function useEditorManager(): EditorManager {
   const confirm = useConfirm();
   const { success: showToastSuccess, error: showToastError } = useToast();
 
@@ -32,7 +47,7 @@ export function useEditorManager(): object {
    * Ссылка на функцию установки активной сноски.
    * Позволяет обновлять состояние активной сноски из любого места.
    */
-  const setActiveNoteRef = useRef<(note: any) => void>(() => { });
+  const setActiveNoteRef = useRef<(note: any) => void>(() => {});
 
   /**
    * Текущие метаданные документа.
@@ -43,36 +58,38 @@ export function useEditorManager(): object {
   );
 
   /**
- * Сохранённое (эталонное) состояние метаданных.
- * Используется для сравнения с текущими метаданными при проверке изменений.
- */
-  const [savedMeta, setSavedMeta] = useState<Fb2Metadata>(EMPTY_FB2_TEMPLATE.metadata); // Эталон в виде строки
+   * Сохранённое (эталонное) состояние метаданных.
+   * Используется для сравнения с текущими метаданными при проверке изменений.
+   */
+  const [savedMeta, setSavedMeta] = useState<Fb2Metadata>(
+    EMPTY_FB2_TEMPLATE.metadata,
+  ); // Эталон в виде строки
 
   /**
- * Флаг состояния загрузки.
- * Указывает, выполняется ли в данный момент операция загрузки или сохранения.
- */
-  const [isLoading, setIsLoading] = useState(false);
+   * Флаг состояния загрузки.
+   * Указывает, выполняется ли в данный момент операция загрузки или сохранения.
+   */
+  const [isLoading, setIsLoading] = useState(true);
 
   /**
- * Имя файла, участвующего в текущей операции.
- * Отображается в интерфейсе во время загрузки/сохранения.
- *
- */
+   * Имя файла, участвующего в текущей операции.
+   * Отображается в интерфейсе во время загрузки/сохранения.
+   *
+   */
   const [loadingFileName, setLoadingFileName] = useState("");
 
   /**
-  * Текущий путь к файлу.
-  * Пусто для нового документа, содержит путь после открытия/сохранения.
-  */
+   * Текущий путь к файлу.
+   * Пусто для нового документа, содержит путь после открытия/сохранения.
+   */
   const [currentFilePath, setCurrentFilePath] = useState<string>(
     EMPTY_FB2_TEMPLATE.filePath,
   );
 
   /**
- * Конфигурация компонента загрузки.
- * Определяет отображаемый заголовок и подзаголовок индикатора прогресса.
- */
+   * Конфигурация компонента загрузки.
+   * Определяет отображаемый заголовок и подзаголовок индикатора прогресса.
+   */
   const [loaderConfig, setLoaderConfig] = useState<{
     title?: string;
     subtitle?: string;
@@ -99,20 +116,19 @@ export function useEditorManager(): object {
   }, [fb2.editor?.state.doc]); // Пересчитываем при каждом изменении документа
 
   /**
-  * Итоговый флаг "грязности" документа.
-  * Документ считается изменённым, если изменены метаданные или контент.
-  * @returns {boolean} `true`, если документ имеет несохранённые изменения.
-  */
+   * Итоговый флаг "грязности" документа.
+   * Документ считается изменённым, если изменены метаданные или контент.
+   * @returns {boolean} `true`, если документ имеет несохранённые изменения.
+   */
   const isDirty = isMetaDirty || isContentDirty;
-
 
   // 2. Инициализируем Сноски
   const notes = useFootnotes(fb2.editor, footnotesRef, setActiveNoteRef);
 
   /**
- * Очищает историю отмены/повтора в редакторе.
- * Создаёт новое состояние редактора с тем же документом, но без истории.
- */
+   * Очищает историю отмены/повтора в редакторе.
+   * Создаёт новое состояние редактора с тем же документом, но без истории.
+   */
   const clearHistory = useCallback(() => {
     if (!fb2.editor) return;
     const { view, state } = fb2.editor;
@@ -130,13 +146,12 @@ export function useEditorManager(): object {
 
   // --- ОБРАБОТЧИКИ СОБЫТИЙ (Incoming) ---
   /**
- * Обрабатывает событие получения содержимого FB2-документа из бэкенда.
- * Загружает метаданные, контент, сноски и настраивает редактор.
- * @param {string} payload - JSON-строка с данными документа.
- */
+   * Обрабатывает событие получения содержимого FB2-документа из бэкенда.
+   * Загружает метаданные, контент, сноски и настраивает редактор.
+   * @param {string} payload - JSON-строка с данными документа.
+   */
   const onFb2Content = useCallback(
     (payload: string) => {
-
       const data = typeof payload === "string" ? JSON.parse(payload) : payload;
       if (!fb2.editor || !data) return;
 
@@ -174,7 +189,6 @@ export function useEditorManager(): object {
       setLoaderConfig,
     ],
   );
-
 
   /**
    * Обрабатывает событие выбора изображения пользователем.
@@ -246,14 +260,17 @@ export function useEditorManager(): object {
    */
   const onStartSaving = useCallback(() => {
     setIsLoading(true);
-    setLoaderConfig({ title: "Сохранение книги", subtitle: "Формирование XML" });
+    setLoaderConfig({
+      title: "Сохранение книги",
+      subtitle: "Формирование XML",
+    });
     setLoadingFileName(getFileName(currentFilePath));
   }, [setLoadingFileName, setIsLoading, setLoaderConfig]);
 
   /**
- * Обрабатывает отмену процесса загрузки.
- * Деактивирует индикатор загрузки и сбрасывает состояние.
- */
+   * Обрабатывает отмену процесса загрузки.
+   * Деактивирует индикатор загрузки и сбрасывает состояние.
+   */
   const onCancelLoading = useCallback(() => {
     setIsLoading(false);
     setLoaderConfig(null);
@@ -261,10 +278,10 @@ export function useEditorManager(): object {
   }, [setLoadingFileName, setIsLoading, setLoaderConfig]);
 
   /**
- * Обрабатывает успешное сохранение файла.
- * Обновляет эталонные данные, сбрасывает флаги изменений и показывает уведомление.
- * @param {any} newFilePath - Новый путь к сохранённому файлу.
- */
+   * Обрабатывает успешное сохранение файла.
+   * Обновляет эталонные данные, сбрасывает флаги изменений и показывает уведомление.
+   * @param {any} newFilePath - Новый путь к сохранённому файлу.
+   */
   const onSaveSuccess = useCallback(
     (newFilePath: any) => {
       // 1. Сохраняем КЛОН объекта, чтобы разорвать связь с текущим стейтом
@@ -305,9 +322,9 @@ export function useEditorManager(): object {
   );
 
   /**
- * Объект с обработчиками событий, получаемых от Photino.
- * Каждый ключ соответствует имени события, значение — функция-обработчик.
- */
+   * Объект с обработчиками событий, получаемых от Photino.
+   * Каждый ключ соответствует имени события, значение — функция-обработчик.
+   */
   const eventHandlers = useMemo(
     () => ({
       "fb2-content": onFb2Content,
@@ -352,11 +369,11 @@ export function useEditorManager(): object {
   }, [isDirty, confirm]);
 
   /**
- * Сохраняет текущий документ в файл.
- * Если `saveAs` истинно или путь не задан, открывается диалог выбора места сохранения.
- * Перед сохранением очищает неиспользуемые сноски.
- * @param {boolean} [saveAs=false] - Если `true`, принудительно открывает диалог "Сохранить как".
- */
+   * Сохраняет текущий документ в файл.
+   * Если `saveAs` истинно или путь не задан, открывается диалог выбора места сохранения.
+   * Перед сохранением очищает неиспользуемые сноски.
+   * @param {boolean} [saveAs=false] - Если `true`, принудительно открывает диалог "Сохранить как".
+   */
   const saveFile = useCallback(
     (saveAs: boolean = false) => {
       if (!fb2.editor || isLoading) return;
@@ -373,7 +390,9 @@ export function useEditorManager(): object {
       // Очистка сносок на которые нет сыылок в тексте документа
       const usedIds = new Set<string>();
       fb2.editor.state.doc.descendants((node) => {
-        const linkMark = node.marks.find(m => m.type.name === "link" && m.attrs.rel === "footnote");
+        const linkMark = node.marks.find(
+          (m) => m.type.name === "link" && m.attrs.rel === "footnote",
+        );
         if (linkMark) {
           const id = linkMark.attrs.href?.replace("#", "");
           if (id) usedIds.add(id);
@@ -381,7 +400,7 @@ export function useEditorManager(): object {
       });
 
       const actualFootnotes = Object.keys(notes.footnotes)
-        .filter(id => usedIds.has(id))
+        .filter((id) => usedIds.has(id))
         .reduce((acc, id) => {
           acc[id] = notes.footnotes[id];
           return acc;
@@ -432,9 +451,9 @@ export function useEditorManager(): object {
   ]);
 
   /**
- * Открывает системный диалог для выбора изображения.
- * @param {"block" | "inline" | "section"} [type="block"] - Тип вставки изображения.
- */
+   * Открывает системный диалог для выбора изображения.
+   * @param {"block" | "inline" | "section"} [type="block"] - Тип вставки изображения.
+   */
   const selectImage = useCallback(
     (type: "block" | "inline" | "section" = "block") => {
       if (isLoading) return;
@@ -450,10 +469,10 @@ export function useEditorManager(): object {
   );
 
   /**
-     * Применяет ссылку к выделенному тексту.
-     * Если ничего не выделено, не делает ничего.
-     * После применения генерирует событие для активации BubbleMenu.
-     */
+   * Применяет ссылку к выделенному тексту.
+   * Если ничего не выделено, не делает ничего.
+   * После применения генерирует событие для активации BubbleMenu.
+   */
   const addLink = useCallback(() => {
     if (!fb2.editor) return;
     const { empty } = fb2.editor.state.selection;
@@ -487,10 +506,10 @@ export function useEditorManager(): object {
   /**
    * Обновляет метаданные документа.
    * Вызывается из компонентов редактирования метаданных.
-   * @param {any} newMeta - Новый объект метаданных.
+   * @param {Fb2Metadata | null} newMeta - Новый объект метаданных.
    */
   const handleMetaChange = useCallback(
-    (newMeta: any) => {
+    (newMeta: Fb2Metadata | null) => {
       setMetadata(newMeta);
     },
     [setMetadata],

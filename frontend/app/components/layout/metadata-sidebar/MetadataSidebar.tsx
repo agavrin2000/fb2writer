@@ -30,8 +30,8 @@ import { FB2_GENRES, LANGUAGES, Fb2Metadata } from "@/types/types";
 import { debounce } from "@/utils/utils";
 
 interface MetadataSidebarProps {
-  meta: Fb2Metadata;
-  onMetaChange: (newMeta: any) => void;
+  meta: Fb2Metadata | null;
+  onMetaChange: (newMeta: Fb2Metadata | null) => void;
   isOpen: boolean;
   onToggle: () => void;
 }
@@ -41,7 +41,7 @@ export const MetadataSidebar = memo(
     const [activeTab, setActiveTab] = useState<
       "title" | "src-title" | "publish" | "custom" | "doc"
     >("title");
-    const [localMeta, setLocalMeta] = useState<Fb2Metadata>(meta);
+    const [localMeta, setLocalMeta] = useState<Fb2Metadata | null>(meta);
 
     // Безопасный доступ к веткам JSON
     const titleInfo = localMeta?.titleInfo;
@@ -224,7 +224,7 @@ export const MetadataSidebar = memo(
                     >
                       <Field
                         label="Название книги"
-                        value={titleInfo.title}
+                        value={titleInfo?.title}
                         icon={BookOpen}
                         onChange={(val) =>
                           handleMetaUpdate("TitleInfo", "Title", val)
@@ -232,7 +232,7 @@ export const MetadataSidebar = memo(
                       />
                       {/* Блок обложки */}
                       <CoverPicker
-                        value={titleInfo.coverPage}
+                        value={titleInfo?.coverPage}
                         onUpdate={(base64) =>
                           handleMetaUpdate("TitleInfo", "CoverPage", base64)
                         }
@@ -240,7 +240,7 @@ export const MetadataSidebar = memo(
 
                       <Field
                         label="Язык книги"
-                        value={titleInfo.lang}
+                        value={titleInfo?.lang}
                         icon={Languages}
                         options={LANGUAGES}
                         onChange={(val) =>
@@ -249,7 +249,7 @@ export const MetadataSidebar = memo(
                       />
                       <Field
                         label="Язык оригигинала"
-                        value={titleInfo.srcLang}
+                        value={titleInfo?.srcLang}
                         icon={Languages}
                         options={LANGUAGES}
                         onChange={(val) =>
@@ -258,7 +258,7 @@ export const MetadataSidebar = memo(
                       />
                       <Field
                         label="Ключевые слова"
-                        value={titleInfo.keywords}
+                        value={titleInfo?.keywords}
                         icon={Hash}
                         multiline
                         rows={2}
@@ -269,13 +269,13 @@ export const MetadataSidebar = memo(
                     </Section>
 
                     <Section
-                      title={`Жанры (${titleInfo.genres?.length ?? 0})`}
+                      title={`Жанры (${titleInfo?.genres?.length ?? 0})`}
                       icon={Tag}
                       className="mt-4"
                       defaultOpen={false}
                     >
                       <GenreList
-                        genres={titleInfo.genres}
+                        genres={titleInfo?.genres || []}
                         onUpdate={(newGenres) =>
                           handleMetaUpdate("TitleInfo", "Genres", newGenres)
                         }
@@ -291,7 +291,7 @@ export const MetadataSidebar = memo(
                     >
                       <PersonList
                         title="Автор"
-                        items={titleInfo.authors}
+                        items={titleInfo?.authors || []}
                         onUpdate={(newAuthors) =>
                           handleMetaUpdate("TitleInfo", "Authors", newAuthors)
                         }
@@ -306,7 +306,7 @@ export const MetadataSidebar = memo(
                     >
                       <PersonList
                         title="Автор"
-                        items={titleInfo.translators || []}
+                        items={titleInfo?.translators || []}
                         onUpdate={(newTranslators) =>
                           handleMetaUpdate(
                             "TitleInfo",
@@ -324,7 +324,7 @@ export const MetadataSidebar = memo(
                       defaultOpen={false}
                     >
                       <SequenceList
-                        items={titleInfo.sequence || []}
+                        items={titleInfo?.sequence || []}
                         onUpdate={(newSeqs) =>
                           handleMetaUpdate("TitleInfo", "Sequence", newSeqs)
                         }
@@ -338,7 +338,7 @@ export const MetadataSidebar = memo(
                       defaultOpen={false}
                     >
                       <RichTextEditor
-                        content={titleInfo.annotation}
+                        content={titleInfo?.annotation}
                         onChange={(newJson) =>
                           handleMetaUpdate("TitleInfo", "Annotation", newJson)
                         }
@@ -389,7 +389,7 @@ export const MetadataSidebar = memo(
                       />
                       <Field
                         label="Ключевые слова"
-                        value={titleInfo.keywords}
+                        value={titleInfo?.keywords}
                         icon={Hash}
                         multiline
                         rows={2}
@@ -421,7 +421,7 @@ export const MetadataSidebar = memo(
                     >
                       <PersonList
                         title="Автор"
-                        items={srctitleInfo?.authors|| []}
+                        items={srctitleInfo?.authors || []}
                         onUpdate={(newAuthors) =>
                           handleMetaUpdate(
                             "SrcTitleInfo",
@@ -540,7 +540,7 @@ export const MetadataSidebar = memo(
                     >
                       <Field
                         label="ID Документа"
-                        value={docInfo.id}
+                        value={docInfo?.id}
                         onChange={(val) =>
                           handleMetaUpdate("DocumentInfo", "Id", val)
                         }
@@ -550,8 +550,8 @@ export const MetadataSidebar = memo(
                           title: "Сгенерировать уникальный ID",
                         }}
                       />
-                      <Field label="Версия" value={docInfo.version} />
-                      <Field label="Программа" value={docInfo.program} />
+                      <Field label="Версия" value={docInfo?.version} />
+                      <Field label="Программа" value={docInfo?.program} />
                       <Field
                         label="Дата создания файла"
                         value={formatDateForInput(meta.documentInfo?.date)}
@@ -571,7 +571,7 @@ export const MetadataSidebar = memo(
                     >
                       <PersonList
                         title="Автор"
-                        items={docInfo.authors}
+                        items={docInfo?.authors || []}
                         onUpdate={(newAuthors) =>
                           handleMetaUpdate(
                             "DocumentInfo",
@@ -590,12 +590,12 @@ export const MetadataSidebar = memo(
                     >
                       <Field
                         label="Source URL"
-                        value={docInfo.srcUrl}
+                        value={docInfo?.srcUrl}
                         icon={Link}
                       />
                       <Field
                         label="Автор OCR"
-                        value={docInfo.srcOcr}
+                        value={docInfo?.srcOcr}
                         icon={Link}
                       />
                     </Section>

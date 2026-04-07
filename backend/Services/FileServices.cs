@@ -42,6 +42,37 @@ public class FileService
         Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
     };
 
+    // 1. Универсальный метод загрузки по прямому пути (без диалога)
+    public async Task LoadFileByPathAsync(string filePath)
+    {
+        if (string.IsNullOrWhiteSpace(filePath) || !File.Exists(filePath))
+        {
+            Emit("error", "Файл не найден или путь пуст.");
+            return;
+        }
+
+        string fileName = Path.GetFileName(filePath);
+
+        // Начало загрузки
+        Emit("start-loading", fileName);
+
+        try
+        {
+            // Используем обычный FileStream, так как у нас есть прямой путь
+            await using var stream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read);
+
+            // Парсинг в фоновом потоке
+            string json = await Task.Run(() => _fb2Converter.LoadAndConvertToJson(stream, fileName));
+
+            // Отправка контента во фронтенд
+            Emit("fb2-content", json);
+        }
+        catch (Exception ex)
+        {
+            Emit("error", $"Ошибка при чтении {fileName}: {ex.Message}");
+        }
+    }
+
     /// <summary>
     /// Асинхронно открывает FB2-файл (или архив .fb2.zip), читает его содержимое и преобразует в JSON.
     /// Отправляет результат во frontend или уведомляет о cancell-событии и ошибках.
@@ -58,41 +89,24 @@ public class FileService
             FileTypeFilter =
             [
                 new FilePickerFileType("Книги FB2") { Patterns = ["*.fb2", "*.fb2.zip"] },
-                new FilePickerFileType("Архивы FB2.ZIP") { Patterns = ["*.fb2.zip"] }
+            new FilePickerFileType("Архивы FB2.ZIP") { Patterns = ["*.fb2.zip"] }
             ],
             AllowMultiple = false
         });
 
-        // Используем FirstOrDefault, так как это безопаснее для списков
-        var file = (result != null && result.Count > 0) ? result[0] : null;
+        var file = result?.FirstOrDefault();
 
         if (file == null)
         {
-            // Cancel OpenFile dialog
             Emit("cancel-loading", string.Empty);
             return;
         }
 
-        // Start of loading
-        Emit("start-loading", file.Name);
-
-        try
-        {
-            await using var stream = await file.OpenReadAsync();
-
-            // Если файл большой, парсинг может занять время — выполняем в Task.Run, 
-            // чтобы не блокировать UI-поток Avalonia
-            string json = await Task.Run(() => _fb2Converter.LoadAndConvertToJson(stream, file.Name));
-
-            // End of loading
-            Emit("fb2-content", json);
-        }
-        catch (Exception ex)
-        {
-            Emit("error", $"Ошибка при чтении {file.Name}: {ex.Message}");
-        }
+        // Вместо дублирования кода, вызываем метод загрузки по пути
+        // TryGetLocalPath() работает для обычных файлов в Windows/Linux/macOS
+        var localPath = file.Path.LocalPath;
+        await LoadFileByPathAsync(localPath);
     }
-
     /// <summary>
     /// Асинхронно открывает диалог выбора изображения (JPG, PNG) и возвращает его содержимое в формате Data URL.
     /// Используется для вставки изображений в редактор.
@@ -208,7 +222,7 @@ public class FileService
     /// </summary>
     /// <param name="type">Тип сообщения (например, "fb2-content", "error", "start-loading").</param>
     /// <param name="payload">Полезная нагрузка сообщения в виде строки (может быть JSON).</param>
-    private void Emit(string type, string payload)
+    public void Emit(string type, string payload)
     {
         var message = JsonSerializer.Serialize(new { type, payload }, _jsonOptions);
         OnMessageEmitted?.Invoke(message);
