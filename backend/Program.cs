@@ -1,11 +1,57 @@
 using Photino.NET;
 using FB2Editor.Services;
 using System.Reflection;
+using System.Text.Json;
+using System.Text.Encodings.Web;
+using System.Text.Json.Serialization;
+using FB2Editor.Models;
 
 namespace FB2Editor;
 
+
+// Контекст сериализации (Source Generator)
+[JsonSerializable(typeof(EmitMessage))]
+[JsonSerializable(typeof(ImageInfoMessage))]
+[JsonSerializable(typeof(Fb2BookExport))]
+[JsonSerializable(typeof(PersonInfo))]
+[JsonSerializable(typeof(List<PersonInfo>))]
+[JsonSerializable(typeof(List<object>))]
+[JsonSerializable(typeof(System.Dynamic.ExpandoObject))] // На всякий случай, если есть dynamic
+[JsonSerializable(typeof(object))] // Нужно для базовой поддержки
+[JsonSerializable(typeof(TipTapNode))]         // Для одиночных узлов
+[JsonSerializable(typeof(List<TipTapNode>))]   // Для массивов узлов
+[JsonSerializable(typeof(Dictionary<string, List<object>>))] // Добавляем поддержку словаря со списками объектов внутри
+[JsonSerializable(typeof(TipTapNode))]
+[JsonSerializable(typeof(List<TipTapNode>))] // Для TipTap Content
+[JsonSerializable(typeof(List<object>))]       // Для вложенного контента
+[JsonSerializable(typeof(Dictionary<string, string>))] // Для атрибутов (attrs)
+internal partial class EmitContext : JsonSerializerContext
+{
+    private static JsonSerializerOptions? _customOptions;
+
+    /// <summary>
+    /// Настройки сериализации JSON для формирования сообщений.
+    /// Обеспечивает использование camelCase и корректное отображение кириллицы.
+    /// </summary>
+    public static JsonSerializerOptions CustomOptions => _customOptions ??= new JsonSerializerOptions
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+        WriteIndented = false,
+        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+        TypeInfoResolver = EmitContext.Default // Важно для работы Source Generation
+    };
+}
+
 class Program
 {
+
+    private static readonly JsonSerializerOptions _options = new()
+    {
+        TypeInfoResolver = EmitContext.Default, // Привязываем ваш генератор
+        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping, // Включаем русский текст
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+    };
 
     private static readonly Dictionary<string, string> _resourceMap = [];
     private static readonly string _assemblyName = "FB2Editor";
@@ -19,6 +65,13 @@ class Program
     /// Значение инициализируется из специальной папки "Мои документы", если ранее не было задано.
     /// </summary>
     private static string? _lastUsedPath;
+
+    /// <summary>
+    /// Событие, возникающее при отправке сообщения во frontend.
+    /// Параметр — JSON-строка, готовая к передаче через механизм Web-сообщений.
+    /// </summary>
+    //public event Action<string>? OnMessageEmitted;
+
 
 
 #if DEBUG
@@ -36,9 +89,12 @@ class Program
         string appUrl = IsDebugMode ? "http://localhost:3000" : $"{virtualDomain}/index.html";
         string tempUserDataPath = Path.Combine(Path.GetTempPath(), $"{_assemblyName}_Cache");
 
+        var iconPath = ExtractIconResource("fb2writer.ico");
+
         // Creating a new PhotinoWindow instance with the fluent API
         _window = new PhotinoWindow()
             .SetTitle("FB2 Writer")
+            .SetIconFile(iconPath)
             .SetUseOsDefaultSize(false)
             .SetSize(new System.Drawing.Size(800, 600))
             .Center()
@@ -75,14 +131,14 @@ class Program
                 return null;
             });
 
-        _fileService = new FileService(_window);
+        _fileService = new FileService();
         // Проверяем, передан ли путь к файлу (обычно это первый аргумент после имени exe)
         _initialFile = args.Length > 0 && File.Exists(args[0]) ? args[0] : null;
 
         // Регистрация обработчика сообщений
         _window.RegisterWebMessageReceivedHandler(OnWebMessageReceived);
 
-        _fileService.OnMessageEmitted += (json) => _window.SendWebMessage(json);
+        //        _fileService.OnMessageEmitted += (json) => _window.SendWebMessage(json);
 
         // Загружаем строку с лоадером, который будет сам переключаться на приложение после ответа сервера
         _window.LoadRawString(GetLoadingHtml(appUrl));
@@ -183,63 +239,125 @@ class Program
             switch (command)
             {
                 case "open-file":
-                    // 1. Определяем начальный путь: последний использованный ИЛИ "Мои документы"
-                    string defaultPath = !string.IsNullOrEmpty(_lastUsedPath)
-                        ? _lastUsedPath
-                        : Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
-
-                    var filters = new (string Name, string[] Extensions)[]
                     {
-                        ("Книги FB2", ["fb2", "fb2.zip"]),
-                        ("Все файлы", ["*"])
-                    };
+                        string? localPath = await ChooseFileAsync("Выберите книгу",
+                        [
+                            ("Книги FB2", ["fb2", "fb2.zip"]),
+                            ("Все файлы", ["*"])
+                        ]);
 
-                    string[] result = await _window.ShowOpenFileAsync(
-                        title: "Открыть книгу FB2",
-                        defaultPath: defaultPath,
-                        multiSelect: false,
-                        filters: filters
-                    );
+                        if (string.IsNullOrEmpty(localPath))
+                        {
+                            Emit("cancel-loading", string.Empty);
+                            return;
+                        }
 
-                    var localPath = result?.FirstOrDefault();
+                        Emit("start-loading", Path.GetFileName(localPath));
 
-                    if (string.IsNullOrEmpty(localPath))
-                    {
-                        _fileService.Emit("cancel-loading", string.Empty);
-                        return;
+                        string json = await _fileService.LoadFileByPathAsync(localPath);
+                        // Отправка контента во фронтенд
+                        Emit("fb2-content", json);
                     }
-
-                    _fileService.Emit("start-loading", Path.GetFileName(localPath));
-
-                    // 2. Сохраняем путь к папке (без имени файла) для следующего раза
-                    _lastUsedPath = Path.GetDirectoryName(localPath);
-
-                    string json = await _fileService.LoadFileByPathAsync(localPath);
-                    // Отправка контента во фронтенд
-                    _fileService.Emit("fb2-content", json);
                     break;
 
                 case "save-file":
-                    if (!string.IsNullOrEmpty(payload))
-                        await _fileService.SaveFileAsync(payload);
+                    {
+                        string? localPath = null;
+                        try
+                        {
+                            // Используем JsonDocument для доступа к свойствам "на лету"
+                            using JsonDocument doc = JsonDocument.Parse(payload);
+                            if (doc.RootElement.TryGetProperty("filePath", out JsonElement filePathElement))
+                            {
+                                localPath = filePathElement.GetString() ?? "";
+                            }
+                        }
+                        catch { }
+
+                        if (string.IsNullOrEmpty(localPath))
+                        {
+                            // Имя файла не передано (save as...), показываем диалог сохранения
+                            localPath = await ChooseFileAsync("Сохранить книгу",
+                            [
+                                ("Книги FB2", ["fb2", "fb2.zip"]),
+                                ("Все файлы", ["*"])
+                            ]);
+
+                            if (string.IsNullOrEmpty(localPath))
+                            {
+                                Emit("cancel-loading", string.Empty);
+                                return;
+                            }
+                        }
+
+                        string fileName = Path.GetFileName(localPath);
+
+                        Emit("start-saving", fileName);
+
+                        await _fileService.SaveFileAsync(payload, localPath);
+
+                        Emit("save-success", fileName);
+                    }
                     break;
 
                 case "app-ready":
                     // Если при запуске был передан файл — открываем его сейчас
                     if (!string.IsNullOrEmpty(_initialFile))
                     {
-                        await _fileService.LoadFileByPathAsync(_initialFile);
+                        Emit("fb2-content", await _fileService.LoadFileByPathAsync(_initialFile));
                         _initialFile = null; // ВАЖНО: больше не открываем при рефреше страницы
                     }
                     else
                     {
                         // Файла нет, разрешаем фронтенду показать шаблон
-                        _fileService.Emit("cancel-loading", string.Empty);
+                        Emit("cancel-loading", string.Empty);
                     }
                     break;
 
                 case "select-image":
-                    await _fileService.SelectImageAsync(payload);
+                    {
+                        string displayType = "block";
+                        if (!string.IsNullOrEmpty(payload))
+                        {
+                            try
+                            {
+                                // Используем JsonDocument для доступа к свойствам "на лету"
+                                using JsonDocument doc = JsonDocument.Parse(payload);
+                                if (doc.RootElement.TryGetProperty("type", out JsonElement typeElement))
+                                {
+                                    displayType = typeElement.GetString() ?? "block";
+                                }
+                            }
+                            catch (JsonException ex)
+                            {
+                                Console.WriteLine($"[C# JSON Parse Error]: {ex.Message}");
+                                displayType = "block"; // Используем значение по умолчанию "block"
+                            }
+                        }
+
+                        string? localPath = await ChooseFileAsync("Выберите изображение",
+                        [
+                            ("Изображения", ["jpg", "jpeg", "png"])
+                        ]);
+
+                        if (string.IsNullOrEmpty(localPath))
+                        {
+                            Emit("cancel-loading", string.Empty);
+                            return;
+                        }
+
+                        string data = await FileService.SelectImageAsync(localPath);
+                        var imageInfo = JsonSerializer.Serialize(
+                            new ImageInfoMessage(
+                                Data: data,
+                                Display: displayType,
+                                Href: $"#{Guid.NewGuid()}"
+                            ), EmitContext.CustomOptions
+                        );
+
+
+                        Emit("image-selected", imageInfo);
+                    }
                     break;
 
                 case "close-app":
@@ -255,8 +373,66 @@ class Program
         {
             Console.WriteLine($"[C# Error in {command}]: {ex.Message}");
             // Отправить ошибку на фронтенд, чтобы показать Toast
-            _fileService.Emit("error", ex.Message);
+            Emit("error", ex.Message);
         }
+    }
 
+    private static async Task<string?> ChooseFileAsync(string title,
+    (string Name, string[] Extensions)[] filters)
+    {
+        // Определяем начальную папку
+        string defaultPath = !string.IsNullOrEmpty(_lastUsedPath)
+            ? _lastUsedPath
+            : Environment.GetFolderPath(Environment.SpecialFolder.MyPictures);
+
+        // Вызываем нативный диалог Photino
+        string[] result = await _window.ShowOpenFileAsync(
+            title: title,
+            defaultPath: defaultPath,
+            multiSelect: false,
+            filters: filters
+        );
+
+        string? localPath = result?.FirstOrDefault();
+
+        // Если выбор отменен
+        if (string.IsNullOrEmpty(localPath)) return null;
+
+        // Обновляем путь последнего использования
+        _lastUsedPath = Path.GetDirectoryName(localPath);
+
+        return localPath;
+    }
+
+    /// <summary>
+    /// Вспомогательный метод для формирования и отправки JSON-сообщения через событие <see cref="OnMessageEmitted"/>.
+    /// </summary>
+    /// <param name="type">Тип сообщения (например, "fb2-content", "error", "start-loading").</param>
+    /// <param name="payload">Полезная нагрузка сообщения в виде строки (может быть JSON).</param>
+    private static void Emit(string type, string payload)
+    {
+        var message = JsonSerializer.Serialize(
+            new EmitMessage(type, payload), EmitContext.CustomOptions
+        );
+        _window.SendWebMessage(message);
+    }
+
+    public static string ExtractIconResource(string resourceName)
+    {
+        var assembly = Assembly.GetExecutingAssembly();
+        // Имя ресурса обычно: "ИмяПроекта.имя_файла.ico"
+        // Посмотреть все имена можно через assembly.GetManifestResourceNames()
+        string fullResourceName = assembly.GetManifestResourceNames()
+            .FirstOrDefault(x => x.EndsWith(resourceName)) ?? resourceName;
+
+        string tempPath = Path.Combine(Path.GetTempPath(), resourceName);
+
+        using Stream? stream = assembly.GetManifestResourceStream(fullResourceName);
+        if (stream == null) return resourceName;
+
+        using FileStream fileStream = new FileStream(tempPath, FileMode.Create, FileAccess.Write);
+        stream.CopyTo(fileStream);
+
+        return tempPath;
     }
 }

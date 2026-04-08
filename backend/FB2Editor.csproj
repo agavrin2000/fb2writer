@@ -7,6 +7,7 @@
 		<Nullable>enable</Nullable>
     	<!-- Generate embedded file manifest when using the Photino.NET StaticFileServer -->
 		<GenerateEmbeddedFilesManifest>true</GenerateEmbeddedFilesManifest>
+		<ApplicationIcon>fb2writer.ico</ApplicationIcon>
 	</PropertyGroup>
 
 	<PropertyGroup Condition="'$(Configuration)' == 'Debug'">
@@ -71,6 +72,7 @@
 	<ItemGroup>
 		<EmbeddedResource Include="Resources\wwwroot\**\*.*" />
     	<EmbeddedResource Include="Schemas\**\*.xsd" />
+		<EmbeddedResource Include="fb2writer.ico" />
 	</ItemGroup>
 	
 	<PropertyGroup>
