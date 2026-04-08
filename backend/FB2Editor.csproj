@@ -19,56 +19,66 @@
 	<PropertyGroup Condition="'$(Configuration)' == 'Release'">
 		<OutputType>WinExe</OutputType>
 		<DebuggerSupport>false</DebuggerSupport>
-		<EnableUnsafeBinaryFormatterSerialization>false</EnableUnsafeBinaryFormatterSerialization>
-		<EventSourceSupport>false</EventSourceSupport>
-		<PublishSingleFile>true</PublishSingleFile>
-		<IncludeAllContentForSelfExtract>false</IncludeAllContentForSelfExtract>
-		<EnableDefaultContent>false</EnableDefaultContent>
-    	<EnableDefaultContentItems>false</EnableDefaultContentItems>
-		<SelfContained>true</SelfContained> <!-- Включает рантайм .NET внутрь EXE -->
-		<RuntimeIdentifier>win-x64</RuntimeIdentifier> <!-- Укажите нужную ОС: win-x64, linux-x4, osx-64 -->
-		<!-- Настройки для Windows -->
-		<IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
 		<DebugType>none</DebugType>
 		<DebugSymbols>false</DebugSymbols>
+		<Optimize>true</Optimize>
+		<SelfContained>true</SelfContained> <!-- Включает рантайм .NET внутрь EXE -->
+
 		<!-- Запрещает копирование .pdb файлов зависимостей в выходную директорию -->
 		<CopyOutputSymbolsToPublishDirectory>false</CopyOutputSymbolsToPublishDirectory>
-		<Optimize>true</Optimize>
-	</PropertyGroup>
-	<PropertyGroup Condition="'$(RuntimeIdentifier)' == 'win-x64'">
-		<PublishReadyToRun>true</PublishReadyToRun>
-	</PropertyGroup>
-	<!-- Настройки для Linux -->
-	<PropertyGroup Condition="'$(RuntimeIdentifier)' == 'linux-x64'">
-		<!-- На Linux ReadyToRun может требовать дополнительных настроек среды -->
-		<PublishReadyToRun>false</PublishReadyToRun> 
+		<PublishSingleFile>true</PublishSingleFile>
+		<PublishTrimmed>true</PublishTrimmed>
+		<TrimMode>partial</TrimMode>
+		<EnableCompressionInSingleFile>false</EnableCompressionInSingleFile>
+		<PublishReadyToRun>false</PublishReadyToRun>
+
+		<!-- Отключаем автоматическое включение файлов из папок проекта в финальную сборку -->
+		<EnableDefaultContent>false</EnableDefaultContent>
+    	<EnableDefaultContentItems>false</EnableDefaultContentItems>
+		<IncludeAllContentForSelfExtract>false</IncludeAllContentForSelfExtract>
+
+		<EnableUnsafeBinaryFormatterSerialization>false</EnableUnsafeBinaryFormatterSerialization>
+		<!--  Отключает внутреннюю систему логирования и трассировки событий .NET -->
+		<EventSourceSupport>false</EventSourceSupport>
+		<!--  Отключает расширенную поддержку метаданных моделей -->
+		<IsEnhancedModelMetadataSupport>false</IsEnhancedModelMetadataSupport>
+		<!-- Настройки для Windows -->
+		<IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+		<!-- Вырезает поддержку дескрипторов компонентов, которые не используются статически -->
+		<EnableComponentRuntimeAnalyzer>false</EnableComponentRuntimeAnalyzer>
+		<!-- Отключает функции отладки компонентов в рантайме -->
+		<MicrosoftAspNetCoreComponentsWebOptions_EnableWebAssemblyDebugging>false</MicrosoftAspNetCoreComponentsWebOptions_EnableWebAssemblyDebugging>
+		<!-- Отключает поддержку контроллеров и метаданных моделей (уберет большинство варнингов IL2026) -->
+		<MetadataUpdaterSupport>false</MetadataUpdaterSupport>
+		<!-- Отключает динамическую компиляцию выражений (часто используется в MVC) -->
+		<EnableReflectionMetadata>false</EnableReflectionMetadata>
+		<!-- Используется Photino.Server для раздачи папки wwwroot, поэтому
+			можно принудительно обрезать зависимости Razor и контроллеров -->
+		<AddRazorSupportForCompositeConfigurations>false</AddRazorSupportForCompositeConfigurations>
+		<!-- Подавляем IL2104 (варнинги от сторонних сборок) и IL2026 (рефлексия в системных библиотеках) -->
+		<NoWarn>$(NoWarn);IL2104;IL2026</NoWarn>
+		<!-- Использовать для сетевых запросов родные механизмы операционной системы -->
+		<UseNativeHttpHandler>true</UseNativeHttpHandler>
+		<!-- Отключает анализ тримминга для всех внешних библиотек (NuGet), оставляя проверку только для вашего кода -->
+		<SuppressTrimAnalysisWarnings>true</SuppressTrimAnalysisWarnings>
+		<StackTraceSupport>false</StackTraceSupport>
 	</PropertyGroup>
 
 	<ItemGroup>
-		<PackageReference Include="Avalonia" Version="12.0.0-preview2" />
-		<PackageReference Include="Avalonia.Desktop" Version="12.0.0-preview2" />
 		<PackageReference Include="Microsoft.Extensions.FileProviders.Embedded" Version="10.0.4" />
-		<PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
 		<PackageReference Include="Photino.NET" Version="4.0.16" />
 		<PackageReference Include="Photino.NET.Server" Version="4.0.12" />
 	</ItemGroup>
 
 	<ItemGroup>
-		<EmbeddedResource Include="Resources\**" />
+		<EmbeddedResource Include="Resources\wwwroot\**\*.*" />
 	</ItemGroup>
-	<!--Маска **/*.xsd подхватит все файлы схем в папке Schemas и её подпапках 
 	<ItemGroup>
-	<None Update="Schemas\*.xsd">
-		<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-	</None>
-	</ItemGroup>
-	-->
-	<ItemGroup>
-	<None Include="Schemas\**\*.xsd">
-		<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-		<!-- Этот флаг заставит файл остаться в папке при SingleFile сборке -->
-		<ExcludeFromSingleFile>true</ExcludeFromSingleFile>
-	</None>
+		<None Include="Schemas\**\*.xsd">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+			<!-- Этот флаг заставит файл остаться в папке при SingleFile сборке -->
+			<ExcludeFromSingleFile>true</ExcludeFromSingleFile>
+		</None>
 	</ItemGroup>
 	
 	<PropertyGroup>
@@ -97,13 +107,13 @@
         SkipUnchangedFiles="true" 
     />
 
-    <!-- 4. Важно для Photino: говорим .NET, что эти файлы являются контентом -->
+    <!-- 4. Важно для Photino: говорим .NET, что эти файлы являются контентом
     <ItemGroup>
         <Content Include="Resources\wwwroot\**\*.*">
             <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
         </Content>
-    </ItemGroup>
-	</Target>
+    </ItemGroup> -->
+	</Target> 
 
 	<Target Name="CleanupNativePdb" AfterTargets="Publish" Condition="'$(Configuration)' == 'Release'">
     <ItemGroup>

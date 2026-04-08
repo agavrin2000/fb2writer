@@ -1,16 +1,42 @@
-using Avalonia.Platform.Storage;
-//using Newtonsoft.Json;
 using System.Text.Json;
 using System.Text.Encodings.Web;
+using FB2Editor.Models;
+using System.Text.Json.Serialization;
+using Photino.NET;
+
 
 namespace FB2Editor.Services;
+
+// 2. Контекст сериализации (Source Generator)
+[JsonSerializable(typeof(EmitMessage))]
+[JsonSerializable(typeof(ImageInfoMessage))]
+[JsonSerializable(typeof(Fb2BookExport))]
+[JsonSerializable(typeof(PersonInfo))]
+[JsonSerializable(typeof(List<PersonInfo>))]
+[JsonSerializable(typeof(List<object>))] // Добавьте это: критично для TipTap Content
+[JsonSerializable(typeof(System.Dynamic.ExpandoObject))] // На всякий случай, если есть dynamic
+[JsonSerializable(typeof(object))] // Нужно для базовой поддержки
+[JsonSerializable(typeof(TipTapNode))]         // Для одиночных узлов
+[JsonSerializable(typeof(List<TipTapNode>))]   // Для массивов узлов
+// Добавляем поддержку словаря со списками объектов внутри
+[JsonSerializable(typeof(Dictionary<string, List<object>>))]
+// Также убедитесь, что есть базовые типы, которые могут быть внутри List<object>
+[JsonSerializable(typeof(TipTapNode))]
+[JsonSerializable(typeof(List<TipTapNode>))]
+[JsonSerializable(typeof(List<object>))]       // Для вложенного контента
+[JsonSerializable(typeof(Dictionary<string, string>))] // Для атрибутов (attrs)
+internal partial class EmitContext : JsonSerializerContext { }
 
 /// <summary>
 /// Сервис для работы с файлами: открытие, выбор изображений и сохранение FB2-документов.
 /// Интегрируется с Avalonia через StorageProvider и взаимодействует с <see cref="Fb2Service"/> для конвертации форматов.
 /// </summary>
-public class FileService
+public class FileService(PhotinoWindow window)
 {
+    private string? _lastUsedPath;
+
+    private readonly PhotinoWindow _window = window;
+
     private readonly Fb2Service _fb2Converter = new();
 
     /// <summary>
@@ -18,16 +44,6 @@ public class FileService
     /// Параметр — JSON-строка, готовая к передаче через механизм Web-сообщений.
     /// </summary>
     public event Action<string>? OnMessageEmitted;
-
-    /// <summary>
-    /// Возвращает главное окно приложения, используемое как владелец диалогов выбора файлов.
-    /// </summary>
-    /// <returns>Экземпляр главного окна или <see langword="null"/>, если не установлено.</returns>
-    private static Avalonia.Controls.Window? GetTopLevel()
-    {
-        // Возвращаем наше окно-заглушку из Program
-        return Program.DialogOwner;
-    }
 
     /// <summary>
     /// Настройки сериализации JSON для формирования сообщений.
@@ -80,85 +96,97 @@ public class FileService
     /// <returns>Задача, представляющая асинхронную операцию.</returns>
     public async Task OpenFileAsync()
     {
-        var topLevel = GetTopLevel();
-        if (topLevel?.StorageProvider == null) return;
+        // 1. Определяем начальный путь: последний использованный ИЛИ "Мои документы"
+        string defaultPath = !string.IsNullOrEmpty(_lastUsedPath)
+            ? _lastUsedPath
+            : Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
 
-        var result = await topLevel.StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+        var filters = new (string Name, string[] Extensions)[]
         {
-            Title = "Открыть книгу FB2",
-            FileTypeFilter =
-            [
-                new FilePickerFileType("Книги FB2") { Patterns = ["*.fb2", "*.fb2.zip"] },
-            new FilePickerFileType("Архивы FB2.ZIP") { Patterns = ["*.fb2.zip"] }
-            ],
-            AllowMultiple = false
-        });
+        ("Книги FB2", ["fb2", "fb2.zip"]),
+        ("Все файлы", ["*"])
+        };
 
-        var file = result?.FirstOrDefault();
+        string[] result = await _window.ShowOpenFileAsync(
+            title: "Открыть книгу FB2",
+            defaultPath: defaultPath,
+            multiSelect: false,
+            filters: filters
+        );
 
-        if (file == null)
+        var localPath = result?.FirstOrDefault();
+
+        if (string.IsNullOrEmpty(localPath))
         {
             Emit("cancel-loading", string.Empty);
             return;
         }
 
-        // Вместо дублирования кода, вызываем метод загрузки по пути
-        // TryGetLocalPath() работает для обычных файлов в Windows/Linux/macOS
-        var localPath = file.Path.LocalPath;
+        // 2. Сохраняем путь к папке (без имени файла) для следующего раза
+        _lastUsedPath = Path.GetDirectoryName(localPath);
+
         await LoadFileByPathAsync(localPath);
     }
+
     /// <summary>
     /// Асинхронно открывает диалог выбора изображения (JPG, PNG) и возвращает его содержимое в формате Data URL.
     /// Используется для вставки изображений в редактор.
     /// </summary>
     /// <param name="DiplayType">Тип отображения изображения (например, "block" или "inline").</param>
     /// <returns>Задача, представляющая асинхронную операцию.</returns>
-    public async Task SelectImageAsync(string DiplayType)
+    public async Task SelectImageAsync(string displayType)
     {
-        var topLevel = GetTopLevel();
-        if (topLevel?.StorageProvider == null) return;
+        // 1. Используем тот же подход с путями, что и при открытии книги
+        string defaultPath = !string.IsNullOrEmpty(_lastUsedPath)
+            ? _lastUsedPath
+            : Environment.GetFolderPath(Environment.SpecialFolder.MyPictures);
 
-        var result = await topLevel.StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+        var filters = new (string Name, string[] Extensions)[]
         {
-            Title = "Выберите изображение",
-            FileTypeFilter =
-            [
-                new FilePickerFileType("Изображения") { Patterns = ["*.jpg", "*.jpeg", "*.png"] }
-            ],
-            AllowMultiple = false
-        });
+        ("Изображения", ["jpg", "jpeg", "png"])
+        };
 
-        if (result == null || result.Count == 0)
+        // 2. Нативный диалог Photino
+        string[] result = await _window.ShowOpenFileAsync(
+            title: "Выберите изображение",
+            defaultPath: defaultPath,
+            multiSelect: false,
+            filters: filters
+        );
+
+        var localPath = result?.FirstOrDefault();
+
+        if (string.IsNullOrEmpty(localPath))
         {
-            // Cancel OpenFile dialog
             Emit("cancel-loading", string.Empty);
             return;
         }
 
-        var file = result[0];
+        // Сохраняем путь для удобства пользователя
+        _lastUsedPath = Path.GetDirectoryName(localPath);
 
         try
         {
-            // Build base64 image
-            await using var stream = await file.OpenReadAsync();
-
-            using var ms = new MemoryStream();
-            await stream.CopyToAsync(ms);
-            byte[] imageBytes = ms.ToArray();
-
+            // 3. Читаем файл (File.ReadAllBytesAsync — самый быстрый путь для небольших картинок)
+            byte[] imageBytes = await File.ReadAllBytesAsync(localPath);
             string base64Image = Convert.ToBase64String(imageBytes);
 
-            string ext = Path.GetExtension(file.Name).ToLower().TrimStart('.');
+            // Определяем расширение
+            string ext = Path.GetExtension(localPath).ToLower().TrimStart('.');
             if (ext == "jpeg") ext = "jpg";
 
             string dataUrl = $"data:image/{ext};base64,{base64Image}";
 
-            var imageInfo = JsonSerializer.Serialize(new
-            {
-                data = dataUrl,
-                display = DiplayType,
-                href = $"#{Guid.NewGuid()}"
-            });
+            // 4. Сериализация через Source Generator (EmitContext)
+            var imageInfo = JsonSerializer.Serialize(
+                new ImageInfoMessage(
+                    Data: dataUrl,
+                    Display: displayType,
+                    Href: $"#{Guid.NewGuid()}"
+                ),
+                typeof(ImageInfoMessage),
+                EmitContext.Default
+            );
 
             Emit("image-selected", imageInfo);
         }
@@ -176,40 +204,48 @@ public class FileService
     /// <returns>Задача, представляющая асинхронную операцию.</returns>
     public async Task SaveFileAsync(string jsonContent)
     {
-        var topLevel = GetTopLevel();
-        if (topLevel?.StorageProvider == null) return;
+        // 1. Определяем начальный путь и имя файла
+        string defaultPath = !string.IsNullOrEmpty(_lastUsedPath)
+            ? _lastUsedPath
+            : Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
 
-        var file = await topLevel.StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
+        var filters = new (string Name, string[] Extensions)[]
         {
-            Title = "Сохранить книгу",
-            // Позволяем пользователю выбрать формат сохранения
-            FileTypeChoices =
-            [
-                new FilePickerFileType("Книга FB2") { Patterns = ["*.fb2"] },
-                new FilePickerFileType("Архив FB2.ZIP") { Patterns = ["*.fb2.zip"] }
-            ],
-            DefaultExtension = "fb2",
-            SuggestedFileName = "book"
-        });
+        ("Книга FB2", ["fb2"]),
+        ("Архив FB2.ZIP", ["fb2.zip"])
+        };
 
-        if (file == null)
+        // 2. Нативный диалог сохранения Photino
+        // Метод обычно возвращает строку с выбранным путем или null/empty при отмене
+        string localPath = await _window.ShowSaveFileAsync(
+            "Сохранить книгу",
+            defaultPath,
+            filters
+        );
+
+        if (string.IsNullOrEmpty(localPath))
         {
-            // Cancel SaveFile dialog
             Emit("cancel-loading", string.Empty);
             return;
         }
 
-        // Start of saving
-        Emit("start-saving", file.Name);
+        // Сохраняем папку для будущих операций
+        _lastUsedPath = Path.GetDirectoryName(localPath);
+        string fileName = Path.GetFileName(localPath);
+
+        Emit("start-saving", fileName);
 
         try
         {
-            await using var stream = await file.OpenWriteAsync();
+            // 3. Открываем поток файла и выполняем конвертацию
+            // В .NET 10 File.Create — самый надежный способ получить FileStream
+            await using (var stream = File.Create(localPath))
+            {
+                // Выполняем тяжелую конвертацию в фоновом потоке
+                await Task.Run(() => _fb2Converter.SaveJsonToFb2(stream, fileName, jsonContent));
+            }
 
-            // Выполняем тяжелую конвертацию и запись в фоновом потоке
-            await Task.Run(() => _fb2Converter.SaveJsonToFb2(stream, file.Name, jsonContent));
-
-            Emit("save-success", file.Name);
+            Emit("save-success", fileName);
         }
         catch (Exception ex)
         {
@@ -224,7 +260,11 @@ public class FileService
     /// <param name="payload">Полезная нагрузка сообщения в виде строки (может быть JSON).</param>
     public void Emit(string type, string payload)
     {
-        var message = JsonSerializer.Serialize(new { type, payload }, _jsonOptions);
+        var message = JsonSerializer.Serialize(
+            new EmitMessage(type, payload),
+            EmitContext.Default.EmitMessage
+        );
+
         OnMessageEmitted?.Invoke(message);
     }
 }

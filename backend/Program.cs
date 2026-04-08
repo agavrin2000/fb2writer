@@ -1,8 +1,6 @@
 using Photino.NET;
 using Photino.NET.Server;
 using System.Text;
-using Avalonia;
-using Avalonia.Controls;
 using FB2Editor.Services;
 using System.Text.Json;
 
@@ -16,16 +14,12 @@ class Program
     public static bool IsDebugMode = false;
 #endif    
 
-    public static Window? DialogOwner { get; private set; }
-
     [STAThread]
     static void Main(string[] args)
     {
-        InitializeAvalonia();
-        var fileService = new FileService();
-        var fb2Service = new Fb2Service();
         // Проверяем, передан ли путь к файлу (обычно это первый аргумент после имени exe)
         string? fileToOpen = args.Length > 0 && File.Exists(args[0]) ? args[0] : null;
+
         PhotinoServer.CreateStaticFileServer(args, out string baseUrl).RunAsync();
 
         string appUrl = IsDebugMode ? "http://localhost:3000" : $"{baseUrl}/index.html";
@@ -43,7 +37,7 @@ class Program
             .SetDevToolsEnabled(true)
             .SetContextMenuEnabled(true)
             .SetBrowserControlInitParameters("--disable-http-cache") // Запрет кеширования, чтобы запускалась последняя версия
-            .RegisterCustomSchemeHandler("app", (sender, scheme, url, out contentType) =>
+            /*.RegisterCustomSchemeHandler("app", (sender, scheme, url, out contentType) =>
             {
                 contentType = "text/javascript";
                 return new MemoryStream(Encoding.UTF8.GetBytes(@"
@@ -53,7 +47,10 @@ class Program
                             }, 1000);
                         })();
                     "));
-            });
+            })*/;
+
+        var fileService = new FileService(window);
+        var fb2Service = new Fb2Service();
 
         // Регистрация обработчика сообщений
         window.RegisterWebMessageReceivedHandler((sender, message) =>
@@ -61,6 +58,7 @@ class Program
             if (sender is not PhotinoWindow w) return;
             ProcessMessage(message, fileService, window, fileToOpen);
         });
+
         fileService.OnMessageEmitted += (json) => window.SendWebMessage(json);
 
         // Загружаем строку с лоадером, который будет сам переключаться на приложение после ответа сервера
@@ -199,34 +197,4 @@ class Program
                 break;
         }
     }
-
-    /// Минимальный класс App для инициализации Avalonia
-    public class App : Avalonia.Application
-    {
-        public override void Initialize() => base.Initialize();
-    }
-
-    /// <summary>
-    /// Initialize Avalonia
-    /// </summary>
-    private static void InitializeAvalonia()
-    {
-        AppBuilder.Configure<App>()
-            .UsePlatformDetect()
-            .SetupWithoutStarting();
-
-        DialogOwner = new Window
-        {
-            WindowDecorations = WindowDecorations.None,
-            ShowInTaskbar = false,
-            Opacity = 0,
-            WindowStartupLocation = WindowStartupLocation.Manual,
-            Position = new PixelPoint(-20000, -20000) // Уводим максимально далеко
-        };
-
-        DialogOwner.Show();
-        DialogOwner.Hide();
-    }
-
-
 }

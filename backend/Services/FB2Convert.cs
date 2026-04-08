@@ -3,6 +3,7 @@ using System.Text;
 using System.IO.Compression;
 using System.Xml.Schema;
 using System.Text.Json;
+using FB2Editor.Models;
 
 namespace FB2Editor.Services;
 
@@ -17,13 +18,14 @@ public static class EnumerableExtensions
     /// <typeparam name="T">Тип элементов в последовательности.</typeparam>
     /// <param name="source">Исходная перечисляемая последовательность.</param>
     /// <returns>Список элементов или null, если последовательность пуста или равна null.</returns>
-    public static List<T>? ToListOrNull<T>(this IEnumerable<T> source)
+    public static List<T>? ToListOrNull<T>(this IEnumerable<T>? source) // Добавлен ?
     {
-        if (source == null || !source.Any())
-        {
-            return null;
-        }
-        return source.ToList();
+        if (source == null) return null;
+
+        using var enumerator = source.GetEnumerator();
+        if (!enumerator.MoveNext()) return null;
+
+        return [.. source];
     }
 }
 
@@ -140,30 +142,21 @@ public class Fb2Service
 
         ValidateFb2(doc);
 
-        // Локальная функция для парсинга авторов, переводчиков
-        var parseAuthor = new Func<XElement, object>(a =>
+        var parseAuthor = new Func<XElement, PersonInfo>(a =>
         {
-            var first = a.Element(ns + "first-name")?.Value;
-            var middle = a.Element(ns + "middle-name")?.Value;
-            var last = a.Element(ns + "last-name")?.Value;
-            var nickname = a.Element(ns + "nickname")?.Value;
-            var homePages = a.Elements(ns + "home-page").Select(x => x.Value).ToListOrNull();
-            var emails = a.Elements(ns + "email").Select(x => x.Value).ToListOrNull();
-            var id = a.Element(ns + "id")?.Value;
-            return new
-            {
-                FirstName = first,
-                LastName = last,
-                MiddleName = middle,
-                Nickname = nickname,
-                HomePages = homePages,
-                Emails = emails,
-                Id = id,
-            };
+            return new PersonInfo(
+                FirstName: a.Element(ns + "first-name")?.Value,
+                LastName: a.Element(ns + "last-name")?.Value,
+                MiddleName: a.Element(ns + "middle-name")?.Value,
+                Nickname: a.Element(ns + "nickname")?.Value,
+                HomePages: a.Elements(ns + "home-page").Select(x => x.Value).ToListOrNull(),
+                Emails: a.Elements(ns + "email").Select(x => x.Value).ToListOrNull(),
+                Id: a.Element(ns + "id")?.Value
+            );
         });
 
         // Локальная функция для парсинга структуры узлов
-        List<object> ParseNodes(XElement? parent, XName name)
+        List<TipTapNode> ParseNodes(XElement? parent, XName name)
         {
             // Ранний выход при отсутствии родителя или если у него нет дочерних элементов
             if (parent == null || !parent.HasElements)
@@ -173,7 +166,7 @@ public class Fb2Service
             if (target == null)
                 return []; // Возвращаем пустой список, если целевой элемент не найден
 
-            List<object> nodes = [];
+            List<TipTapNode> nodes = [];
             ParseElement(target, nodes); // Предполагается, что ns и xlink доступны в контексте
             return nodes;
         }
@@ -198,7 +191,7 @@ public class Fb2Service
         var notesBody = doc.Descendants(ns + "body")
             .FirstOrDefault(x => x.Attribute("name")?.Value.ToLower() == "notes");
 
-        var footnotesList = new Dictionary<string, List<object>>();
+        var footnotesList = new Dictionary<string, List<TipTapNode>>();
 
         if (notesBody != null)
         {
@@ -207,7 +200,7 @@ public class Fb2Service
                 var id = section.Attribute("id")?.Value;
                 if (string.IsNullOrEmpty(id)) continue;
 
-                var notesNodes = new List<object>();
+                var notesNodes = new List<TipTapNode>();
                 ParseElement(section, notesNodes);
 
                 footnotesList[id] = notesNodes;
@@ -217,26 +210,28 @@ public class Fb2Service
         FillBinaryCache(doc);
 
         // Извлекаем контент
-        var contentNodes = new List<object>();
+        var contentNodes = new List<TipTapNode>();
         var body = doc.Descendants().FirstOrDefault(x => x.Name.LocalName == "body");
 
         if (body != null)
         {
             // Мы создаем узел body вручную и вызываем парсинг его контента
-            var bodyContent = new List<object>
+            var bodyContent = new List<TipTapNode>
             {
                 // add placeholder для возможности изменения секции body
-                new { type = "fb2Placeholder" }
+                new TipTapNode( Type : "fb2Placeholder")
             };
 
             ParseElement(body, bodyContent);
 
-            contentNodes.Add(new
-            {
-                type = "fb2BodySection",
-                attrs = new { level = 1, sectionId = Guid.NewGuid().ToString() },
-                content = bodyContent
-            });
+            contentNodes.Add(new TipTapNode(
+                Type: "fb2BodySection",
+                Attrs: new Dictionary<string, string?>
+                {
+                    ["level"] = "1", // Значения должны быть строками, так как Dictionary<string, string>
+                    ["sectionId"] = Guid.NewGuid().ToString()
+                }, Content: bodyContent
+            ));
         }
 
         var options = new JsonSerializerOptions
@@ -248,88 +243,77 @@ public class Fb2Service
             // Чтобы русский текст не превращался в \u0444
             Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
         };
-
-        return JsonSerializer.Serialize(new
-        {
-            Metadata = new
-            {
-                TitleInfo = new // Данные о произведении
-                {
-                    Genres = titleInfo?.Elements().Where(x => x.Name.LocalName == "genre").Select(x => x.Value).ToListOrNull(),
-                    Authors = titleInfo?.Elements().Where(x => x.Name.LocalName == "author").Select(parseAuthor).ToListOrNull(),
-                    Title = (string?)titleInfo?.Element(ns + "book-title"),
-                    Annotation = (annotationNodes?.Count ?? 0) > 0 ? new { type = "doc", content = annotationNodes } : null, // Аннотация возвращается в формате TipTap JSON
-                    Keywords = (string?)titleInfo?.Element(ns + "keywords"),
-                    Date = (string?)titleInfo?.Element(ns + "date"),
-                    DateValue = (string?)titleInfo?.Element(ns + "date")?.Attribute("value")?.Value,
-                    CoverPage = GetImage(titleInfo?.Element(ns + "coverpage")?.Element(ns + "image")?.Attribute(xlink + "href")?.Value),
-                    Lang = (string?)titleInfo?.Element(ns + "lang"),
-                    SrcLang = (string?)titleInfo?.Element(ns + "src-lang"),
-                    Translators = titleInfo?.Elements(ns + "translator").Select(parseAuthor).ToListOrNull(),
-                    Sequence = titleInfo?.Elements(ns + "sequence").Select(x => new
-                    {
-                        name = (string?)x.Attribute("name"),
-                        number = (int?)x.Attribute("number")
-                    }).ToListOrNull()
-                },
-                SrcTitleInfo = new // Данные о произведении на языке оригинала
-                {
-                    Genres = srcTitleInfo?.Elements(ns + "genre").Select(x => x.Value).ToListOrNull(),
-                    Authors = srcTitleInfo?.Elements(ns + "author").Select(parseAuthor).ToListOrNull(),
-                    Title = (string?)srcTitleInfo?.Element(ns + "book-title"),
-                    Annotation = (srcTitleInfoAnnotationNodes?.Count ?? 0) > 0 ? new { type = "doc", content = srcTitleInfoAnnotationNodes } : null,// Аннотация возвращается в формате TipTap JSON
-                    Keywords = (string?)srcTitleInfo?.Element(ns + "keywords"),
-                    Date = (string?)srcTitleInfo?.Element(ns + "date"),
-                    DateValue = srcTitleInfo?.Element(ns + "date")?.Attribute("value")?.Value,
-                    CoverPage = GetImage(srcTitleInfo?.Element(ns + "coverpage")?.Element(ns + "image")?.Attribute(xlink + "href")?.Value),
-                    Lang = (string?)srcTitleInfo?.Element(ns + "lang"),
-                    SrcLang = (string?)srcTitleInfo?.Element(ns + "src-lang"),
-                    Translators = srcTitleInfo?.Elements(ns + "translator").Select(parseAuthor).ToListOrNull(),
-                    Sequence = srcTitleInfo?.Elements(ns + "sequence").Select(x => new
-                    {
-                        name = (string?)x.Attribute("name"),
-                        number = (int?)x.Attribute("number")
-                    }).ToListOrNull()
-                },
-                DocumentInfo = new // Данные о документе
-                {
-                    Authors = docInfo?.Elements(ns + "author").Select(parseAuthor).ToListOrNull(),
-                    Program = (string?)docInfo?.Element(ns + "program-used"),
-                    Date = (string?)docInfo?.Element(ns + "date"),
-                    DateValue = (string?)docInfo?.Element(ns + "date")?.Attribute("value"),
-                    Id = (string?)docInfo?.Element(ns + "id"),
-                    SrcUrl = (string?)docInfo?.Element(ns + "src-url"),
-                    SrcOcr = (string?)docInfo?.Element(ns + "src-ocr"),
-                    Version = (string?)docInfo?.Element(ns + "version"),
-                    History = (historyNodes?.Count ?? 0) > 0 ? new { type = "doc", content = historyNodes } : null,
-                },
-                PublishInfo = new // Данные об издательстве
-                {
-                    BookName = (string?)pubInfo?.Element(ns + "book-name"),
-                    Publisher = (string?)pubInfo?.Element(ns + "publisher"),
-                    City = (string?)pubInfo?.Element(ns + "city"),
-                    Year = (string?)pubInfo?.Element(ns + "year"),
-                    ISBN = (string?)pubInfo?.Element(ns + "isbn"),
-                    Sequence = pubInfo?.Elements(ns + "sequence").Select(x => new
-                    {
-                        name = (string?)x.Attribute("name"),
-                        number = (int?)x.Attribute("number")
-                    }).ToListOrNull(),
-                },
-                // Произвольная информация
-                CustomInfo = new
-                {
-                    customItems = description?.Elements().Where(x => x.Name.LocalName == "custom-info").Select(x => new
-                    {
-                        infoType = (string?)x.Attribute("info-type"),
-                        value = x.Value
-                    }).ToListOrNull(),
-                }
-            },
-            Content = new { type = "doc", content = contentNodes }, // Контент, включая картинки
-            Footnotes = footnotesList, // Передаем список сносок отдельно
-            FilePath = fileName, // Полный путь к файлу для сохранения
-        }, options);
+        var exportData = new Fb2BookExport(
+                        Metadata: new Fb2Metadata(
+                            TitleInfo: new Fb2TitleInfo(// Данные о произведении
+                                Genres: titleInfo?.Elements().Where(x => x.Name.LocalName == "genre").Select(x => x.Value).ToListOrNull(),
+                                Authors: titleInfo?.Elements().Where(x => x.Name.LocalName == "author").Select(parseAuthor).ToListOrNull(),
+                                Title: (string?)titleInfo?.Element(ns + "book-title"),
+                                Annotation: (annotationNodes?.Count ?? 0) > 0 ? new TipTapDoc(Type: "doc", Content: annotationNodes) : null, // Аннотация возвращается в формате TipTap JSON
+                                Keywords: (string?)titleInfo?.Element(ns + "keywords"),
+                                Date: (string?)titleInfo?.Element(ns + "date"),
+                                DateValue: (string?)titleInfo?.Element(ns + "date")?.Attribute("value")?.Value,
+                                CoverPage: GetImage(titleInfo?.Element(ns + "coverpage")?.Element(ns + "image")?.Attribute(xlink + "href")?.Value),
+                                Lang: (string?)titleInfo?.Element(ns + "lang"),
+                                SrcLang: (string?)titleInfo?.Element(ns + "src-lang"),
+                                Translators: titleInfo?.Elements(ns + "translator").Select(parseAuthor).ToListOrNull(),
+                                Sequence: titleInfo?.Elements(ns + "sequence").Select(x => new Fb2Sequence(
+                                    Name: (string?)x.Attribute("name"),
+                                    Number: (int?)x.Attribute("number")
+                                )).ToListOrNull()
+                            ),
+                            SrcTitleInfo: new Fb2TitleInfo(// Данные о произведении на языке оригинала
+                                Genres: srcTitleInfo?.Elements(ns + "genre").Select(x => x.Value).ToListOrNull(),
+                                Authors: srcTitleInfo?.Elements(ns + "author").Select(parseAuthor).ToListOrNull(),
+                                Title: (string?)srcTitleInfo?.Element(ns + "book-title"),
+                                Annotation: (srcTitleInfoAnnotationNodes?.Count ?? 0) > 0 ? new TipTapDoc(Type: "doc", Content: srcTitleInfoAnnotationNodes) : null,// Аннотация возвращается в формате TipTap JSON
+                                Keywords: (string?)srcTitleInfo?.Element(ns + "keywords"),
+                                Date: (string?)srcTitleInfo?.Element(ns + "date"),
+                                DateValue: srcTitleInfo?.Element(ns + "date")?.Attribute("value")?.Value,
+                                CoverPage: GetImage(srcTitleInfo?.Element(ns + "coverpage")?.Element(ns + "image")?.Attribute(xlink + "href")?.Value),
+                                Lang: (string?)srcTitleInfo?.Element(ns + "lang"),
+                                SrcLang: (string?)srcTitleInfo?.Element(ns + "src-lang"),
+                                Translators: srcTitleInfo?.Elements(ns + "translator").Select(parseAuthor).ToListOrNull(),
+                                Sequence: srcTitleInfo?.Elements(ns + "sequence").Select(x => new Fb2Sequence(
+                                        Name: (string?)x.Attribute("name"),
+                                        Number: (int?)x.Attribute("number")
+                                    )).ToListOrNull()
+                            ),
+                            DocumentInfo: new Fb2DocumentInfo(// Данные о документе
+                                Authors: docInfo?.Elements(ns + "author").Select(parseAuthor).ToListOrNull(),
+                                Program: (string?)docInfo?.Element(ns + "program-used"),
+                                Date: (string?)docInfo?.Element(ns + "date"),
+                                DateValue: (string?)docInfo?.Element(ns + "date")?.Attribute("value"),
+                                Id: (string?)docInfo?.Element(ns + "id"),
+                                SrcUrl: (string?)docInfo?.Element(ns + "src-url"),
+                                SrcOcr: (string?)docInfo?.Element(ns + "src-ocr"),
+                                Version: (string?)docInfo?.Element(ns + "version"),
+                                History: (historyNodes?.Count ?? 0) > 0 ? new TipTapDoc(Type: "doc", Content: historyNodes) : null
+                            ),
+                            PublishInfo: new Fb2PublishInfo(// Данные об издательстве
+                                BookName: (string?)pubInfo?.Element(ns + "book-name"),
+                                Publisher: (string?)pubInfo?.Element(ns + "publisher"),
+                                City: (string?)pubInfo?.Element(ns + "city"),
+                                Year: (string?)pubInfo?.Element(ns + "year"),
+                                ISBN: (string?)pubInfo?.Element(ns + "isbn"),
+                                Sequence: pubInfo?.Elements(ns + "sequence").Select(x => new Fb2Sequence(
+                                            Name: (string?)x.Attribute("name"),
+                                            Number: (int?)x.Attribute("number")
+                                        )).ToListOrNull()
+                            ),
+                            // Произвольная информация
+                            CustomInfo: new Fb2CustomInfo(
+                                CustomItems: description?.Elements().Where(x => x.Name.LocalName == "custom-info").Select(x => new Fb2CustomItem(
+                                    InfoType: (string?)x.Attribute("info-type"),
+                                    Value: x.Value
+                                )).ToListOrNull()
+                            )
+                        ),
+                    Content: new TipTapDoc(Type: "doc", Content: contentNodes), // Контент, включая картинки
+                    Footnotes: footnotesList, // Передаем список сносок отдельно
+                    FilePath: fileName // Полный путь к файлу для сохранения
+        );
+        return JsonSerializer.Serialize(exportData, EmitContext.Default.Fb2BookExport);
     }
 
     /// <summary>
@@ -396,13 +380,13 @@ public class Fb2Service
     /// <param name="xlink">Пространство имён XLink.</param>
     /// <param name="binarySaveCache">Кэш для хранения данных изображений.</param>
     /// <param name="nodes">Список, в который добавляются преобразованные узлы.</param>
-    private void ParseElement(XElement container, List<object> nodes)
+    private void ParseElement(XElement container, List<TipTapNode> nodes)
     {
         foreach (var el in container.Elements())
         {
             string name = el.Name.LocalName;
-            var attrs = el.Attributes()
-                .ToDictionary(a => a.Name.LocalName, a => a.Value);
+            Dictionary<string, string?> attrs = el.Attributes()
+                .ToDictionary(a => a.Name.LocalName, a => (string?)a.Value);
             if (name == "section")
             {
                 if (!el.Elements().Any())
@@ -413,22 +397,26 @@ public class Fb2Service
                 int level = Math.Clamp(depth, 1, 6);
 
                 // Создаем список для внутреннего контента ЭТОЙ секции
-                var sectionContent = new List<object>();
+                var sectionContent = new List<TipTapNode>();
 
                 // Рекурсивно наполняем его (заголовки, p, вложенные секции пойдут сюда)
                 ParseElement(el, sectionContent);
 
                 // Добавляем всю секцию как единый блок в общий список
-                nodes.Add(new
-                {
-                    type = "fb2Section",
-                    attrs = new { level = level + 1, sectionId = Guid.NewGuid().ToString(), elementId = el.Attribute("id")?.Value },
-                    content = sectionContent
-                });
+                nodes.Add(new TipTapNode(
+                    Type: "fb2Section",
+                      Attrs: new Dictionary<string, string?>
+                      {
+                          ["level"] = (level + 1).ToString(), // Значения должны быть строками, так как Dictionary<string, string>
+                          ["sectionId"] = Guid.NewGuid().ToString(),
+                          ["elementId"] = el.Attribute("id")?.Value
+                      },
+                    Content: sectionContent
+                ));
             }
             else if (name is "title" or "epigraph" or "cite" or "poem" or "stanza")
             {
-                var contentList = new List<object>();
+                var contentList = new List<TipTapNode>();
                 ParseElement(el, contentList);
                 // Сопоставляем имя тега с типом в TipTap
                 string type = name switch
@@ -441,16 +429,15 @@ public class Fb2Service
                     _ => "fb2Title"
                 };
 
-                nodes.Add(new
-                {
-                    type,
-                    attrs = attrs.Count > 0 ? attrs : null,
-                    content = contentList
-                });
+                nodes.Add(new TipTapNode(
+                    Type: type,
+                    Attrs: attrs.Count > 0 ? attrs : null,
+                    Content: contentList
+                ));
             }
             else if (name is "text-author" or "subtitle" or "p" or "v")
             {
-                var inlineContent = new List<object>();
+                var inlineContent = new List<TipTapNode>();
                 foreach (var node in el.Nodes())
                 {
                     ProcessInline(node, inlineContent, []);
@@ -465,16 +452,18 @@ public class Fb2Service
                     _ => "paragraph"
                 };
 
-                nodes.Add(new
-                {
-                    type,
-                    attrs = attrs.Count > 0 ? attrs : null,
-                    content = inlineContent
-                });
+                nodes.Add(new TipTapNode(
+                    Type: type,
+                    Attrs: attrs.Count > 0 ? attrs : null,
+                    Content: inlineContent
+                ));
             }
             else if (name == "empty-line")
             {
-                nodes.Add(new { type = "paragraph", text = new List<object>() });
+                nodes.Add(new TipTapNode(
+                    Type: "paragraph",
+                    Text: ""
+                ));
             }
             else if (name == "image")
             {
@@ -484,7 +473,15 @@ public class Fb2Service
                     string base64 = GetImage(hrefAttr.Value);
                     if (!string.IsNullOrEmpty(base64))
                     {
-                        nodes.Add(new { type = "fb2BlockImage", attrs = new { src = base64, title = el.Attribute(ns + "title")?.Value ?? "", href = hrefAttr.Value } });
+                        nodes.Add(new TipTapNode(
+                            Type: "fb2BlockImage",
+                              Attrs: new Dictionary<string, string?>
+                              {
+                                  ["src"] = base64,
+                                  ["title"] = el.Attribute(ns + "title")?.Value,
+                                  ["href"] = hrefAttr.Value
+                              }
+                        ));
                     }
                 }
             }
@@ -498,26 +495,19 @@ public class Fb2Service
     /// <param name="node">Текущий XML-узел (XNode).</param>
     /// <param name="container">Список, в который добавляется результат обработки.</param>
     /// <param name="activeMarks">Список активных текстовых стилей (меток), применяемых к текущему тексту.</param>
-    private void ProcessInline(XNode node, List<object> container, List<object> activeMarks)
+    private void ProcessInline(XNode node, List<TipTapNode> container, List<TipTapMark> activeMarks)
     {
         if (node is XText textNode)
         {
             string val = textNode.Value;
-            if (!string.IsNullOrWhiteSpace(val)) // Лучше проверять на пробелы тоже
+            if (!string.IsNullOrWhiteSpace(val))
             {
-                var textElement = new Dictionary<string, object>
-                {
-                    { "type", "text" }
-                };
-
-                // ПОРЯДОК: Сначала добавляем marks, если они есть
-                if (activeMarks.Count > 0)
-                {
-                    textElement.Add("marks", activeMarks.ToArray());
-                }
-
-                // Затем добавляем сам текст
-                textElement.Add("text", val);
+                var textElement = new TipTapNode(
+                    Type: "text",
+                    Text: val,
+                    // Если есть марки, создаем новый список (копию текущих активных марок)
+                    Marks: activeMarks.Count > 0 ? [.. activeMarks] : null
+                );
 
                 container.Add(textElement);
             }
@@ -534,44 +524,41 @@ public class Fb2Service
                     string base64 = GetImage(hrefAttr.Value);
                     if (!string.IsNullOrEmpty(base64))
                     {
-                        // В Tiptap атрибуты ДОЛЖНЫ быть внутри объекта attrs
-                        container.Add(new
-                        {
-                            type = "fb2InlineImage",
-                            attrs = new
+                        container.Add(new TipTapNode(
+                            Type: "fb2InlineImage",
+                            Attrs: new Dictionary<string, string?>
                             {
-                                src = base64,
-                                href = hrefAttr.Value
+                                ["src"] = base64,
+                                ["href"] = hrefAttr.Value
                             }
-                        });
+                        ));
                     }
                 }
                 return;
             }
 
-            object? mark = localName switch
+            TipTapMark? mark = localName switch
             {
-                "emphasis" => new { type = "italic" },
-                "strong" => new { type = "bold" },
-                "sub" => new { type = "subscript" },
-                "sup" => new { type = "superscript" },
-                "code" => new { type = "code" },
-                "a" => new
-                {
-                    type = "link",
-                    attrs = new
+                "emphasis" => new TipTapMark(Type: "italic"),
+                "strong" => new TipTapMark(Type: "bold"),
+                "sub" => new TipTapMark(Type: "subscript"),
+                "sup" => new TipTapMark(Type: "superscript"),
+                "code" => new TipTapMark(Type: "code"),
+                "a" => new TipTapMark(
+                    Type: "link",
+                    Attrs: new Dictionary<string, string?>
                     {
-                        href = el.Attribute(xlink + "href")?.Value ?? "",
-                        target = "_blank", // Стандарт для ссылок
-                        rel = (el.Attribute("type")?.Value == "note") ? "footnote" : "noreferrer"
+                        ["href"] = el.Attribute(xlink + "href")?.Value ?? "",
+                        ["target"] = "_blank", // Стандарт для ссылок
+                        ["rel"] = (el.Attribute("type")?.Value == "note") ? "footnote" : "noreferrer"
                     }
-                },
+                ),
                 _ => null
             };
 
             // Создаем новый список марок для вложенных элементов
             var nextMarks = mark != null
-                ? new List<object>(activeMarks) { mark }
+                ? [.. activeMarks, mark]
                 : activeMarks;
 
             foreach (var child in el.Nodes())
@@ -994,10 +981,13 @@ public class Fb2Service
         // 2. Если пришел МАССИВ, обрабатываем элементы рекурсивно
         if (node.ValueKind == JsonValueKind.Array)
         {
-            return node.EnumerateArray()
-                .Select(ConvertNode)
-                .Where(x => x != null)
-                .ToArray();
+            var items = new List<object>(node.GetArrayLength());
+            foreach (var item in node.EnumerateArray())
+            {
+                var converted = ConvertNode(item);
+                if (converted != null) ExtractContent(items, converted);
+            }
+            return items;
         }
 
         // 3. Извлекаем тип узла
@@ -1005,31 +995,33 @@ public class Fb2Service
         string type = typeProp.GetString() ?? "";
 
         // 4. Собираем отфильтрованные дочерние узлы
-        object[] children = [];
+        List<object> children = [];
         if (node.TryGetProperty("content", out var rawChildNodes) && rawChildNodes.ValueKind == JsonValueKind.Array)
         {
-            children = [.. rawChildNodes.EnumerateArray()
-                .Select(ConvertNode)
-                .Where(x => x != null)
-                .Cast<object>()];
+            children.Capacity = rawChildNodes.GetArrayLength();
+            foreach (var childNode in rawChildNodes.EnumerateArray())
+            {
+                var converted = ConvertNode(childNode);
+                if (converted != null) ExtractContent(children, converted);
+            }
         }
 
         return type switch
         {
             "doc" => new XElement("temp", children),
-            "paragraph" => CreateParagraph(node, children),
+            "paragraph" => CreateParagraph(node, [.. children]),
             "text" => WrapTextWithMarks(node),
-            "fb2Section" => CreateElementWithId("section", node, children),
+            "fb2Section" => CreateElementWithId("section", node, children.ToArray()),
             "fb2BodySection" => new XElement(ns + "body", children),
-            "fb2Annotation" => CreateElementWithId("annotation", node, children),
+            "fb2Annotation" => CreateElementWithId("annotation", node, children.ToArray()),
             "fb2Title" => new XElement(ns + "title", children),
-            "fb2Cite" => CreateElementWithId("cite", node, children),
-            "fb2Epigraph" => CreateElementWithId("epigraph", node, children),
-            "fb2TextAuthor" => CreateElementWithId("text-author", node, children),
-            "fb2Poem" => CreateElementWithId("poem", node, children),
+            "fb2Cite" => CreateElementWithId("cite", node, children.ToArray()),
+            "fb2Epigraph" => CreateElementWithId("epigraph", node, children.ToArray()),
+            "fb2TextAuthor" => CreateElementWithId("text-author", node, children.ToArray()),
+            "fb2Poem" => CreateElementWithId("poem", node, children.ToArray()),
             "fb2Stanza" => new XElement(ns + "stanza", children),
-            "fb2V" => CreateElementWithId("v", node, children),
-            "fb2Subtitle" => CreateElementWithId("subtitle", node, children),
+            "fb2V" => CreateElementWithId("v", node, children.ToArray()),
+            "fb2Subtitle" => CreateElementWithId("subtitle", node, children.ToArray()),
             "fb2Date" => CreateDate(node),
             "fb2BlockImage" => CreateImage(node),
             "fb2InlineImage" => CreateImage(node),
@@ -1037,9 +1029,47 @@ public class Fb2Service
         };
     }
 
-    private static XElement CreateParagraph(JsonElement node, object[] children)
+    /// <summary>
+    /// Безопасно добавляет контент в указанный список, корректно обрабатывая строки, коллекции и отдельные объекты.
+    /// Если контент является перечисляемой коллекцией (например, массивом или списком), его элементы добавляются по одному.
+    /// В противном случае — объект добавляется целиком.
+    /// </summary>
+    /// <param name="list">Список, в который будет добавлен контент.</param>
+    /// <param name="content">Контент для добавления: строка, коллекция или одиночный объект.</param>
+    private static void ExtractContent(List<object> list, object content)
     {
-        var p = children.Length > 0 ? new XElement(ns + "p", children) : new XElement(ns + "empty-line");
+        // Если это строка — добавляем как есть (текстовый узел)
+        if (content is string)
+        {
+            list.Add(content);
+        }
+        // Если это коллекция (массив/список от рекурсии) — разворачиваем
+        else if (content is System.Collections.IEnumerable collection)
+        {
+            foreach (var item in collection)
+            {
+                if (item != null) list.Add(item);
+            }
+        }
+        // В остальных случаях (XElement, XText и т.д.) — просто добавляем
+        else
+        {
+            list.Add(content);
+        }
+    }
+
+    /// <summary>
+    /// Создаёт XML-элемент абзаца &lt;p&gt; с дочерними элементами или пустую строку &lt;empty-line&gt;, если контент отсутствует.
+    /// Также устанавливает атрибуты id и style из JSON-узла, если они присутствуют.
+    /// </summary>
+    /// <param name="node">Исходный JSON-узел, содержащий данные, включая атрибуты.</param>
+    /// <param name="children">Коллекция дочерних элементов (текст, теги), которые будут вложены в абзац.</param>
+    /// <returns>Элемент &lt;p&gt; с содержимым или &lt;empty-line&gt; при отсутствии контента.</returns>
+    private static XElement CreateParagraph(JsonElement node, IEnumerable<object> children)
+    {
+        var p = children.GetEnumerator().MoveNext()
+            ? new XElement(ns + "p", children)
+            : new XElement(ns + "empty-line");
 
         if (p.Name == ns + "p" && node.TryGetProperty("attrs", out var attrs))
         {
@@ -1049,35 +1079,63 @@ public class Fb2Service
 
         return p;
     }
-    private static XElement CreateElementWithId(string nodeName, JsonElement node, object[] children)
+
+    /// <summary>
+    /// Создаёт XML-элемент с заданным именем и присваивает ему атрибут ID на основе данных из JSON.
+    /// Для элемента типа "section" атрибут ID извлекается под ключом "elementId" и сохраняется как "id".
+    /// Для других элементов используется стандартный ключ "id".
+    /// </summary>
+    /// <param name="nodeName">Имя создаваемого XML-элемента (например, "section", "title").</param>
+    /// <param name="node">JSON-узел, содержащий атрибуты в поле "attrs".</param>
+    /// <param name="children">Дочерние элементы, которые будут вложены в созданный элемент.</param>
+    /// <returns>Новый XML-элемент с заданным именем, содержимым и атрибутом ID (если указан).</returns>
+    private static XElement CreateElementWithId(string nodeName, JsonElement node, IEnumerable<object> children)
     {
-        var el = children.Length > 0 ? new XElement(ns + nodeName, children) : new XElement(ns + nodeName);
+        var el = new XElement(ns + nodeName, children);
 
         if (node.TryGetProperty("attrs", out var attrs))
         {
             if (nodeName == "section")
-            {
                 SetAttr(el, "elementId", attrs, "id");
-            }
             else
-            {
                 SetAttr(el, "id", attrs);
-            }
         }
 
         return el;
     }
+
+    /// <summary>
+    /// Устанавливает значение атрибута XML-элемента на основе свойства из JSON-объекта атрибутов.
+    /// Поддерживает переопределение имени атрибута через параметр <paramref name="targetName"/>.
+    /// Значение обрезается и проверяется на пустоту перед установкой.
+    /// </summary>
+    /// <param name="el">Целевой XML-элемент, которому будет добавлен атрибут.</param>
+    /// <param name="name">Ключ, по которому ищется значение в JSON-объекте атрибутов.</param>
+    /// <param name="attrs">JSON-объект, содержащий атрибуты (обычно из поля "attrs" узла).</param>
+    /// <param name="targetName">Опциональное имя атрибута в результирующем XML. Если не задано, используется значение <paramref name="name"/>.</param>
     private static void SetAttr(XElement el, string name, JsonElement attrs, string targetName = "")
     {
-        targetName = string.IsNullOrWhiteSpace(targetName) ? name : targetName.Trim();
+        if (attrs.ValueKind != JsonValueKind.Object) return;
 
         if (attrs.TryGetProperty(name, out var prop))
         {
-            var val = prop.GetString();
-            if (!string.IsNullOrWhiteSpace(val)) el.SetAttributeValue(targetName, val);
+            // Используем GetRawText() и Trim, если это не строка, 
+            // или GetString(), если это строка, чтобы избежать кавычек.
+            string? val = prop.ValueKind == JsonValueKind.String
+                ? prop.GetString()
+                : prop.GetRawText();
+
+            if (!string.IsNullOrWhiteSpace(val))
+            {
+                // Определяем имя атрибута только при наличии значения
+                string finalName = string.IsNullOrWhiteSpace(targetName)
+                    ? name
+                    : targetName.Trim();
+
+                el.SetAttributeValue(finalName, val.Trim());
+            }
         }
     }
-
 
     /// <summary>
     /// Оборачивает текстовые узлы с учётом применённых стилей (жирный, курсив, ссылки и т.д.).
