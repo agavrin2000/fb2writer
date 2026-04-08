@@ -33,10 +33,26 @@ internal partial class EmitContext : JsonSerializerContext { }
 /// </summary>
 public class FileService(PhotinoWindow window)
 {
+    /// <summary>
+    /// Хранит путь к последней использованной директории для открытия или сохранения файлов.
+    /// Используется для улучшения пользовательского опыта, запоминая место предыдущей операции.
+    /// Значение инициализируется из специальной папки "Мои документы", если ранее не было задано.
+    /// </summary>
     private string? _lastUsedPath;
 
+    /// <summary>
+    /// Представляет нативное окно приложения, предоставляемое фреймворком Photino.NET.
+    /// Используется для отображения диалоговых окон выбора файлов (открытие/сохранение).
+    /// Обеспечивает интеграцию с системными диалогами операционной системы.
+    /// </summary>
     private readonly PhotinoWindow _window = window;
 
+    /// <summary>
+    /// Экземпляр сервиса конвертации FB2-файлов в JSON и обратно.
+    /// Отвечает за парсинг FB2-документов (включая .fb2.zip) и их преобразование во внутреннее представление,
+    /// а также за сохранение изменённого контента обратно в FB2-формат.
+    /// Является потокобезопасным и инициализируется при создании экземпляра класса.
+    /// </summary>
     private readonly Fb2Service _fb2Converter = new();
 
     /// <summary>
@@ -58,84 +74,54 @@ public class FileService(PhotinoWindow window)
         Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
     };
 
-    // 1. Универсальный метод загрузки по прямому пути (без диалога)
-    public async Task LoadFileByPathAsync(string filePath)
+    /// <summary>
+    /// Асинхронно загружает FB2-файл по указанному пути, преобразует его содержимое в JSON и отправляет во frontend.
+    /// Метод не вызывает диалог выбора файла — используется, когда путь уже известен.
+    /// В случае ошибки или отсутствия файла отправляет сообщение об ошибке.
+    /// </summary>
+    /// <param name="filePath">Полный путь к файлу на диске (поддерживает .fb2 и .fb2.zip).</param>
+    /// <returns>Задача, представляющая асинхронную операцию загрузки и конвертации.</returns>
+    public async Task<string> LoadFileByPathAsync(string filePath)
     {
-        if (string.IsNullOrWhiteSpace(filePath) || !File.Exists(filePath))
-        {
-            Emit("error", "Файл не найден или путь пуст.");
-            return;
-        }
-
         string fileName = Path.GetFileName(filePath);
 
-        // Начало загрузки
-        Emit("start-loading", fileName);
+        // Используем обычный FileStream, так как у нас есть прямой путь
+        await using var stream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read);
 
-        try
-        {
-            // Используем обычный FileStream, так как у нас есть прямой путь
-            await using var stream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read);
+        // Парсинг в фоновом потоке
+        return await Task.Run(() => _fb2Converter.LoadAndConvertToJson(stream, fileName));
 
-            // Парсинг в фоновом потоке
-            string json = await Task.Run(() => _fb2Converter.LoadAndConvertToJson(stream, fileName));
-
-            // Отправка контента во фронтенд
-            Emit("fb2-content", json);
-        }
-        catch (Exception ex)
-        {
-            Emit("error", $"Ошибка при чтении {fileName}: {ex.Message}");
-        }
     }
 
     /// <summary>
-    /// Асинхронно открывает FB2-файл (или архив .fb2.zip), читает его содержимое и преобразует в JSON.
-    /// Отправляет результат во frontend или уведомляет о cancell-событии и ошибках.
+    /// Асинхронно открывает диалог выбора изображения (JPG, PNG) для вставки в редактор.
+    /// Метод принимает JSON-строку с параметрами отображения и определяет тип вставки (block/inline).
+    /// После выбора файла изображение преобразуется в Data URL и отправляется во frontend.
     /// </summary>
-    /// <returns>Задача, представляющая асинхронную операцию.</returns>
-    public async Task OpenFileAsync()
+    /// <param name="payload">JSON-строка, содержащая параметры вставки изображения. 
+    /// Ожидается свойство "type" со значением "block" или "inline". Если пусто или невалидно — используется значение по умолчанию.</param>
+    /// <returns>Задача, представляющая асинхронную операцию выбора и подготовки изображения.</returns>
+    public async Task SelectImageAsync(string payload)
     {
-        // 1. Определяем начальный путь: последний использованный ИЛИ "Мои документы"
-        string defaultPath = !string.IsNullOrEmpty(_lastUsedPath)
-            ? _lastUsedPath
-            : Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
-
-        var filters = new (string Name, string[] Extensions)[]
+        string displayType = "block";
+        if (!string.IsNullOrEmpty(payload))
         {
-        ("Книги FB2", ["fb2", "fb2.zip"]),
-        ("Все файлы", ["*"])
-        };
-
-        string[] result = await _window.ShowOpenFileAsync(
-            title: "Открыть книгу FB2",
-            defaultPath: defaultPath,
-            multiSelect: false,
-            filters: filters
-        );
-
-        var localPath = result?.FirstOrDefault();
-
-        if (string.IsNullOrEmpty(localPath))
-        {
-            Emit("cancel-loading", string.Empty);
-            return;
+            try
+            {
+                // Используем JsonDocument для доступа к свойствам "на лету"
+                using JsonDocument doc = JsonDocument.Parse(payload);
+                if (doc.RootElement.TryGetProperty("type", out JsonElement typeElement))
+                {
+                    displayType = typeElement.GetString() ?? "block";
+                }
+            }
+            catch (JsonException ex)
+            {
+                Console.WriteLine($"[C# JSON Parse Error]: {ex.Message}");
+                displayType = "block"; // Используем значение по умолчанию "block"
+            }
         }
 
-        // 2. Сохраняем путь к папке (без имени файла) для следующего раза
-        _lastUsedPath = Path.GetDirectoryName(localPath);
-
-        await LoadFileByPathAsync(localPath);
-    }
-
-    /// <summary>
-    /// Асинхронно открывает диалог выбора изображения (JPG, PNG) и возвращает его содержимое в формате Data URL.
-    /// Используется для вставки изображений в редактор.
-    /// </summary>
-    /// <param name="DiplayType">Тип отображения изображения (например, "block" или "inline").</param>
-    /// <returns>Задача, представляющая асинхронную операцию.</returns>
-    public async Task SelectImageAsync(string displayType)
-    {
         // 1. Используем тот же подход с путями, что и при открытии книги
         string defaultPath = !string.IsNullOrEmpty(_lastUsedPath)
             ? _lastUsedPath

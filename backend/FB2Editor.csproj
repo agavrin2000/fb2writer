@@ -23,13 +23,13 @@
 		<DebugSymbols>false</DebugSymbols>
 		<Optimize>true</Optimize>
 		<SelfContained>true</SelfContained> <!-- Включает рантайм .NET внутрь EXE -->
+		<EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
 
 		<!-- Запрещает копирование .pdb файлов зависимостей в выходную директорию -->
 		<CopyOutputSymbolsToPublishDirectory>false</CopyOutputSymbolsToPublishDirectory>
 		<PublishSingleFile>true</PublishSingleFile>
 		<PublishTrimmed>true</PublishTrimmed>
 		<TrimMode>partial</TrimMode>
-		<EnableCompressionInSingleFile>false</EnableCompressionInSingleFile>
 		<PublishReadyToRun>false</PublishReadyToRun>
 
 		<!-- Отключаем автоматическое включение файлов из папок проекта в финальную сборку -->
@@ -65,20 +65,12 @@
 	</PropertyGroup>
 
 	<ItemGroup>
-		<PackageReference Include="Microsoft.Extensions.FileProviders.Embedded" Version="10.0.4" />
 		<PackageReference Include="Photino.NET" Version="4.0.16" />
-		<PackageReference Include="Photino.NET.Server" Version="4.0.12" />
 	</ItemGroup>
 
 	<ItemGroup>
 		<EmbeddedResource Include="Resources\wwwroot\**\*.*" />
-	</ItemGroup>
-	<ItemGroup>
-		<None Include="Schemas\**\*.xsd">
-			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-			<!-- Этот флаг заставит файл остаться в папке при SingleFile сборке -->
-			<ExcludeFromSingleFile>true</ExcludeFromSingleFile>
-		</None>
+    	<EmbeddedResource Include="Schemas\**\*.xsd" />
 	</ItemGroup>
 	
 	<PropertyGroup>
@@ -87,40 +79,30 @@
 
 	<!-- Запускаем билд только для Release-конфигурации -->
 	<Target Name="BuildNextJs" BeforeTargets="Build" Condition="'$(Configuration)' == 'Release'">
-	<Message Importance="high" Text="Собираем финальный билд фронтенда..." />
-	
-	<!-- 1. Сборка фронтенда -->
-	<Exec WorkingDirectory="$(FrontendRoot)" Command="npm install" />
-	<Exec WorkingDirectory="$(FrontendRoot)" Command="npm run build" />
-	
-    <!-- 2. Очистка старых файлов в целевой папке (опционально, но полезно) -->
-    <RemoveDir Directories="Resources\wwwroot\" />
+		<Message Importance="high" Text="Собираем финальный билд фронтенда..." />
+		
+		<!-- 1. Сборка фронтенда -->
+		<Exec WorkingDirectory="$(FrontendRoot)" Command="npm install" />
+		<Exec WorkingDirectory="$(FrontendRoot)" Command="npm run build" />
+		
+		<!-- 2. Очистка старых файлов в целевой папке (опционально, но полезно) -->
+		<RemoveDir Directories="Resources\wwwroot\" />
 
-    <!-- 3. Копирование файлов из /out в /Resources/wwwroot -->
-    <ItemGroup>
-        <NextFiles Include="$(FrontendRoot)\out\**\*.*" />
-    </ItemGroup>
-    
-    <Copy 
-        SourceFiles="@(NextFiles)" 
-        DestinationFolder="Resources\wwwroot\%(RecursiveDir)" 
-        SkipUnchangedFiles="true" 
-    />
-
-    <!-- 4. Важно для Photino: говорим .NET, что эти файлы являются контентом
-    <ItemGroup>
-        <Content Include="Resources\wwwroot\**\*.*">
-            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-        </Content>
-    </ItemGroup> -->
+		<!-- 3. Копирование файлов из /out в /Resources/wwwroot -->
+		<ItemGroup>
+			<NextFiles Include="$(FrontendRoot)\out\**\*.*" />
+		</ItemGroup>
+		
+		<Copy SourceFiles="@(NextFiles)" DestinationFolder="Resources\wwwroot\%(RecursiveDir)" SkipUnchangedFiles="true" />
 	</Target> 
 
+	<!-- Очистка от pdb-файлов -->
 	<Target Name="CleanupNativePdb" AfterTargets="Publish" Condition="'$(Configuration)' == 'Release'">
-    <ItemGroup>
-        <PdbToDelete Include="$(PublishDir)*.pdb" />
-    </ItemGroup>
-    
-    <Message Importance="high" Text="--- [CLEANUP] Удаление лишних символов отладки из $(PublishDir) ---" />
-    <Delete Files="@(PdbToDelete)" />
-</Target>
+		<Message Importance="high" Text="--- [CLEANUP] Удаление лишних символов отладки из $(PublishDir) ---" />
+		<ItemGroup>
+			<PdbToDelete Include="$(PublishDir)*.pdb" />
+		</ItemGroup>
+		
+		<Delete Files="@(PdbToDelete)" />
+	</Target>
 </Project>

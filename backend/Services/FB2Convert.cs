@@ -4,6 +4,7 @@ using System.IO.Compression;
 using System.Xml.Schema;
 using System.Text.Json;
 using FB2Editor.Models;
+using System.Xml;
 
 namespace FB2Editor.Services;
 
@@ -323,24 +324,32 @@ public class Fb2Service
     private static readonly Lazy<XmlSchemaSet> _schemaCache = new(() =>
     {
         var schemas = new XmlSchemaSet();
+        var assembly = typeof(Program).Assembly;
+        // ВАЖНО: Проверьте префикс ресурсов. Обычно это [ИмяПроекта].Schemas.[ИмяФайла].xsd
+        string resPrefix = "FB2Editor.Schemas.";
+
         try
         {
-            // Пути к файлам в папке приложения (убедитесь, что файлы копируются в Output Directory)
-            string schemaPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Schemas");
+            // Вспомогательный метод для загрузки схемы из ресурса
+            void AddSchema(string? ns, string fileName)
+            {
+                using var stream = assembly.GetManifestResourceStream(resPrefix + fileName);
+                if (stream == null) throw new FileNotFoundException($"Ресурс {fileName} не найден.");
+                using var reader = XmlReader.Create(stream);
+                schemas.Add(ns, reader);
+            }
 
-            // 1. Добавляем XLink (обязателен для валидации атрибутов изображений)
-            schemas.Add(null, Path.Combine(schemaPath, "xlink.xsd"));
-            schemas.Add("http://www.w3.org/XML/1998/namespace", Path.Combine(schemaPath, "FictionBookLang.xsd"));
-            schemas.Add("http://www.gribuser.ru/xml/fictionbook/2.0/genres", Path.Combine(schemaPath, "FictionBookGenres.xsd"));
-            // 2. Добавляем обе версии FB2. Валидатор сам выберет нужную по xmlns в файле.
-            schemas.Add(null, Path.Combine(schemaPath, "FictionBook.xsd"));
+            AddSchema(null, "xlink.xsd");
+            AddSchema("http://www.w3.org/XML/1998/namespace", "FictionBookLang.xsd");
+            AddSchema("http://www.gribuser.ru/xml/fictionbook/2.0/genres", "FictionBookGenres.xsd");
+            AddSchema(null, "FictionBook.xsd");
 
             schemas.Compile();
             return schemas;
         }
         catch (Exception ex)
         {
-            throw new Exception("Критическая ошибка при загрузке XSD схем из папки Schemas.", ex);
+            throw new Exception("Ошибка при загрузке XSD схем из ресурсов сборки.", ex);
         }
     });
 
