@@ -1,3 +1,8 @@
+export interface AppInfo {
+  name: string;
+  version: string;
+}
+
 // Основной интерфейс для персон (авторы, переводчики)
 export interface Fb2Person {
   firstName?: string;
@@ -202,7 +207,7 @@ export const EMPTY_FB2_TEMPLATE: Fb2Data = {
     ],
   },
   footnotes: [],
-  filePath: "new_book.fb2",
+  filePath: "",
 };
 
 // Список жанров
@@ -451,3 +456,4 @@ declare module "@tiptap/core" {
     fb2: Fb2Commands<ReturnType>;
   }
 }
+

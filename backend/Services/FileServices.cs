@@ -1,3 +1,6 @@
+using System.IO.Compression;
+using System.Text.Json;
+
 namespace FB2Editor.Services;
 
 /// <summary>
@@ -19,27 +22,47 @@ public class FileService
     /// Метод не вызывает диалог выбора файла — используется, когда путь уже известен.
     /// В случае ошибки или отсутствия файла отправляет сообщение об ошибке.
     /// </summary>
-    /// <param name="filePath">Полный путь к файлу на диске (поддерживает .fb2 и .fb2.zip).</param>
-    /// <returns>Задача, представляющая асинхронную операцию загрузки и конвертации.</returns>
+    /// <param name="filePath">Полный путь к файлу на диске </param>
+    /// <returns>Задача, представляющая асинхронную операцию загрузки и конвертации. Результат — JSON-строка с содержимым книги.</returns>
+    /// <exception cref="FileNotFoundException">Исключение, если файл по указанному пути не найден.</exception>
     public async Task<string> LoadFileByPathAsync(string filePath)
     {
-        string fileName = Path.GetFileName(filePath);
+        bool isZip = filePath.EndsWith(".zip", StringComparison.OrdinalIgnoreCase);
 
-        // Используем обычный FileStream, так как у нас есть прямой путь
-        await using var stream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read);
+        await using var fs = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read);
 
-        // Парсинг в фоновом потоке
-        return await Task.Run(() => _fb2Converter.LoadAndConvertToJson(stream, fileName));
+        // Если ZIP — ищем вход в архив, если нет — используем сам FileStream
+        Stream targetStream = fs;
+        ZipArchive? archive = null;
+
+        if (isZip)
+        {
+            archive = new ZipArchive(fs, ZipArchiveMode.Read);
+            var entry = archive.Entries.FirstOrDefault(e => e.FullName.EndsWith(".fb2", StringComparison.OrdinalIgnoreCase))
+                        ?? throw new Exception("FB2 не найден в архиве.");
+            targetStream = entry.Open();
+        }
+
+        try
+        {
+            // Выполняем тяжелую работу в Task.Run
+            return await Task.Run(() => _fb2Converter.ConvertXMLToJson(targetStream, Path.GetFileName(filePath)));
+        }
+        finally
+        {
+            // Важно: если открывали архив или поток из него — чистим за собой
+            if (isZip) targetStream.Dispose();
+            archive?.Dispose();
+        }
     }
 
     /// <summary>
-    /// Асинхронно открывает диалог выбора изображения (JPG, PNG) для вставки в редактор.
-    /// Метод принимает JSON-строку с параметрами отображения и определяет тип вставки (block/inline).
-    /// После выбора файла изображение преобразуется в Data URL и отправляется во frontend.
+    /// Асинхронно загружает файл изображения по указанному локальному пути и преобразует его содержимое в строку формата Data URL.
+    /// Используется для подготовки изображений к вставке в редактор через base64-кодировку.
     /// </summary>
-    /// <param name="payload">JSON-строка, содержащая параметры вставки изображения. 
-    /// Ожидается свойство "type" со значением "block" или "inline". Если пусто или невалидно — используется значение по умолчанию.</param>
-    /// <returns>Задача, представляющая асинхронную операцию выбора и подготовки изображения.</returns>
+    /// <param name="localPath">Полный путь к файлу изображения на диске (поддерживает JPG, PNG и другие форматы).</param>
+    /// <returns>Задача, представляющая асинхронную операцию. Результат — строка в формате data:image/...;base64,..., готовая к использованию в HTML/CSS.</returns>
+    /// <exception cref="FileNotFoundException">Исключение, если файл по указанному пути не найден.</exception>
     public static async Task<string> SelectImageAsync(string localPath)
     {
         byte[] imageBytes = await File.ReadAllBytesAsync(localPath);
@@ -53,17 +76,61 @@ public class FileService
     }
 
     /// <summary>
-    /// Асинхронно сохраняет JSON-представление документа обратно в FB2-файл или ZIP-архив.
-    /// Позволяет пользователю выбрать путь и формат сохранения.
+    /// Асинхронно сохраняет JSON-представление документа в FB2-файл (или .fb2.zip).
+    /// Использует временный файл для обеспечения атомарности операции: при ошибке исходный файл не повреждается.
+    /// Поддерживает прямое сохранение в .fb2 и упаковку в ZIP-архив.
     /// </summary>
     /// <param name="jsonContent">JSON-строка с данными редактора, подлежащая конвертации в FB2.</param>
-    /// <returns>Задача, представляющая асинхронную операцию.</returns>
-    public async Task SaveFileAsync(string jsonContent, string localPath)
+    /// <param name="filePath">Полный путь к файлу, куда необходимо сохранить документ.</param>
+    /// <returns>Задача, представляющая асинхронную операцию сохранения.</returns>
+    /// <exception cref="Exception">Выбрасывается в случае ошибки конвертации или записи файла, с описанием проблемы.</exception>
+    public async Task SaveFileAsync(JsonElement jsonContent, string filePath)
     {
-        await using var stream = File.Create(localPath);
-        // Выполняем тяжелую конвертацию в фоновом потоке
-        await Task.Run(() => _fb2Converter.SaveJsonToFb2(stream, Path.GetFileName(localPath), jsonContent));
+        if (string.IsNullOrWhiteSpace(filePath)) return;
 
-        return;
+        // Создаем временный файл в той же папке для атомарности
+        string tempPath = filePath + "." + Guid.NewGuid().ToString("N") + ".tmp";
+        bool isZip = filePath.EndsWith(".zip", StringComparison.OrdinalIgnoreCase);
+        string fileName = Path.GetFileName(filePath);
+
+        try
+        {
+            await Task.Run(() =>
+            {
+                // Используем обычный using, так как мы в Task.Run
+                using (var fs = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.None))
+                {
+                    if (isZip)
+                    {
+                        // leaveOpen: true важен, чтобы закрытие архива не закрыло поток fs раньше времени
+                        using var archive = new ZipArchive(fs, ZipArchiveMode.Create, leaveOpen: true);
+
+                        // Определяем имя внутреннего файла (убираем .zip)
+                        string entryName = fileName.EndsWith(".fb2.zip", StringComparison.OrdinalIgnoreCase)
+                            ? fileName[..^4]
+                            : Path.GetFileNameWithoutExtension(fileName) + ".fb2";
+
+                        var entry = archive.CreateEntry(entryName, CompressionLevel.Optimal);
+                        using var entryStream = entry.Open();
+
+                        _fb2Converter.ConvertJsonToFb2(entryStream, jsonContent);
+                    }
+                    else
+                    {
+                        _fb2Converter.ConvertJsonToFb2(fs, jsonContent);
+                    }
+                    fs.Flush(); // Сбрасываем буферы на диск
+                }
+
+                // Атомарная замена (на Linux это системный вызов rename)
+                File.Move(tempPath, filePath, overwrite: true);
+            });
+        }
+        catch
+        {
+            // Очистка временного файла при ошибке
+            if (File.Exists(tempPath)) File.Delete(tempPath);
+            throw;
+        }
     }
 }

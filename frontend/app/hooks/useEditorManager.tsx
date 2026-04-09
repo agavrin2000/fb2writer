@@ -47,7 +47,7 @@ export function useEditorManager(): EditorManager {
    * Ссылка на функцию установки активной сноски.
    * Позволяет обновлять состояние активной сноски из любого места.
    */
-  const setActiveNoteRef = useRef<(note: any) => void>(() => {});
+  const setActiveNoteRef = useRef<(note: any) => void>(() => { });
 
   /**
    * Текущие метаданные документа.
@@ -292,7 +292,6 @@ export function useEditorManager(): EditorManager {
       setLoadingFileName("");
       setIsLoading(false);
       setLoaderConfig(null);
-
       showToastSuccess("Изменения сохранены");
     },
     [
@@ -333,7 +332,7 @@ export function useEditorManager(): EditorManager {
       "cancel-loading": onCancelLoading,
       "start-saving": onStartSaving,
       "save-success": onSaveSuccess,
-      error: onError,
+       error: onError,
     }),
     [
       onFb2Content,

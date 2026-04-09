@@ -31,7 +31,7 @@ export const ExitModal = ({ isOpen, onClose, onConfirm }: ExitModalProps) => {
 
             <div className="flex gap-3 w-full">
               {/* Кнопка отмены */}
-              <button 
+              <button type="button"
                 onClick={onClose}
                 className="flex-1 px-4 py-3 rounded-xl bg-gray-100 text-gray-700 font-bold text-sm hover:bg-gray-200 transition-all active:scale-95"
               >
@@ -39,7 +39,7 @@ export const ExitModal = ({ isOpen, onClose, onConfirm }: ExitModalProps) => {
               </button>
               
               {/* Кнопка подтверждения */}
-              <button 
+              <button type="button"
                 onClick={onConfirm}
                 className="flex-1 px-4 py-3 rounded-xl bg-red-600 text-white font-bold text-sm hover:bg-red-700 shadow-lg shadow-red-200 transition-all flex items-center justify-center gap-2 active:scale-95"
               >

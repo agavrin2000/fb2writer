@@ -9,7 +9,8 @@ export type PhotinoEvent =
   | { type: "save-file"; payload: string }
   | { type: "error"; payload: string }
   | { type: "fb2-content"; payload: string }
-  | { type: "save-success"; payload: string };
+  | { type: "save-success"; payload: string }
+  | { type: "show-exit-confirmation"; payload: string };
 
 class PhotinoBridge extends EventEmitter {
   private bridge: any = null;
@@ -30,7 +31,7 @@ class PhotinoBridge extends EventEmitter {
         webview.addEventListener("message", (event: any) => {
           this.handleMessage(event.data);
         });
-      } else if (this.bridge?.receiveMessage) {
+      } else if (this.bridge && typeof this.bridge.receiveMessage === 'function') {
         // Фоллбек для старых версий или других ОС
         try {
           this.bridge.receiveMessage((data: any) => this.handleMessage(data));
@@ -41,7 +42,9 @@ class PhotinoBridge extends EventEmitter {
     }
   }
 
+
   private handleMessage(data: any) {
+    console.log("RAW DATA:", data)
     try {
       // 1. Если это уже объект (Photino часто делает JSON.parse за тебя), используем его
       // 2. Если это строка, парсим один раз
@@ -78,7 +81,7 @@ class PhotinoBridge extends EventEmitter {
     if (!this.bridge) return;
 
     // Отправляем как простую строку
-    const message = payload ? `${type}:${JSON.stringify(payload)}` : type;
+    const message = payload ? `${type}:${JSON.stringify(payload)}` : `${type}:`;
 
     this.bridge.sendMessage(message);
     console.log("👉 Отправка в C#:", message);

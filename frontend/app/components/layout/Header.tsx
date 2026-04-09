@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useState, useRef, memo } from "react";
+import React, { useEffect, useState, useRef, useCallback, useMemo, memo } from "react";
 import { Editor } from "@tiptap/react";
 import {
   Info,
@@ -14,6 +14,7 @@ import {
 import { AboutModal } from "./AboutModal";
 import { ExitModal } from "./ExitModal";
 import { photino } from "@/api/photino";
+import { usePhotinoEvents } from "@/hooks/usePhotinoEvents";
 
 export const Header = memo(
   ({
@@ -32,6 +33,7 @@ export const Header = memo(
     const [activeMenu, setActiveMenu] = useState<string | null>(null);
     const [isAboutOpen, setIsAboutOpen] = useState(false);
     const [isExitModalOpen, setIsExitModalOpen] = useState(false);
+
     const menuRef = useRef<HTMLDivElement>(null);
 
     // Закрытие меню при клике вне
@@ -49,10 +51,23 @@ export const Header = memo(
         document.removeEventListener("mousedown", handleClickOutside);
     }, []);
 
-    const handleAction = (action: () => void) => {
+    // Обработка закрытия окна по "крестику"
+    const onShowExitConfirmation = useCallback(
+      (message: string) => {
+        console.log("show-exit-confirmation")
+        setIsExitModalOpen(true);
+      }, [setIsExitModalOpen]);
+
+    const eventHandlers = useMemo(() => ({ "show-exit-confirmation": onShowExitConfirmation }),
+      [onShowExitConfirmation]);
+
+    usePhotinoEvents(eventHandlers);
+
+    // Выполнение дейстаия и скрытие меню при выборе пункта меню
+    const handleAction = useCallback((action: () => void) => {
       action();
       setActiveMenu(null);
-    };
+    }, [setActiveMenu]);
 
     return (
       <>
@@ -93,6 +108,7 @@ export const Header = memo(
                   </button>
                   <button
                     type="button"
+                    disabled={!fileName}
                     onClick={() => handleAction(() => onSave(false))}
                     className="header-item"
                   >
@@ -196,7 +212,7 @@ export const Header = memo(
           </div>
 
           <div className="flex-grow text-center text-[10px] font-black text-gray-300 tracking-[0.4em] uppercase truncate px-4">
-            {!fileName ? "FB2 Editor" : fileName}
+            {!fileName ? "FB2 Writer" : fileName}
           </div>
         </header>
 

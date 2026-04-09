@@ -10,7 +10,7 @@ export default function PhotinoInitializer() {
       if (typeof window !== "undefined") {
         // Отправляем сигнал готовности в C#
         // Убедитесь, что формат строки совпадает с тем, что ждет C# (с двоеточием)
-        photino.send("app-ready:");
+        photino.send("app-ready");
       }
     }, 100);
 

@@ -1,6 +1,9 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
 	<PropertyGroup>
+	  	<AssemblyName>FB2Editor</AssemblyName>
+  		<Product>FB2 Writer</Product>
+  		<Version>1.0.5</Version>
 		<TargetFramework>net10.0</TargetFramework>
 		<Platforms>AnyCPU</Platforms>
 		<ImplicitUsings>enable</ImplicitUsings>

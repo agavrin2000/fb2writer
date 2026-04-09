@@ -120,29 +120,17 @@ public class Fb2Service
     /// <param name="fileName">Имя файла, определяющее формат (FB2 или ZIP).</param>
     /// <returns>JSON-строка с метаданными, контентом, сносками и путём к файлу.</returns>
     /// <exception cref="Exception">Выбрасывается при ошибках валидации, отсутствии FB2 внутри архива или других критических ошибках.</exception>
-    public string LoadAndConvertToJson(Stream fileStream, string fileName)
+    public string ConvertXMLToJson(Stream fileStream, string fileName)
     {
         // Обязательно для поддержки русских кодировок (windows-1251) в FB2
         Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
 
         // Получаем xml-документ либо из zip-архива, либо напрямую
-        XDocument doc;
-
-        if (fileName.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
-        {
-            // Используем LeaveOpen: true, чтобы не закрыть основной поток раньше времени
-            using var archive = new ZipArchive(fileStream, ZipArchiveMode.Read, leaveOpen: true);
-            var entry = archive.Entries.FirstOrDefault(e => e.FullName.EndsWith(".fb2", StringComparison.OrdinalIgnoreCase)) ?? throw new Exception("Файл .fb2 не найден внутри архива.");
-            using var entryStream = entry.Open();
-            doc = XDocument.Load(entryStream);
-        }
-        else
-        {
-            doc = XDocument.Load(fileStream);
-        }
+        XDocument doc = XDocument.Load(fileStream);
 
         ValidateFb2(doc);
 
+        // Локальная функция для парсинга авторов\переводчиков
         var parseAuthor = new Func<XElement, PersonInfo>(a =>
         {
             return new PersonInfo(
@@ -207,6 +195,7 @@ public class Fb2Service
                 footnotesList[id] = notesNodes;
             }
         }
+
         // --- ПАРСИНГ КОНТЕНТА И КАРТИНОК ---
         FillBinaryCache(doc);
 
@@ -220,7 +209,7 @@ public class Fb2Service
             var bodyContent = new List<TipTapNode>
             {
                 // add placeholder для возможности изменения секции body
-                new TipTapNode( Type : "fb2Placeholder")
+                new( Type : "fb2Placeholder")
             };
 
             ParseElement(body, bodyContent);
@@ -235,15 +224,6 @@ public class Fb2Service
             ));
         }
 
-        var options = new JsonSerializerOptions
-        {
-            // Включаем camelCase
-            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-            // Игнорируем null-поля (аналог NullValueHandling.Ignore)
-            DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull,
-            // Чтобы русский текст не превращался в \u0444
-            Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
-        };
         var exportData = new Fb2BookExport(
                         Metadata: new Fb2Metadata(
                             TitleInfo: new Fb2TitleInfo(// Данные о произведении
@@ -314,7 +294,7 @@ public class Fb2Service
                     Footnotes: footnotesList, // Передаем список сносок отдельно
                     FilePath: fileName // Полный путь к файлу для сохранения
         );
-        return JsonSerializer.Serialize(exportData, EmitContext.Default.Fb2BookExport);
+        return JsonSerializer.Serialize(exportData, EmitContext.CustomOptions);
     }
 
     /// <summary>
@@ -372,7 +352,7 @@ public class Fb2Service
             }
         });
 
-        if (errors.Any())
+        if (errors.Count != 0)
         {
             var summary = string.Join(Environment.NewLine, errors.Take(10)); // Берем первые 10 ошибок
             if (errors.Count > 10) summary += "\n... и другие ошибки.";
@@ -587,27 +567,19 @@ public class Fb2Service
     /// <param name="outputStream">Выходной поток, в который будет записан результат.</param>
     /// <param name="fileName">Имя файла, определяющее формат выхода (FB2 или ZIP).</param>
     /// <param name="jsonContent">JSON-строка с данными редактора (метаданные, контент, сноски).</param>
-    public void SaveJsonToFb2(Stream outputStream, string fileName, string jsonContent)
+    public void ConvertJsonToFb2(Stream outputStream, JsonElement jsonContent)
     {
-        if (string.IsNullOrWhiteSpace(jsonContent)) return;
-
-        // 1. Парсим JSON через JsonDocument
-        using JsonDocument doc = JsonDocument.Parse(jsonContent);
-        JsonElement root = doc.RootElement;
-
-        // Логика обработки "строки в строке" (аналог проверки data.Type == JTokenType.String)
-        if (root.ValueKind == JsonValueKind.String)
+        try
         {
-            string? innerJson = root.GetString();
-            if (!string.IsNullOrEmpty(innerJson))
-            {
-                using JsonDocument innerDoc = JsonDocument.Parse(innerJson);
-                ProcessData(innerDoc.RootElement, outputStream, fileName);
-            }
+            ProcessData(jsonContent, outputStream);
         }
-        else
+        catch (JsonException ex)
         {
-            ProcessData(root, outputStream, fileName);
+            throw new Exception($"Некорректный формат JSON: {ex.Message}", ex);
+        }
+        catch (Exception ex)
+        {
+            throw new Exception($"Ошибка конвертации: {ex.Message}", ex);
         }
     }
 
@@ -618,7 +590,7 @@ public class Fb2Service
     /// <param name="data">Корневой элемент JSON-документа.</param>
     /// <param name="outputStream">Поток для записи результата.</param>
     /// <param name="fileName">Имя файла для определения формата сохранения.</param>
-    private void ProcessData(JsonElement data, Stream outputStream, string fileName)
+    private void ProcessData(JsonElement data, Stream outputStream)
     {
         // Извлекаем элементы (используем GetProperty или TryGetProperty)
         // Если элемента нет, передаем "пустой" JsonElement (ValueKind == Undefined)
@@ -641,11 +613,11 @@ public class Fb2Service
         // 2. Добавляем бинарные данные из кэша
         foreach (var item in _binaryCache)
         {
-            var binaryEl = new XElement(ns + "binary", item.Value.Base64); // Контент сразу здесь
-            binaryEl.Add(new XAttribute("id", item.Key));
-            binaryEl.Add(new XAttribute("content-type", item.Value.ContentType));
-            binaryEl.Add(new XAttribute("id", item.Key));
-            binaryEl.Add(new XAttribute("content-type", item.Value.ContentType));
+            XElement binaryEl = new(ns + "binary",
+                new XAttribute("id", item.Key),
+                new XAttribute("content-type", item.Value.ContentType),
+                item.Value.Base64 // Значение элемента
+            );
             rootElement.Add(binaryEl);
         }
 
@@ -657,24 +629,14 @@ public class Fb2Service
 
         ValidateFb2(fb2Doc);
 
-        // 4. Логика сохранения (ZIP или FB2)
-        bool isZip = fileName.EndsWith(".zip", StringComparison.OrdinalIgnoreCase);
-
-        if (isZip)
+        var settings = new XmlWriterSettings
         {
-            using var archive = new ZipArchive(outputStream, ZipArchiveMode.Create, leaveOpen: true);
-            string entryName = fileName.EndsWith(".fb2.zip", StringComparison.OrdinalIgnoreCase)
-                ? fileName[..^4]
-                : Path.ChangeExtension(fileName, ".fb2");
-
-            var entry = archive.CreateEntry(entryName, CompressionLevel.Optimal);
-            using var entryStream = entry.Open();
-            fb2Doc.Save(entryStream); // XDocument умеет сохранять напрямую в Stream
-        }
-        else
-        {
-            fb2Doc.Save(outputStream);
-        }
+            Indent = true,
+            Encoding = new System.Text.UTF8Encoding(false), // UTF-8 без BOM для лучшей совместимости
+            CheckCharacters = false // Важно, если в тексте могут быть спецсимволы
+        };
+        using var writer = XmlWriter.Create(outputStream, settings);
+        fb2Doc.Save(writer);
     }
 
     /// <summary>
