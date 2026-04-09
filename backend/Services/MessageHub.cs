@@ -23,18 +23,15 @@ public class MessageHub
     /// </summary>
     public async void Handle(object? sender, string message)
     {
-        if (string.IsNullOrWhiteSpace(message)) return;
-
-        var separatorIndex = message.IndexOf(':');
-        if (separatorIndex == -1) return;
-
-        string command = message[..separatorIndex];
-        string strPayload = message[(separatorIndex + 1)..];
-
-        using JsonDocument? payload = string.IsNullOrEmpty(strPayload) ? null : JsonDocument.Parse(strPayload);
-
         try
         {
+            using JsonDocument doc = JsonDocument.Parse(message);
+            JsonElement root = doc.RootElement;
+
+            string command = root.GetProperty("type").GetString() ?? "";
+
+            root.TryGetProperty("payload", out JsonElement payload);
+
             switch (command)
             {
                 case "app-ready":
@@ -57,6 +54,10 @@ public class MessageHub
                     Environment.Exit(0);
                     break;
 
+                case "set-file-name":
+                    UpdateWindowTitle(payload.GetString() ?? "");
+                    break;
+
                 default:
                     Console.WriteLine($"[C# Unknown Command]: {command}");
                     break;
@@ -64,7 +65,7 @@ public class MessageHub
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[C# Error in {command}]: {ex.Message}");
+            Console.WriteLine($"[C# Error in: {ex.Message}");
             Emit("error", ex.Message);
         }
     }
@@ -103,11 +104,11 @@ public class MessageHub
         UpdateWindowTitle(path);
     }
 
-    private async Task HandleSaveFile(JsonDocument? payload)
+    private async Task HandleSaveFile(JsonElement payload)
     {
-        if (payload == null) return;
-
-        string? localPath = payload.RootElement.TryGetProperty("filePath", out var p) ? p.GetString() : null;
+        if (payload.ValueKind == JsonValueKind.Null || payload.ValueKind == JsonValueKind.Undefined)
+            return;
+        string? localPath = payload.TryGetProperty("filePath", out var p) ? p.GetString() : null;
 
         if (string.IsNullOrEmpty(localPath))
         {
@@ -121,14 +122,17 @@ public class MessageHub
 
         string fileName = Path.GetFileName(localPath);
         Emit("start-saving", fileName);
-        await _fileService.SaveFileAsync(payload.RootElement, localPath);
+        await _fileService.SaveFileAsync(payload, localPath);
         UpdateWindowTitle(localPath);
         Emit("save-success", fileName);
     }
 
-    private async Task HandleSelectImage(JsonDocument? payload)
+    private async Task HandleSelectImage(JsonElement payload)
     {
-        string displayType = payload?.RootElement.TryGetProperty("type", out var t) == true
+        if (payload.ValueKind == JsonValueKind.Null || payload.ValueKind == JsonValueKind.Undefined)
+            return;
+
+        string displayType = payload.TryGetProperty("type", out var t) == true
             ? t.GetString() ?? "block"
             : "block";
 

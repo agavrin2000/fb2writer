@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useState, useRef, useCallback, useMemo, memo } from "react";
+import React, { useEffect, useState, useRef, useCallback, memo } from "react";
 import { Editor } from "@tiptap/react";
 import {
   Info,
@@ -12,9 +12,6 @@ import {
   FilePlus,
 } from "lucide-react";
 import { AboutModal } from "./AboutModal";
-import { ExitModal } from "./ExitModal";
-import { photino } from "@/api/photino";
-import { usePhotinoEvents } from "@/hooks/usePhotinoEvents";
 
 export const Header = memo(
   ({
@@ -51,23 +48,14 @@ export const Header = memo(
         document.removeEventListener("mousedown", handleClickOutside);
     }, []);
 
-    // Обработка закрытия окна по "крестику"
-    const onShowExitConfirmation = useCallback(
-      (message: string) => {
-        console.log("show-exit-confirmation")
-        setIsExitModalOpen(true);
-      }, [setIsExitModalOpen]);
-
-    const eventHandlers = useMemo(() => ({ "show-exit-confirmation": onShowExitConfirmation }),
-      [onShowExitConfirmation]);
-
-    usePhotinoEvents(eventHandlers);
-
     // Выполнение дейстаия и скрытие меню при выборе пункта меню
-    const handleAction = useCallback((action: () => void) => {
-      action();
-      setActiveMenu(null);
-    }, [setActiveMenu]);
+    const handleAction = useCallback(
+      (action: () => void) => {
+        action();
+        setActiveMenu(null);
+      },
+      [setActiveMenu],
+    );
 
     return (
       <>
@@ -212,18 +200,13 @@ export const Header = memo(
           </div>
 
           <div className="flex-grow text-center text-[10px] font-black text-gray-300 tracking-[0.4em] uppercase truncate px-4">
-            {!fileName ? "FB2 Writer" : fileName}
+            FB2 Writer
           </div>
         </header>
 
         <AboutModal
           isOpen={isAboutOpen}
           onClose={() => setIsAboutOpen(false)}
-        />
-        <ExitModal
-          isOpen={isExitModalOpen}
-          onClose={() => setIsExitModalOpen(false)}
-          onConfirm={() => photino.send("close-app")}
         />
       </>
     );

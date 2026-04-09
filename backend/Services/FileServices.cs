@@ -65,10 +65,18 @@ public class FileService
     /// <exception cref="FileNotFoundException">Исключение, если файл по указанному пути не найден.</exception>
     public static async Task<string> SelectImageAsync(string localPath)
     {
+        const int MaxSizeBytes = 300 * 1024; // 307 200 байт
+
+        // Используем FileInfo для быстрой проверки размера файла перед чтением в память
+        var fileInfo = new FileInfo(localPath);
+        if (fileInfo.Length > MaxSizeBytes)
+        {
+            throw new Exception($"Файл изображения слишком большой ({(fileInfo.Length / 1024.0):F1} КБ). Максимальный размер: 300 КБ.");
+        }
+
         byte[] imageBytes = await File.ReadAllBytesAsync(localPath);
         string base64Image = Convert.ToBase64String(imageBytes);
 
-        // Определяем расширение
         string ext = Path.GetExtension(localPath).ToLower().TrimStart('.');
         if (ext == "jpeg") ext = "jpg";
 

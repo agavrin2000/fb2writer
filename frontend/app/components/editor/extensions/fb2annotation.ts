@@ -1,6 +1,5 @@
 import { Node, CommandProps } from "@tiptap/core";
 import { findParentNodeByType } from "@/utils/utils";
-import { Node as ProsemirrorNode } from "@tiptap/pm/model";
 import { NodeSelection } from "@tiptap/pm/state";
 
 export const Fb2Annotation = Node.create({

@@ -47,7 +47,7 @@ export function useEditorManager(): EditorManager {
    * Ссылка на функцию установки активной сноски.
    * Позволяет обновлять состояние активной сноски из любого места.
    */
-  const setActiveNoteRef = useRef<(note: any) => void>(() => { });
+  const setActiveNoteRef = useRef<(note: any) => void>(() => {});
 
   /**
    * Текущие метаданные документа.
@@ -171,9 +171,7 @@ export function useEditorManager(): EditorManager {
         fb2.editor.commands.focus("start");
       }
 
-      if (data.filePath) {
-        setCurrentFilePath(data.filePath);
-      }
+      setCurrentFilePath(data.filePath ?? "");
       setLoadingFileName("");
       setIsLoading(false);
       setLoaderConfig(null);
@@ -319,39 +317,12 @@ export function useEditorManager(): EditorManager {
     },
     [setLoadingFileName, setIsLoading, setLoaderConfig],
   );
-
-  /**
-   * Объект с обработчиками событий, получаемых от Photino.
-   * Каждый ключ соответствует имени события, значение — функция-обработчик.
-   */
-  const eventHandlers = useMemo(
-    () => ({
-      "fb2-content": onFb2Content,
-      "image-selected": onImageSelected,
-      "start-loading": onStartLoading,
-      "cancel-loading": onCancelLoading,
-      "start-saving": onStartSaving,
-      "save-success": onSaveSuccess,
-       error: onError,
-    }),
-    [
-      onFb2Content,
-      onImageSelected,
-      onStartLoading,
-      onCancelLoading,
-      onStartSaving,
-      onSaveSuccess,
-    ],
-  );
-
-  usePhotinoEvents(eventHandlers);
-
-  // --- МЕТОДЫ ДЕЙСТВИЙ (Outgoing) ---
   /**
    * Проверяет, можно ли безопасно продолжить операцию с учётом несохранённых изменений.
    * Показывает диалог подтверждения, если документ изменён.
    * @returns {Promise<boolean>} `true`, если операцию можно продолжить.
    */
+
   const ensureSafeToProceed = useCallback(async () => {
     // Если правок нет — сразу разрешаем
     if (!isDirty) return true;
@@ -366,6 +337,46 @@ export function useEditorManager(): EditorManager {
 
     return confirmed;
   }, [isDirty, confirm]);
+
+  // Обработка закрытия окна по "крестику"
+  const onShowExitConfirmation = useCallback(
+    async (message: string) => {
+      const canProceed = await ensureSafeToProceed();
+      if (!canProceed) return;
+      photino.send("close-app");
+    },
+    [ensureSafeToProceed, photino],
+  );
+
+  /**
+   * Объект с обработчиками событий, получаемых от Photino.
+   * Каждый ключ соответствует имени события, значение — функция-обработчик.
+   */
+  const eventHandlers = useMemo(
+    () => ({
+      "fb2-content": onFb2Content,
+      "image-selected": onImageSelected,
+      "start-loading": onStartLoading,
+      "cancel-loading": onCancelLoading,
+      "start-saving": onStartSaving,
+      "save-success": onSaveSuccess,
+      "show-exit-confirmation": onShowExitConfirmation,
+      error: onError,
+    }),
+    [
+      onFb2Content,
+      onImageSelected,
+      onStartLoading,
+      onCancelLoading,
+      onStartSaving,
+      onSaveSuccess,
+      onShowExitConfirmation,
+    ],
+  );
+
+  usePhotinoEvents(eventHandlers);
+
+  // --- МЕТОДЫ ДЕЙСТВИЙ (Outgoing) ---
 
   /**
    * Сохраняет текущий документ в файл.
@@ -408,12 +419,12 @@ export function useEditorManager(): EditorManager {
       const payload = {
         content: fb2.editor.getJSON(),
         footnotes: actualFootnotes,
-        metadata: JSON.parse(JSON.stringify(metadata)),
+        metadata: metadata,
         filePath: saveAs ? "" : currentFilePath,
       };
 
       // Сериализуем в строку перед отправкой
-      photino.send("save-file", JSON.stringify(payload));
+      photino.send("save-file", payload);
     },
     [
       fb2.editor,
@@ -498,6 +509,8 @@ export function useEditorManager(): EditorManager {
   const createNewFile = useCallback(async () => {
     const canProceed = await ensureSafeToProceed();
     if (!canProceed) return;
+    // Сбрасываем имя файла в заголовке окна приложения
+    photino.send("set-file-name", "Новая книга");
 
     onFb2Content(JSON.stringify(EMPTY_FB2_TEMPLATE));
   }, [onFb2Content, ensureSafeToProceed]);
