@@ -1,12 +1,37 @@
 import React, { useState, useImperativeHandle, forwardRef, memo, useEffect, useRef, useCallback } from "react";
 
+/**
+ * Тип уведомления, определяющий его внешний вид и поведение.
+ */
 export type ToastType = "success" | "error" | "info";
 
+/**
+ * Интерфейс, предоставляющий методы для управления отображением уведомления.
+ * Может использоваться через `ref` для императивного вызова.
+ */
 export interface ToastHandle {
+  /**
+   * Показывает уведомление с заданным сообщением и типом.
+   * @param message - Текст сообщения, который будет отображён в тосте.
+   * @param type - Тип уведомления: `'success'`, `'error'` или `'info'`. По умолчанию `'success'`.
+   *
+   * @example
+   * toastRef.current?.show("Файл успешно сохранён", "success");
+   */
   show: (message: string, type?: ToastType) => void;
+
+  /**
+   * Принудительно скрывает уведомление, даже если оно ещё не исчезло автоматически.
+   *
+   * @example
+   * toastRef.current?.hide();
+   */
   hide: () => void;
 }
 
+/**
+ * Конфигурация стилей и иконок для каждого типа уведомления.
+ */
 const config = {
   success: {
     bg: "bg-green-500",
@@ -64,7 +89,38 @@ const config = {
   },
 };
 
-export const Toast = memo(
+/**
+ * Компонент всплывающего уведомления (toast), отображаемого в нижней части экрана.
+ * Предназначен для краткосрочного информирования пользователя о результатах действий:
+ * успешных операциях, ошибках, предупреждениях и т.д.
+ *
+ * Особенности:
+ * - Автоматически скрывается через 3 секунды (кроме ошибок).
+ * - Для ошибок отображается кнопка закрытия.
+ * - Поддерживает три типа: успех, ошибка, информация.
+ * - Анимированное появление и исчезновение.
+ * - Использует `React.memo` и императивный реф для оптимизации и контроля извне.
+ *
+ * @component
+ * @param _ - Не принимает явных свойств; управление осуществляется через `ref`.
+ * @param ref - Реф, через который можно вызывать методы {@link ToastHandle}.
+ *
+ * @example
+ * import { useRef } from 'react';
+ * import { Toast, ToastHandle } from './Toast';
+ *
+ * const App = () => {
+ *   const toastRef = useRef<ToastHandle>(null);
+ *   return (
+ *     <>
+ *       <Toast ref={toastRef} />
+ *       <button onClick={() => toastRef.current?.show("Готово!", "success")}>
+ *         Показать уведомление
+ *       </button>
+ *     </>
+ *   );
+ * };
+ */export const Toast = memo(
   forwardRef<ToastHandle, {}>((_, ref) => {
     const [visible, setVisible] = useState(false);
     const [message, setMessage] = useState("");
@@ -72,6 +128,7 @@ export const Toast = memo(
 
     const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+    // Скрыть toast после 3 секунд (кроме ошибок)
     const hide = useCallback(() => {
       setVisible(false);
       if (timerRef.current) {
@@ -80,7 +137,7 @@ export const Toast = memo(
       }
     }, []);
 
-    // Очистка только при размонтировании
+    // Очистка таймера при размонтировании
     useEffect(() => {
       return () => {
         if (timerRef.current) clearTimeout(timerRef.current);
@@ -122,7 +179,7 @@ export const Toast = memo(
             {currentConfig.icon}
           </div>
 
-          {/* Текст (многострочный) */}
+          {/* Текст сообщения (многострочный) */}
           <span className="text-sm font-medium tracking-wide break-words flex-1 pr-1">
             {message}
           </span>

@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
 	<PropertyGroup>
-	  	<AssemblyName>FB2Editor</AssemblyName>
+	  	<AssemblyName>FB2Writer</AssemblyName>
   		<Product>FB2 Writer</Product>
   		<Version>1.0.5</Version>
 		<TargetFramework>net10.0</TargetFramework>
@@ -11,6 +11,10 @@
     	<!-- Generate embedded file manifest when using the Photino.NET StaticFileServer -->
 		<GenerateEmbeddedFilesManifest>true</GenerateEmbeddedFilesManifest>
 		<ApplicationIcon>fb2writer.ico</ApplicationIcon>
+		<!-- Оптимизация: отключаем ненужные метаданные и анализаторы по умолчанию -->
+		<EnableDefaultContent>false</EnableDefaultContent>
+		<EnableDefaultContentItems>false</EnableDefaultContentItems>
+		<IncludeAllContentForSelfExtract>false</IncludeAllContentForSelfExtract>		
 	</PropertyGroup>
 
 	<PropertyGroup Condition="'$(Configuration)' == 'Debug'">
@@ -18,6 +22,7 @@
 		<DebugType>portable</DebugType>
 		<DebugSymbols>true</DebugSymbols>
 		<Optimize>false</Optimize>
+		<!-- Для отладки оставляем полный доступ к символам и трассировке -->
 	</PropertyGroup>
 
 	<PropertyGroup Condition="'$(Configuration)' == 'Release'">
@@ -35,11 +40,6 @@
 		<PublishTrimmed>true</PublishTrimmed>
 		<TrimMode>partial</TrimMode>
 		<PublishReadyToRun>false</PublishReadyToRun>
-
-		<!-- Отключаем автоматическое включение файлов из папок проекта в финальную сборку -->
-		<EnableDefaultContent>false</EnableDefaultContent>
-    	<EnableDefaultContentItems>false</EnableDefaultContentItems>
-		<IncludeAllContentForSelfExtract>false</IncludeAllContentForSelfExtract>
 
 		<EnableUnsafeBinaryFormatterSerialization>false</EnableUnsafeBinaryFormatterSerialization>
 		<!--  Отключает внутреннюю систему логирования и трассировки событий .NET -->
@@ -73,6 +73,7 @@
 	</ItemGroup>
 
 	<ItemGroup>
+		<!-- Явное встраивание только нужных ресурсов -->
 		<EmbeddedResource Include="Resources\wwwroot\**\*.*" />
     	<EmbeddedResource Include="Schemas\**\*.xsd" />
 		<EmbeddedResource Include="fb2writer.ico" />
@@ -80,6 +81,7 @@
 	
 	<PropertyGroup>
 		<FrontendRoot>..\frontend</FrontendRoot>
+		<OutDir>$(FrontendRoot)\out</OutDir>
 	</PropertyGroup>
 
 	<!-- Запускаем билд только для Release-конфигурации -->
@@ -87,8 +89,8 @@
 		<Message Importance="high" Text="Собираем финальный билд фронтенда..." />
 		
 		<!-- 1. Сборка фронтенда -->
-		<Exec WorkingDirectory="$(FrontendRoot)" Command="npm install" />
-		<Exec WorkingDirectory="$(FrontendRoot)" Command="npm run build" />
+		<Exec WorkingDirectory="$(FrontendRoot)" Command="npm install" LogStandardErrorAsError="true" />
+		<Exec WorkingDirectory="$(FrontendRoot)" Command="npm run build" LogStandardErrorAsError="true" />
 		
 		<!-- 2. Очистка старых файлов в целевой папке (опционально, но полезно) -->
 		<RemoveDir Directories="Resources\wwwroot\" />
@@ -103,11 +105,7 @@
 
 	<!-- Очистка от pdb-файлов -->
 	<Target Name="CleanupNativePdb" AfterTargets="Publish" Condition="'$(Configuration)' == 'Release'">
-		<Message Importance="high" Text="--- [CLEANUP] Удаление лишних символов отладки из $(PublishDir) ---" />
-		<ItemGroup>
-			<PdbToDelete Include="$(PublishDir)*.pdb" />
-		</ItemGroup>
-		
-		<Delete Files="@(PdbToDelete)" />
+		<Message Importance="high" Text="Очистка: удаление .pdb файлов из $(PublishDir)" />
+		<Delete Files="$(PublishDir)*.pdb" />
 	</Target>
 </Project>

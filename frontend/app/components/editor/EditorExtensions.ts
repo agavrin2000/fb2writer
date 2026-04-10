@@ -1,4 +1,11 @@
+/**
+ * @fileoverview Модуль, экспортирующий конфигурированный набор расширений для TipTap-редактора.
+ * Определяет структуру и поведение редактора в соответствии с форматом FB2.
+ * Включает как стандартные расширения, так и кастомные, реализующие специфичные теги FB2.
+ */
+
 import { mergeAttributes } from "@tiptap/core";
+import Document from "@tiptap/extension-document";
 import StarterKit from "@tiptap/starter-kit";
 import Superscript from "@tiptap/extension-superscript";
 import Subscript from "@tiptap/extension-subscript";
@@ -20,19 +27,40 @@ import { Fb2InlineImage } from "./extensions/fb2inlineimage";
 import { Fb2Placeholder } from "./extensions/fb2placeholder";
 import { Fb2Annotation } from "./extensions/fb2annotation";
 import { Fb2Paragraph } from "./extensions/fb2paragraph";
-import Document from '@tiptap/extension-document'
+import { MetadataExtension } from "./extensions/MetadataExtension";
 
+/**
+ * Кастомное расширение документа, переопределяющее корневой узел.
+ * Ограничивает содержимое документа одним разрешённым блоком — `fb2BodySection`.
+ * Обеспечивает строгую структуру FB2: весь контент должен находиться внутри основной секции.
+ */
 const CustomDocument = Document.extend({
-  // Запрещаем любые блоки, кроме вашей основной секции
-  // Если у вас несколько корневых секций, перечислите их: 'fb2BodySection | fb2OtherSection'
-  content: 'fb2BodySection', 
+  // Запрещаем любые блоки, кроме  основной секции
+  content: "fb2BodySection",
 });
 
+/**
+ * Массив расширений, используемых в редакторе.
+ * Содержит:
+ * - Настроенный StarterKit с отключёнными ненужными элементами.
+ * - Кастомный документ с ограничением по структуре.
+ * - Поддержку верхних и нижних индексов.
+ * - Расширенную настройку ссылок (включая валидацию и рендер).
+ * - Все кастомные расширения для тегов FB2 (секции, эпиграфы, стихи, изображения и др.).
+ *
+ * Является центральной точкой конфигурации редактора.
+ *
+ * @example
+ * import { Editor } from '@tiptap/react';
+ * import { EditorExtensions } from './EditorExtensions';
+ *
+ * const editor = new Editor({ extensions: EditorExtensions });
+ */
 export const EditorExtensions = [
   StarterKit.configure({
     gapcursor: false,
     link: false,
-    document: false, 
+    document: false,
     paragraph: false,
     // Заголовки разных уровней
     heading: { levels: [1, 2, 3, 4] },
@@ -48,7 +76,9 @@ export const EditorExtensions = [
         class: "bg-gray-100 rounded px-1 py-0.5 font-mono text-sm",
       },
     },
-    //link: false,
+  }),
+  MetadataExtension.configure({
+    initialMeta: {}, // Передаем стартовые данные из файла
   }),
   CustomDocument,
   Superscript, // Верхний индекс <sup>

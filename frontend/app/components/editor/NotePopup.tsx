@@ -12,21 +12,83 @@ import React, { useCallback } from 'react';
 import { useConfirm } from "@/hooks/ConfirmContext";
 import { createPortal } from 'react-dom';
 
+/**
+ * Интерфейс свойств компонента всплывающего окна редактирования сноски.
+ */
 interface NotePopupProps {
-  note: { id: string; x: number; y: number; isNew?: boolean; };
+  /**
+   * Объект с информацией о текущей сноске: её ID, координаты клика и флаг "новая ли".
+   */
+  note: { id: string; x: number; y: number; isNew?: boolean };
+
+  /**
+   * Текущее содержимое сноски (в формате TipTap JSON или массив узлов).
+   */
   content: any;
+
+  /**
+   * Список существующих ID сносок, используется для проверки дубликатов.
+   */
   existingIds: string[];
+
+  /**
+   * Функция обратного вызова, вызываемая при сохранении изменений.
+   * @param json - Новое содержимое сноски в формате JSON.
+   * @param newId - Новый ID сноски (если был изменён).
+   */
   onUpdate: (json: any, newId?: string) => void;
+
+  /**
+   * Функция закрытия всплывающего окна без сохранения.
+   */
   onClose: () => void;
+
+  /**
+   * Функция удаления сноски по её ID.
+   * @param id - Идентификатор удаляемой сноски.
+   */
   onDelete: (id: string) => void;
 }
 
+
+/**
+ * Компонент всплывающего окна для создания и редактирования сносок в редакторе.
+ * Позволяет:
+ * - Изменять ID сноски с проверкой на уникальность.
+ * - Редактировать содержимое с помощью встроенного редактора TipTap.
+ * - Применять форматирование (жирный, курсив, цитаты и т.д.).
+ * - Удалять сноску (только для существующих).
+ * 
+ * Окно позиционируется рядом с местом клика и автоматически корректирует положение,
+ * чтобы не выходить за границы экрана. Использует портал для отрисовки вне основного DOM-дерева.
+ * 
+ * @component
+ * @param props - Свойства компонента {@link NotePopupProps}.
+ * 
+ * @example
+ * <NotePopup
+ *   note={{ id: "note1", x: 100, y: 200 }}
+ *   content={[{ type: "paragraph", content: [{ type: "text", text: "Текст сноски" }] }]}
+ *   existingIds={["note1", "note2"]}
+ *   onUpdate={(content, id) => console.log("Обновлено:", id, content)}
+ *   onClose={() => console.log("Закрыто")}
+ *   onDelete={(id) => console.log("Удалено:", id)}
+ * />
+ */
 export const NotePopup: React.FC<NotePopupProps> = ({ note, content, existingIds, onUpdate, onClose, onDelete }) => {
   const confirm = useConfirm();
   const [editableId, setEditableId] = useState(note.id);
   const [isConfirming, setIsConfirming] = useState(false);
   const [, setUpdateTick] = useState(0);
   const forceUpdate = useCallback(() => setUpdateTick(tick => tick + 1), []);
+
+  // Настройки размеров попапа для корректного позиционирования
+  const POPUP_WIDTH = 384; // w-96 в Tailwind
+  const POPUP_HEIGHT = 350; // Примерная средняя высота
+
+    /**
+   * Обработчик удаления сноски с подтверждением действия.
+   */
   const handleDelete = async () => {
     setIsConfirming(true); // Блокируем onClose
     const confirmed = await confirm.ask(
@@ -39,10 +101,13 @@ export const NotePopup: React.FC<NotePopupProps> = ({ note, content, existingIds
     }
     setIsConfirming(false);
   };
+
+   // Обновляем ID при смене активной сноски
   useEffect(() => {
     setEditableId(note.id);
   }, [note.id]);
 
+  // Закрываем попап при прокрутке, изменении размера или клике вне его
   useEffect(() => {
     const handleEvent = (e: any) => {
       if (isConfirming || e.target.closest('.note-popup-container')) return;
@@ -59,12 +124,10 @@ export const NotePopup: React.FC<NotePopupProps> = ({ note, content, existingIds
     };
   }, [onClose, isConfirming]);
 
-
-
-  // Константы размеров для расчета позиционирования
-  const POPUP_WIDTH = 384; // w-96 в Tailwind
-  const POPUP_HEIGHT = 350; // Примерная средняя высота
-
+  /**
+   * Вычисляет корректные координаты для попапа, чтобы он не выходил за границы экрана.
+   * При недостатке места снизу — отображается над точкой клика.
+   */  
   const { adjustedPosition, isFullUp } = useMemo(() => {
     if (typeof window === 'undefined') return { adjustedPosition: { top: note.y + 15, left: note.x }, isFullUp: false };
 
@@ -95,7 +158,10 @@ export const NotePopup: React.FC<NotePopupProps> = ({ note, content, existingIds
 
   const hasError = isEmpty || isDuplicate;
 
-  const safeContent = useMemo(() => {
+  /**
+   * Преобразует входящий контент в единый стандартный формат TipTap (doc).
+   */
+    const safeContent = useMemo(() => {
     // Если контента нет вообще
     if (!content) return { type: 'doc', content: [] };
 
@@ -109,7 +175,10 @@ export const NotePopup: React.FC<NotePopupProps> = ({ note, content, existingIds
     return { type: 'doc', content: content.content || [] };
   }, [content]);
 
-  const editor = useEditor({
+  /**
+   * Экземпляр редактора TipTap для внутреннего редактирования содержимого сноски.
+   */
+    const editor = useEditor({
     extensions: [StarterKit.configure({
       gapcursor: false,
     }), Superscript, Subscript, Fb2Title, Fb2Cite],
@@ -129,7 +198,7 @@ export const NotePopup: React.FC<NotePopupProps> = ({ note, content, existingIds
     onTransaction: forceUpdate,
   });
 
-  // 3. Синхронизация контента при смене сноски
+   // Синхронизация контента при переключении между сносками
   useEffect(() => {
     if (editor && !editor.isDestroyed && safeContent) {
       const currentJson = JSON.stringify(editor.getJSON());
@@ -140,6 +209,7 @@ export const NotePopup: React.FC<NotePopupProps> = ({ note, content, existingIds
     }
   }, [note.id, editor, safeContent]);
 
+  // Закрытие по клавише Escape
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // Если нажата клавиша Escape и сейчас не открыто окно подтверждения (Confirm)
@@ -159,7 +229,10 @@ export const NotePopup: React.FC<NotePopupProps> = ({ note, content, existingIds
 
   if (!editor) return null;
 
-  const handleSave = () => {
+  /**
+   * Обработчик сохранения изменений в сноске.
+   */
+    const handleSave = () => {
     if (hasError) return;
     onUpdate(editor.getJSON().content, editableId.trim());
     onClose();
@@ -184,7 +257,7 @@ export const NotePopup: React.FC<NotePopupProps> = ({ note, content, existingIds
         onClick={(e) => e.stopPropagation()}
       >
 
-        {/* Шапка */}
+        {/* Шапка с полем ID и кнопками */}
         <div className={`flex flex-none justify-between items-center px-3 py-2 border-b transition-colors duration-200 ${isDuplicate ? 'bg-red-50 border-red-200' :
           isEmpty ? 'bg-amber-50 border-amber-200' :
             'bg-slate-50 border-slate-100'
@@ -206,7 +279,6 @@ export const NotePopup: React.FC<NotePopupProps> = ({ note, content, existingIds
           <div className="flex flex-none items-center gap-2">
             {isDuplicate && <span className="text-[8px] text-red-500 font-black animate-pulse whitespace-nowrap">ID ЗАНЯТ</span>}
             {isEmpty && <span className="text-[8px] text-amber-600 font-black whitespace-nowrap">ПУСТО</span>}
-            {/* КНОПКА УДАЛЕНИЯ */}
             {!note.isNew && (
               <button type="button"
                 onClick={handleDelete}
@@ -265,7 +337,6 @@ export const NotePopup: React.FC<NotePopupProps> = ({ note, content, existingIds
 
         {/* Центрируем редактор и ограничиваем его ширину */}
         <div className="flex-1 overflow-y-auto bg-white custom-scrollbar">
-          {/* Убрали лишние обертки с max-w-3xl и flex-center */}
           <EditorContent editor={editor} />
         </div>
 
@@ -286,6 +357,15 @@ export const NotePopup: React.FC<NotePopupProps> = ({ note, content, existingIds
     document.body);
 };
 
+/**
+ * Кнопка тулбара форматирования текста.
+ * Отображает иконку и изменяет стиль в зависимости от состояния (активна/неактивна/недоступна).
+ * 
+ * @param onClick - Обработчик клика.
+ * @param active - Флаг активности кнопки (например, выделен ли текст жирным).
+ * @param disabled - Флаг недоступности (например, если команда не может быть применена).
+ * @param icon - Иконка кнопки (React-элемент).
+ */
 const ToolbarButton = ({ onClick, active, disabled, icon }: any) => (
   <button
     type="button"

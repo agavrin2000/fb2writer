@@ -1,13 +1,35 @@
-import { BubbleMenu } from "@tiptap/react/menus";
 import React from "react";
 import { Editor } from "@tiptap/react";
+import { BubbleMenu } from "@tiptap/react/menus";
 import { NodeSelection } from "@tiptap/pm/state";
 import { X, Download } from "lucide-react";
 
+/**
+ * Интерфейс свойств компонента всплывающего меню для изображений.
+ */
 interface ImageBubbleMenuProps {
+  /**
+   * Редактор Tiptap, который используется для управления содержимым документа.
+   */
   editor: Editor | null;
 }
 
+/**
+ * Компонент всплывающего меню (bubble menu), отображаемого при выделении изображения в редакторе.
+ * Предоставляет пользователю информацию о картинке и действия:
+ * - Показывает размеры изображения (ширина × высота) и его объём (в Кб или как URL).
+ * - Кнопку для скачивания изображения.
+ * - Кнопку для удаления изображения из документа.
+ *
+ * Меню появляется только при выделении блочных (`fb2BlockImage`) или встроенных (`fb2InlineImage`) изображений.
+ * Автоматически обновляет информацию при изменении выбранного изображения.
+ *
+ * @component
+ * @param props - Свойства компонента {@link ImageBubbleMenuProps}.
+ *
+ * @example
+ * <ImageBubbleMenu editor={editor} />
+ */
 export const ImageBubbleMenu: React.FC<ImageBubbleMenuProps> = ({ editor }) => {
   const [info, setInfo] = React.useState<{
     size: string;
@@ -34,7 +56,7 @@ export const ImageBubbleMenu: React.FC<ImageBubbleMenuProps> = ({ editor }) => {
         return;
       }
 
-      // 2. Извлекаем данные
+      // 2. Извлекаем данные из атрибутов и DOM-узла
       const src = node.attrs.src || "";
       const dom = editor.view.nodeDOM(selection.from) as HTMLElement;
       const img = dom?.tagName === "IMG" ? (dom as HTMLImageElement) : dom?.querySelector("img");
@@ -47,7 +69,7 @@ export const ImageBubbleMenu: React.FC<ImageBubbleMenuProps> = ({ editor }) => {
           const newW = img.naturalWidth;
           const newH = img.naturalHeight;
 
-          // 3. КРИТИЧНО: Сравниваем с предыдущим состоянием перед вызовом setState
+          // 3. Оптимизация: обновляем состояние только при изменении данных
           setInfo(prev => {
             if (
               prev?.src === src &&
@@ -55,12 +77,13 @@ export const ImageBubbleMenu: React.FC<ImageBubbleMenuProps> = ({ editor }) => {
               prev?.w === newW &&
               prev?.h === newH
             ) {
-              return prev; // Если ничего не изменилось, возвращаем старый объект (нет ререндера)
+              return prev; // Избегаем лишних ререндеров
             }
             return { src, size: newSize, w: newW, h: newH };
           });
         };
 
+        // Обрабатываем загруженное или уже кэшированное изображение
         if (img.complete) {
           updateIfChanged();
         } else {
@@ -69,7 +92,7 @@ export const ImageBubbleMenu: React.FC<ImageBubbleMenuProps> = ({ editor }) => {
       }
     };
 
-    // Слушаем обновление только при смене выделения (этого достаточно для BubbleMenu)
+    // Подписываемся на изменения выделения
     editor.on("selectionUpdate", updateInfo);
 
     return () => {
@@ -77,6 +100,10 @@ export const ImageBubbleMenu: React.FC<ImageBubbleMenuProps> = ({ editor }) => {
     };
   }, [editor]); // editor обычно стабилен, цикл прекратится
 
+  /**
+   * Обработчик скачивания изображения.
+   * Создаёт временный элемент `<a>` с атрибутом `download`, имитирует клик и удаляет элемент.
+   */
   const handleDownload = () => {
     if (!info?.src) return;
     const link = document.createElement("a");
@@ -110,6 +137,7 @@ export const ImageBubbleMenu: React.FC<ImageBubbleMenuProps> = ({ editor }) => {
           {info && (
             <div className="px-3 py-1.5 bg-slate-50 border-b border-gray-100 flex items-center gap-3 text-[10px] font-bold text-slate-500 whitespace-nowrap">
               <span className="flex items-center gap-1">
+                {/* Информационная панель */}
                 {info.w} × {info.h} px
               </span>
               <span className="w-px h-3 bg-slate-200" />

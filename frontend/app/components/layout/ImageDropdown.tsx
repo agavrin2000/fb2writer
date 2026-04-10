@@ -1,28 +1,71 @@
 import React from "react";
 import { Image, ImageDown, PanelTop, ChevronDown } from "lucide-react";
 
+/**
+ * Расширение команд TipTap для работы с изображениями в формате FB2.
+ * Добавляет пользовательские проверки возможности вставки блочных и встроенных изображений.
+ */
+
 // 1. Описываем типы для TypeScript
 declare module "@tiptap/core" {
   interface Commands<ReturnType> {
     fb2Commands: {
-      // название группы команд
+      /**
+       * Проверяет, можно ли вставить блочное изображение (`fb2BlockImage`) в текущую позицию.
+       * @returns `true`, если вставка разрешена; `false` — если нет.
+       */
       canAddfb2BlockImage: () => ReturnType;
+      /**
+ * Проверяет, можно ли вставить встроенное изображение (`fb2InlineImage`) в текущий узел.
+ * Разрешает вставку только внутри определённых типов узлов (например, абзац, строка стиха).
+ * @returns `true`, если вставка разрешена; `false` — если нет.
+ */
       canAddfb2InlineImage: () => ReturnType;
     };
   }
 }
 
-const INLINE_ACTIVE_NODES = [
-  "paragraph",
-  "fb2V",
-  "fb2TextAuthor",
-  "fb2Subtitle",
-];
-
+/**
+ * Компонент выпадающего меню для выбора типа вставляемого изображения.
+ * Предоставляет три варианта:
+ * - **Блочное** — изображение как отдельный блок между абзацами.
+ * - **В тексте** — встроенное изображение внутри строки текста.
+ * - **В заголовок секции** — виньетка перед заголовком раздела.
+ *
+ * Каждый пункт может быть заблокирован в зависимости от контекста редактирования.
+ * Меню закрывается при клике вне его области.
+ *
+ * @component
+ * @param onSelect - Функция обратного вызова, вызываемая при выборе типа изображения.
+ * @param canInlineImage - Флаг доступности вставки встроенного изображения.
+ * @param canBlockImage - Флаг доступности вставки блочного изображения.
+ * @param canSectionImage - Флаг доступности вставки изображения в заголовок секции.
+ *
+ * @example
+ * <ImageDropdown
+ *   onSelect={(type) => console.log("Выбран тип:", type)}
+ *   canInlineImage={true}
+ *   canBlockImage={false}
+ *   canSectionImage={true}
+ * />
+ */
 export const ImageDropdown: React.FC<{
+  /**
+ * Обработчик выбора типа изображения.
+ * @param type - Тип выбранного изображения: `"block"`, `"inline"` или `"section"`.
+ */
   onSelect: (type: "block" | "inline" | "section") => void;
+  /**
+  * Доступность вставки встроенного изображения.
+  */
   canInlineImage: boolean;
+  /**
+     * Доступность вставки блочного изображения.
+     */
   canBlockImage: boolean;
+  /**
+   * Доступность вставки изображения в заголовок секции.
+   */
   canSectionImage: boolean;
 }> = ({ onSelect, canInlineImage, canBlockImage, canSectionImage }) => {
   const [isOpen, setIsOpen] = React.useState(false);
@@ -42,7 +85,7 @@ export const ImageDropdown: React.FC<{
     return () => document.removeEventListener("mousedown", handleClick);
   }, []);
 
-  // Общий стиль для кнопок, чтобы не дублировать
+  // Общий стиль для пунктов меню
   const itemClass = "w-full flex items-center gap-3 px-3 py-2 hover:bg-indigo-50 text-left transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:pointer-events-none";
 
   return (

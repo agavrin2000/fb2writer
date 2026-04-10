@@ -3,24 +3,34 @@ using Photino.NET;
 
 namespace FB2Editor.Services;
 
-public class MessageHub
+/// <summary>
+/// Центральный компонент приложения, отвечающий за обработку входящих сообщений из веб-интерфейса (frontend).
+/// Организует маршрутизацию команд, взаимодействие с <see cref="FileService"/> и отправку ответов обратно.
+/// Является связующим звеном между UI и бизнес-логикой.
+/// <param name="window">Экземпляр окна Photino, используемый для отправки сообщений во frontend.</param>
+/// <param name="fileService">Сервис для выполнения операций с файлами: открытие, сохранение, выбор изображений.</param>
+/// <param name="initialFile">Опциональный путь к файлу, который должен быть загружен сразу после запуска приложения.</param>
+
+/// </summary>
+public class MessageHub(PhotinoWindow window, FileService fileService, string? initialFile)
 {
-    private readonly PhotinoWindow _window;
-    private readonly FileService _fileService;
-    private string? _initialFile;
-    // Запоминаем путь последнего открытия/сохранения
+    private readonly PhotinoWindow _window = window;
+    private readonly FileService _fileService = fileService;
+    private string? _initialFile = initialFile;
+    /// <summary>
+    /// Хранит путь к последней использованной директории для открытия или сохранения файлов.
+    /// Используется для улучшения пользовательского опыта, запоминая место предыдущей операции.
+    /// Инициализируется папкой "Мои документы".
+    /// </summary>
     private string? _lastUsedPath = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
 
-    public MessageHub(PhotinoWindow window, FileService fileService, string? initialFile)
-    {
-        _window = window;
-        _fileService = fileService;
-        _initialFile = initialFile;
-    }
-
     /// <summary>
-    /// Основной диспетчер сообщений от Frontend
+    /// Основной метод, принимающий и обрабатывающий все входящие сообщения из веб-интерфейса.
+    /// Парсит JSON-сообщение, определяет тип команды и вызывает соответствующий обработчик.
+    /// Обрабатывает ошибки на уровне диспетчера и отправляет их во frontend.
     /// </summary>
+    /// <param name="sender">Источник события (обычно не используется).</param>
+    /// <param name="message">JSON-строка, содержащая команду в формате { "type": "command", "payload": {...} }.</param>
     public async void Handle(object? sender, string message)
     {
         try
@@ -70,6 +80,10 @@ public class MessageHub
         }
     }
 
+    /// <summary>
+    /// Обрабатывает команду "app-ready" — сигнал от frontend о том, что приложение готово к работе.
+    /// Отправляет информацию о приложении и, при наличии, автоматически загружает переданный при запуске файл.
+    /// </summary>
     private async Task HandleAppReady()
     {
         // 1. Инфо о приложении
@@ -89,6 +103,10 @@ public class MessageHub
         }
     }
 
+    /// <summary>
+    /// Обрабатывает команду "open-file" — запрос на открытие FB2-файла.
+    /// Открывает нативный диалог выбора файла, загружает содержимое и отправляет его во frontend.
+    /// </summary>
     private async Task HandleOpenFile()
     {
         string? path = await ChooseFileAsync("Выберите книгу", [("Книги FB2", ["fb2", "fb2.zip"]), ("Все файлы", ["*"])]);
@@ -104,6 +122,12 @@ public class MessageHub
         UpdateWindowTitle(path);
     }
 
+    /// <summary>
+    /// Обрабатывает команду "save-file" — запрос на сохранение текущего документа.
+    /// Если путь не указан, открывается диалог выбора места сохранения.
+    /// Выполняет сохранение через <see cref="FileService"/> и уведомляет об успехе.
+    /// </summary>
+    /// <param name="payload">JSON-элемент с данными для сохранения, включая содержимое и опциональный путь.</param>
     private async Task HandleSaveFile(JsonElement payload)
     {
         if (payload.ValueKind == JsonValueKind.Null || payload.ValueKind == JsonValueKind.Undefined)
@@ -127,6 +151,12 @@ public class MessageHub
         Emit("save-success", fileName);
     }
 
+    /// <summary>
+    /// Обрабатывает команду "select-image" — запрос на вставку изображения.
+    /// Открывает диалог выбора файла изображения, преобразует его в Data URL и отправляет результат во frontend.
+    /// Поддерживает указание типа отображения (block/inline).
+    /// </summary>
+    /// <param name="payload">JSON-элемент с параметрами вставки изображения (например, тип отображения).</param>
     private async Task HandleSelectImage(JsonElement payload)
     {
         if (payload.ValueKind == JsonValueKind.Null || payload.ValueKind == JsonValueKind.Undefined)
@@ -147,6 +177,12 @@ public class MessageHub
         var info = new ImageInfoMessage(data, displayType, $"#{Guid.NewGuid()}");
         Emit("image-selected", JsonSerializer.Serialize(info, EmitContext.CustomOptions));
     }
+
+    /// <summary>
+    /// Обновляет заголовок главного окна приложения, отображая имя текущего файла.
+    /// Вызывается после открытия или сохранения документа.
+    /// </summary>
+    /// <param name="path">Полный путь к файлу, из которого извлекается имя.</param>
     private static void UpdateWindowTitle(string path) => Program.UpdateWindowTitle(path);
 
     /// <summary>
@@ -191,6 +227,4 @@ public class MessageHub
         );
         _window.SendWebMessage(message);
     }
-
-
 }

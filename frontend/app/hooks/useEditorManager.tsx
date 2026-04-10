@@ -6,7 +6,7 @@ import { Fb2Metadata, TocItem, EMPTY_FB2_TEMPLATE } from "../types/types";
 import { getFileName } from "../utils/utils";
 import { photino } from "@/api/photino";
 import { EditorState } from "@tiptap/pm/state";
-import { Editor } from "@tiptap/react";
+import { Editor, useEditorState } from "@tiptap/react";
 import isEqual from "fast-deep-equal";
 import { useConfirm } from "@/hooks/ConfirmContext";
 import { useToast } from "@/hooks/ToastContext";
@@ -14,8 +14,6 @@ import { FootnotesMap } from "@/types/types";
 
 interface EditorManager {
   editor: Editor | null; // Замените any на тип вашего редактора (например, Editor | null)
-  metadata: Fb2Metadata | null;
-  handleMetaChange: (data: any) => void;
   notes: any;
   isLoading: boolean;
   loaderConfig: { title?: string; subtitle?: string } | null;
@@ -47,23 +45,7 @@ export function useEditorManager(): EditorManager {
    * Ссылка на функцию установки активной сноски.
    * Позволяет обновлять состояние активной сноски из любого места.
    */
-  const setActiveNoteRef = useRef<(note: any) => void>(() => {});
-
-  /**
-   * Текущие метаданные документа.
-   * Включают информацию о книге, авторах, издательстве и т.д.
-   */
-  const [metadata, setMetadata] = useState<Fb2Metadata | null>(
-    EMPTY_FB2_TEMPLATE.metadata,
-  );
-
-  /**
-   * Сохранённое (эталонное) состояние метаданных.
-   * Используется для сравнения с текущими метаданными при проверке изменений.
-   */
-  const [savedMeta, setSavedMeta] = useState<Fb2Metadata>(
-    EMPTY_FB2_TEMPLATE.metadata,
-  ); // Эталон в виде строки
+  const setActiveNoteRef = useRef<(note: any) => void>(() => { });
 
   /**
    * Флаг состояния загрузки.
@@ -97,30 +79,34 @@ export function useEditorManager(): EditorManager {
 
   // 1. Сначала инициализируем Редактор
   const fb2 = useFB2Editor(footnotesRef, setActiveNoteRef);
-
-  /**
-   * Проверяет, были ли изменены метаданные по сравнению с последним сохранённым состоянием.
-   * @returns {boolean} `true`, если метаданные отличаются от эталонных.
-   */
-  const isMetaDirty = useMemo(() => {
-    return !isEqual(metadata, savedMeta);
-  }, [metadata, savedMeta]);
-
+if (typeof window !== 'undefined') {
+  (window as any).editor = fb2.editor; // Теперь переменная 'editor' будет доступна в консоли
+}
   /**
    * Проверяет, были ли изменения в содержимом редактора.
    * Основано на возможности отмены действий в Tiptap.
    * @returns {boolean} `true`, если есть несохранённые изменения в тексте.
    */
-  const isContentDirty = useMemo(() => {
+  /*const isContentDirty = useMemo(() => {
     return fb2.editor?.can().undo() ?? false;
-  }, [fb2.editor?.state.doc]); // Пересчитываем при каждом изменении документа
+  }, [fb2.editor?.state.doc]); // Пересчитываем при каждом изменении документа*/
 
+  const isContentDirty = useEditorState({
+    editor: fb2.editor,
+    selector: (ctx): boolean => {
+      // Если редактора нет, то и истории нет
+      if (!ctx.editor) return false;
+
+      // Вызываем проверку возможности Undo
+      return ctx.editor.can().undo();
+    },
+  });
   /**
    * Итоговый флаг "грязности" документа.
    * Документ считается изменённым, если изменены метаданные или контент.
    * @returns {boolean} `true`, если документ имеет несохранённые изменения.
    */
-  const isDirty = isMetaDirty || isContentDirty;
+  const isDirty = isContentDirty;
 
   // 2. Инициализируем Сноски
   const notes = useFootnotes(fb2.editor, footnotesRef, setActiveNoteRef);
@@ -154,10 +140,8 @@ export function useEditorManager(): EditorManager {
     (payload: string) => {
       const data = typeof payload === "string" ? JSON.parse(payload) : payload;
       if (!fb2.editor || !data) return;
-
-      setMetadata(data.metadata || {});
-      setSavedMeta(JSON.parse(JSON.stringify(data.metadata || {})));
-
+     fb2.editor.commands.updateMetadata(data.metadata || {});
+      console.log("fb2.editor.storage.metadata.meta", fb2.editor.storage.metadata.meta)
       if (data.content) {
         fb2.editor.commands.setContent(data.content);
         clearHistory();
@@ -179,8 +163,6 @@ export function useEditorManager(): EditorManager {
     [
       fb2.editor,
       clearHistory,
-      setMetadata,
-      setSavedMeta,
       setCurrentFilePath,
       setLoadingFileName,
       setIsLoading,
@@ -283,8 +265,6 @@ export function useEditorManager(): EditorManager {
   const onSaveSuccess = useCallback(
     (newFilePath: any) => {
       // 1. Сохраняем КЛОН объекта, чтобы разорвать связь с текущим стейтом
-      setSavedMeta(JSON.parse(JSON.stringify(metadata)));
-
       clearHistory();
       setCurrentFilePath(newFilePath);
       setLoadingFileName("");
@@ -293,9 +273,7 @@ export function useEditorManager(): EditorManager {
       showToastSuccess("Изменения сохранены");
     },
     [
-      metadata,
       clearHistory,
-      setSavedMeta,
       setCurrentFilePath,
       setLoadingFileName,
       setIsLoading,
@@ -419,7 +397,7 @@ export function useEditorManager(): EditorManager {
       const payload = {
         content: fb2.editor.getJSON(),
         footnotes: actualFootnotes,
-        metadata: metadata,
+        metadata: fb2.editor.storage.metadata.meta,
         filePath: saveAs ? "" : currentFilePath,
       };
 
@@ -429,7 +407,6 @@ export function useEditorManager(): EditorManager {
     [
       fb2.editor,
       isLoading,
-      metadata,
       notes,
       currentFilePath,
       setLoaderConfig,
@@ -515,23 +492,9 @@ export function useEditorManager(): EditorManager {
     onFb2Content(JSON.stringify(EMPTY_FB2_TEMPLATE));
   }, [onFb2Content, ensureSafeToProceed]);
 
-  /**
-   * Обновляет метаданные документа.
-   * Вызывается из компонентов редактирования метаданных.
-   * @param {Fb2Metadata | null} newMeta - Новый объект метаданных.
-   */
-  const handleMetaChange = useCallback(
-    (newMeta: Fb2Metadata | null) => {
-      setMetadata(newMeta);
-    },
-    [setMetadata],
-  );
-
   // --- ИТОГОВЫЙ ОБЪЕКТ ---
   return {
     editor: fb2.editor,
-    metadata,
-    handleMetaChange,
     isLoading,
     loadingFileName,
     currentFilePath,

@@ -5,14 +5,34 @@ using FB2Editor.Models;
 
 namespace FB2Editor;
 
+/// <summary>
+/// Представляет базовое сообщение, отправляемое из C#-кода во frontend.
+/// Содержит тип события и полезную нагрузку в виде строки (обычно JSON).
+/// Используется для маршрутизации событий в веб-интерфейсе.
+/// </summary>
+/// <param name="Type">Тип сообщения (например, "fb2-content", "error", "app-info").</param>
+/// <param name="Payload">Полезная нагрузка сообщения, сериализованная в строку.</param>
 public record EmitMessage(
     [property: JsonPropertyName("type")] string Type, 
     [property: JsonPropertyName("payload")] string Payload);
+/// <summary>
+/// Содержит информацию о выбранном изображении для вставки в редактор.
+/// Включает данные изображения, способ отображения и уникальный идентификатор ссылки.
+/// </summary>
+/// <param name="Data">Строка в формате Data URL (data:image/...;base64,...), представляющая содержимое изображения.</param>
+/// <param name="Display">Тип отображения: "block" (как блок) или "inline" (встроенный).</param>
+/// <param name="Href">Уникальный идентификатор ссылки, используемый в HTML-атрибуте href.</param>
 public record ImageInfoMessage(
     [property: JsonPropertyName("data")] string Data, 
     [property: JsonPropertyName("display")] string Display, 
     [property: JsonPropertyName("href")] string Href
 );
+/// <summary>
+/// Содержит основные сведения о приложении: отображаемое имя и версию.
+/// Отправляется frontend при запуске для отображения информации о программе.
+/// </summary>
+/// <param name="Name">Отображаемое имя приложения (значение атрибута &lt;Product&gt;).</param>
+/// <param name="Version">Версия приложения в формате Major.Minor.Build.</param>
 public record AppDetails(
     [property: JsonPropertyName("name")] string Name, 
     [property: JsonPropertyName("version")] string Version

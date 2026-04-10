@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useMemo, useEffect, useCallback, memo } from "react";
+import React, { useState, useMemo, useEffect, useCallback, memo, useRef } from "react";
 import {
   ChevronRight,
   ChevronLeft,
@@ -28,106 +28,74 @@ import { RichTextEditor } from "./RichTextEditor";
 import { CoverPicker } from "./CoverPicker";
 import { FB2_GENRES, LANGUAGES, Fb2Metadata } from "@/types/types";
 import { debounce } from "@/utils/utils";
+import { Editor, useEditorState } from '@tiptap/react';
 
-interface MetadataSidebarProps {
-  meta: Fb2Metadata | null;
-  onMetaChange: (newMeta: Fb2Metadata | null) => void;
-  isOpen: boolean;
-  onToggle: () => void;
-}
+const formatDateForInput = (dateStr: string) => {
+  if (!dateStr) return "";
+  // Если дата уже YYYY-MM-DD, вернет её, иначе попробует преобразовать
+  const date = new Date(dateStr);
+  return isNaN(date.getTime()) ? "" : date.toISOString().split("T")[0];
+};
 
 export const MetadataSidebar = memo(
-  ({ meta, onMetaChange, isOpen, onToggle }: MetadataSidebarProps) => {
-    const [activeTab, setActiveTab] = useState<
-      "title" | "src-title" | "publish" | "custom" | "doc"
-    >("title");
-    const [localMeta, setLocalMeta] = useState<Fb2Metadata | null>(meta);
+  ({ editor, isOpen, onToggle }: { editor: Editor | null; isOpen: boolean; onToggle: () => void }) => {
+    if (!editor) return null;
+    const [activeTab, setActiveTab] = useState<"title" | "src-title" | "publish" | "custom" | "doc">("title");
 
-    // Безопасный доступ к веткам JSON
+    // 1. Подписываемся ТОЛЬКО на изменения метаданных в хранилище.
+    // Это предотвратит лишние рендеры при печати текста в самом редакторе.
+const meta = useEditorState({
+  editor,
+  selector: (ctx) => ctx.editor.storage.metadata.meta as Fb2Metadata,
+});
+
+    const [localMeta, setLocalMeta] = useState<Fb2Metadata>(meta);
+
+    // Реф для хранения последнего отправленного состояния, чтобы избежать "эха"
+    const lastSentMetaRef = useRef<string>("");
+
+    // 2. Синхронизация из редактора в сайдбар (для Undo/Redo)
+    useEffect(() => {
+      // Когда в storage изменилась мета (в т.ч. из-за Undo), обновляем локальный стейт
+      setLocalMeta(meta);
+      lastSentMetaRef.current = JSON.stringify(meta);
+    }, [meta]);
+    // 3. Дебаунс для записи в историю TipTap
+    const debouncedUpdate = useMemo(
+      () => debounce((next: Fb2Metadata) => {
+        lastSentMetaRef.current = JSON.stringify(next);
+        editor.commands.updateMetadata(next);
+      }, 500),
+      [editor]
+    );
+
+    const handleMetaUpdate = useCallback((section: string, field: string, newValue: any) => {
+      setLocalMeta((prev) => {
+        if (!prev) return prev;
+
+        // Глубокое копирование секции для безопасности
+        const next = {
+          ...prev,
+          [section]: {
+            ...(prev as any)[section],
+            [field]: newValue,
+          },
+        } as Fb2Metadata;
+
+        debouncedUpdate(next);
+        return next;
+      });
+    }, [debouncedUpdate]);
+
+    // Безопасный доступ к веткам JSON (теперь берем из meta от редактора)
+    // В инпутах используйте localMeta
     const titleInfo = localMeta?.titleInfo;
     const srctitleInfo = localMeta?.srcTitleInfo;
     const publishInfo = localMeta?.publishInfo;
     const docInfo = localMeta?.documentInfo;
     const customInfo = localMeta?.customInfo;
 
-    const formatDateForInput = (dateStr: string) => {
-      if (!dateStr) return "";
-      // Если дата уже YYYY-MM-DD, вернет её, иначе попробует преобразовать
-      const date = new Date(dateStr);
-      return isNaN(date.getTime()) ? "" : date.toISOString().split("T")[0];
-    };
-
-    // СИНХРОНИЗАЦИЯ: Если файл закрыли или открыли новый, обновляем локальную копию
-    useEffect(() => {
-      setLocalMeta(meta);
-    }, [meta]);
-
-    // 1. Логика обработки изменений
-    const processMetaUpdate = useCallback(
-      (section: string, field: string, newValue: any, currentMeta: any) => {
-        const currentSection = currentMeta[section] || {};
-
-        const isTiptapEmpty =
-          newValue?.type === "doc" &&
-          (!newValue.content || newValue.content.length === 0);
-        const shouldRemove =
-          newValue === null || newValue === "" || isTiptapEmpty;
-
-        let updatedSection;
-        if (shouldRemove) {
-          if (!(field in currentSection)) return null;
-          const { [field]: _, ...rest } = currentSection;
-          updatedSection = rest;
-        } else {
-          // Глубокое сравнение для объектов, простое для строк
-          if (
-            typeof newValue !== "object" &&
-            currentSection[field] === newValue
-          )
-            return null;
-          if (
-            typeof newValue === "object" &&
-            JSON.stringify(currentSection[field]) === JSON.stringify(newValue)
-          )
-            return null;
-
-          updatedSection = { ...currentSection, [field]: newValue };
-        }
-
-        return { ...currentMeta, [section]: updatedSection };
-      },
-      [],
-    );
-
-    // 2. Debounce для родителя
-    const debouncedNotify = useMemo(
-      () => debounce((nextMeta: any) => onMetaChange(nextMeta), 300),
-      [onMetaChange],
-    );
-
-    // 3. Основной метод (исправленный setLocalMeta)
-    const handleMetaUpdate = useCallback(
-      (section: string, field: string, newValue: any) => {
-        setLocalMeta((prevMeta: any) => {
-          // Используем callback внутри сетера
-          const nextFullMeta = processMetaUpdate(
-            section,
-            field,
-            newValue,
-            prevMeta,
-          );
-          if (nextFullMeta) {
-            debouncedNotify(nextFullMeta);
-            return nextFullMeta;
-          }
-          return prevMeta;
-        });
-      },
-      [processMetaUpdate, debouncedNotify], // localMeta больше не нужна в зависимостях
-    );
-
-    if (!meta) return <div>Загрузка...</div>;
-
+    //if (!meta) return <div>Загрузка...</div>;
     const generateUUID = () => {
       // Генерируем стандартный UUID v4
       const newId = crypto.randomUUID();
@@ -227,7 +195,7 @@ export const MetadataSidebar = memo(
                         value={titleInfo?.title}
                         icon={BookOpen}
                         onChange={(val) =>
-                          handleMetaUpdate("TitleInfo", "Title", val)
+                          handleMetaUpdate("titleInfo", "title", val)
                         }
                       />
                       {/* Блок обложки */}
@@ -658,11 +626,10 @@ const TabButton = ({ active, onClick, label, icon }: any) => (
   <button
     type="button"
     onClick={onClick}
-    className={`flex-1 flex flex-col items-center gap-1 py-3 transition-all border-b-2 ${
-      active
-        ? "border-blue-600 text-blue-600 bg-blue-50/50"
-        : "border-transparent text-gray-400 hover:text-gray-600 hover:bg-gray-50"
-    }`}
+    className={`flex-1 flex flex-col items-center gap-1 py-3 transition-all border-b-2 ${active
+      ? "border-blue-600 text-blue-600 bg-blue-50/50"
+      : "border-transparent text-gray-400 hover:text-gray-600 hover:bg-gray-50"
+      }`}
   >
     {icon}
     <span className="text-[9px] font-bold uppercase tracking-tighter">

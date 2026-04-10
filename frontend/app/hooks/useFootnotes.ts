@@ -1,10 +1,10 @@
 import { useState, useCallback, useEffect, useRef, RefObject } from "react";
-import { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import { Editor } from "@tiptap/react";
 import { ActiveNote, FootnotesMap, TiptapContent } from "@/types/types";
 import { useToast } from "@/hooks/ToastContext";
-// 1. Объявляем интерфейс (или импортируем его)
 
+
+// 1. Объявляем интерфейс (или импортируем его)
 export const useFootnotes = (
   editor: Editor | null,
   externalFootnotesRef: RefObject<FootnotesMap>, // Используем RefObject

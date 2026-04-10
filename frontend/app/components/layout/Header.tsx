@@ -1,18 +1,74 @@
+/**
+ * @fileoverview Компонент верхнего меню приложения — строка заголовка с выпадающими пунктами: Файл, Правка, Справка.
+ * Обеспечивает навигацию по основным функциям редактора и отображает название программы.
+ */
+
 "use client";
 import React, { useEffect, useState, useRef, useCallback, memo } from "react";
 import { Editor } from "@tiptap/react";
-import {
-  Info,
-  LogOut,
-  Save,
-  FolderOpen,
-  Undo,
-  Redo,
-  FileCode,
-  FilePlus,
-} from "lucide-react";
+import { Info, LogOut, Save, FolderOpen, Undo, Redo, FileCode, FilePlus } from "lucide-react";
 import { AboutModal } from "./AboutModal";
 
+/**
+ * Интерфейс свойств компонента шапки приложения.
+ */
+interface HeaderProps {
+  /**
+   * Экземпляр редактора TipTap. Может быть `null`, если редактор ещё не инициализирован.
+   */
+  editor: Editor | null;
+
+  /**
+   * Обработчик сохранения файла.
+   * @param saveAs - Если `true`, вызывается диалог "Сохранить как...".
+   */
+  onSave: (saveAs: boolean) => void;
+
+  /**
+   * Обработчик открытия файла.
+   */
+  onOpen: () => void;
+
+  /**
+   * Обработчик создания нового документа.
+   */
+  onNew: () => void;
+
+  /**
+   * Имя текущего файла (отображается в интерфейсе, например, "document.fb2").
+   * Используется для активации/деактивации кнопки "Сохранить".
+   */
+  fileName: string;
+}
+
+/**
+ * Компонент строки меню приложения.
+ * Содержит три выпадающих меню:
+ * - **Файл**: Новый, Открыть, Сохранить, Сохранить как..., Выход.
+ * - **Правка**: Отменить, Повторить.
+ * - **Справка**: О программе.
+ *
+ * Поддерживает:
+ * - Открытие/закрытие меню по клику.
+ * - Автоматическое закрытие при клике вне области меню.
+ * - Блокировку недоступных действий (например, "Отменить", если нет истории).
+ * - Отображение подсказок с сочетаниями клавиш.
+ * - Центрированное отображение названия приложения.
+ *
+ * Использует `React.memo` для оптимизации перерисовки при неизменных пропсах.
+ *
+ * @component
+ * @param props - Входные параметры компонента {@link HeaderProps}.
+ *
+ * @example
+ * <Header
+ *   editor={editor}
+ *   onSave={handleSave}
+ *   onOpen={handleOpen}
+ *   onNew={handleNew}
+ *   fileName="mybook.fb2"
+ * />
+ */
 export const Header = memo(
   ({
     editor,
@@ -146,7 +202,7 @@ export const Header = memo(
                     type="button"
                     disabled={!editor?.can().undo()}
                     onClick={() =>
-                      handleAction(() => editor?.chain().focus().undo().run())
+                      handleAction(() => editor?.commands.undo())
                     }
                     className="header-item"
                   >
@@ -158,11 +214,37 @@ export const Header = memo(
                   <button
                     type="button"
                     disabled={!editor?.can().redo()}
-                    onClick={() =>
-                      handleAction(() => editor?.chain().focus().redo().run())
+                    onClick={() => {
+                      // --- НАЧАЛО ЛОГОВ ---
+                      // 1. Проверяем, что сейчас лежит в атрибутах документа
+                      const metaBefore = editor?.state.doc.attrs.bookMeta;
+                      console.log('--- ТЕСТ UNDO ---');
+                      console.log('1. Состояние ДО нажатия:', metaBefore);
+
+                      // 2. Вызываем само действие отмены
+                      // handleAction — это ваша обертка, если она есть, используйте её
+                      editor?.commands.undo();
+
+                      // 3. Проверяем через мгновение, откатились ли атрибуты
+                      setTimeout(() => {
+                        const metaAfter = editor?.state.doc.attrs.bookMeta;
+                        console.log('2. Состояние ПОСЛЕ нажатия:', metaAfter);
+
+                        if (JSON.stringify(metaBefore) === JSON.stringify(metaAfter)) {
+                          console.warn('ВНИМАНИЕ: Метаданные в документе НЕ изменились. История их проигнорировала.');
+                        } else {
+                          console.log('УСПЕХ: Метаданные в документе откатились!');
+                        }
+                      }, 50);
+                      // --- КОНЕЦ ЛОГОВ ---
+                    }
                     }
                     className="header-item"
                   >
+                                        {/*                onClick={() =>
+                      handleAction(() => editor?.chain().focus().redo().run())} */}
+
+
                     <span className="flex items-center gap-2">
                       <Redo size={14} /> Повторить
                     </span>
@@ -199,12 +281,14 @@ export const Header = memo(
             </div>
           </div>
 
+          {/* Центрированное название приложения */}
           <div className="flex-grow text-center text-[10px] font-black text-gray-300 tracking-[0.4em] uppercase truncate px-4">
             FB2 Writer
           </div>
-        </header>
+        </header >
 
-        <AboutModal
+        {/* Модальное окно "О программе" */}
+        < AboutModal
           isOpen={isAboutOpen}
           onClose={() => setIsAboutOpen(false)}
         />

@@ -16,11 +16,25 @@ import { Fb2SectionMenu } from "@/components/editor/Fb2SectionMenu";
 import { Fb2PoemMenu } from "@/components/editor/Fb2PoemMenu";
 import { getFileName } from "@/utils/utils";
 
+/**
+ * Основной компонент страницы редактора FB2.
+ * Собирает все части интерфейса: шапку, боковые панели, редактор, статус-бар и всплывающие меню.
+ * Управляет состоянием сайдбаров, обрабатывает глобальные сочетания клавиш и отображает загрузчик.
+ *
+ * @component
+ * @example
+ * <Page />
+ *
+ * @remarks
+ * - Использует `useEditorManager` для централизованного управления состоянием редактора.
+ * - Подключает `useGlobalShortcuts` для обработки горячих клавиш (например, Ctrl+S, Alt+B).
+ * - Автоматически возвращает фокус в редактор при закрытии боковых панелей.
+ * - Отображает {@link Loader} во время длительных операций (открытие, сохранение).
+ * - Показывает {@link NotePopup} при редактировании сносок.
+ */
 export default function Page() {
   const {
     editor,
-    metadata,
-    handleMetaChange,
     notes,
     isLoading,
     loaderConfig,
@@ -31,22 +45,27 @@ export default function Page() {
     scrollToHeading,
   } = useEditorManager();
 
+  // Извлекаем имя файла из полного пути
   const displayFileName = useMemo(
     () => getFileName(currentFilePath),
     [currentFilePath],
   );
+
+  // Состояние и переключение боковой панели оглавления
   const [isContentsSidebarOpen, setIsContentsSidebarOpen] = useState(false);
   const toggleContentsSidebar = useCallback(
     () => setIsContentsSidebarOpen((v) => !v),
     [],
   );
+
+  // Состояние и переключение боковой панели метаданных
   const [isMetadataSidebarOpen, setIsMetadataSidebarOpen] = useState(false);
   const toggleMetadataSidebar = useCallback(
     () => setIsMetadataSidebarOpen((v) => !v),
     [],
   );
 
-  // 3. Собираем все действия для горячих клавиш (Ctrl+S, Ctrl+O, Alt+B)
+  // Объединяем все доступные действия для обработки горячих клавиш
   const allActions = useMemo(
     () => ({
       ...actions,
@@ -56,16 +75,17 @@ export default function Page() {
     [actions, toggleContentsSidebar, toggleMetadataSidebar],
   );
 
-  // Регистрируем горячие клавиши здесь
+  // Подключаем обработку глобальных сочетаний клавиш
   useGlobalShortcuts(allActions);
 
-  // Возвращаем фокус в редактор при закрытии через Alt+B
+  // Возвращаем фокус в редактор при закрытии боковой панели оглавления
   useEffect(() => {
     if (!isContentsSidebarOpen && editor) {
       setTimeout(() => editor.commands.focus(), 100);
     }
   }, [isContentsSidebarOpen, editor]);
 
+  // Возвращаем фокус в редактор при закрытии боковой панели метаданных
   useEffect(() => {
     if (!isMetadataSidebarOpen && editor) {
       setTimeout(() => editor.commands.focus(), 100);
@@ -74,6 +94,7 @@ export default function Page() {
 
   return (
     <div className="flex flex-col h-screen overflow-hidden bg-white">
+      {/* Верхняя строка меню */}
       <Header
         editor={editor}
         onSave={actions.save}
@@ -82,6 +103,7 @@ export default function Page() {
         fileName={displayFileName}
       />
 
+      {/* Основной макет с боковыми панелями и редактором */}
       <div className="flex flex-1 overflow-hidden relative">
         <ContentsSidebar
           tree={tocTree}
@@ -91,6 +113,7 @@ export default function Page() {
           onToggle={toggleContentsSidebar}
         />
 
+        {/* Центральная область — редактор */}
         <main className="flex-1 flex flex-col min-w-0 bg-gray-100">
           <Toolbar
             editor={editor}
@@ -101,20 +124,24 @@ export default function Page() {
           <EditorCanvas editor={editor} />
         </main>
 
-        <MetadataSidebar
-          meta={metadata}
-          onMetaChange={handleMetaChange}
-          isOpen={isMetadataSidebarOpen}
-          onToggle={toggleMetadataSidebar}
-        />
+        {/* Боковая панель метаданных книги */}
+        {/* Боковая панель метаданных книги — рендерим только если есть editor */}
+        {editor && (
+          <MetadataSidebar
+            editor={editor}
+            isOpen={isMetadataSidebarOpen}
+            onToggle={toggleMetadataSidebar}
+          />
+        )}
       </div>
-      {/* Всплывающее меню для картинок */}
+
+      {/* Всплывающие меню для специфических элементов */}
       <ImageBubbleMenu editor={editor} />
       <LinkBubbleMenu editor={editor} />
-
       <Fb2SectionMenu editor={editor} onSelectImage={actions.selectImage} />
       <Fb2PoemMenu editor={editor} />
 
+      {/* Индикатор загрузки */}
       {isLoading && (
         <Loader
           fileName={loadingFileName}
@@ -123,6 +150,7 @@ export default function Page() {
         />
       )}
 
+      {/* Всплывающее окно редактирования сноски */}
       {notes.activeNote && (
         <NotePopup
           note={notes.activeNote}
@@ -133,6 +161,8 @@ export default function Page() {
           onDelete={notes.deleteFootnote}
         />
       )}
+
+      {/* Статус-бар внизу экрана */}
       <StatusBar fileName={displayFileName} loading={isLoading} />
     </div>
   );
