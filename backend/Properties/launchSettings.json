@@ -1,6 +1,6 @@
 {
   "profiles": {
-    "FB2Editor": {
+    "FB2Writer": {
       "commandName": "Project",
       "dotnetRunMessages": true,
       "launchBrowser": false,

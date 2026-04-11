@@ -6,7 +6,7 @@
       "type": "coreclr",
       "request": "launch",
       "preLaunchTask": "build", // Сначала соберет, потом запустит
-      "program": "${workspaceFolder}/backend/bin/Debug/net10.0/FB2Editor.dll",
+      "program": "${workspaceFolder}/backend/bin/Debug/net10.0/FB2Writer.dll",
       "args": ["C:\\Users\\agavr\\Downloads\\Дедал3.fb2"],
       "cwd": "${workspaceFolder}/backend",
       "console": "internalConsole",

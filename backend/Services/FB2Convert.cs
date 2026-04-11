@@ -3,10 +3,10 @@ using System.Text;
 using System.IO.Compression;
 using System.Xml.Schema;
 using System.Text.Json;
-using FB2Editor.Models;
+using FB2Writer.Models;
 using System.Xml;
 
-namespace FB2Editor.Services;
+namespace FB2Writer.Services;
 
 /// <summary>
 /// Вспомогательный класс, содержащий методы расширения для коллекций.
@@ -306,7 +306,7 @@ public class Fb2Service
         var schemas = new XmlSchemaSet();
         var assembly = typeof(Program).Assembly;
         // ВАЖНО: Проверьте префикс ресурсов. Обычно это [ИмяПроекта].Schemas.[ИмяФайла].xsd
-        string resPrefix = "FB2Editor.Schemas.";
+        string resPrefix = "FB2Writer.Schemas.";
 
         try
         {

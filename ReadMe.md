@@ -1,4 +1,4 @@
-FB2 Editor (Photino + Next.js)
+FB2 Writer (Photino + Next.js)
 Современный редактор электронных книг формата FB2, построенный на связке нативного контейнера .NET (Photino) и веб-интерфейса на Next.js (TipTap).
 🏗 Архитектура
 Проект представляет собой Monorepo с разделением на фронтенд и бэкенд:
@@ -17,7 +17,7 @@ FB2 Editor (Photino + Next.js)
    
    Интерфейс будет доступен по адресу http://localhost:3000.
    2. Запустите .NET приложение:
-   * Откройте FB2Editor.sln в Visual Studio.
+   * Откройте FB2Writer.sln в Visual Studio.
       * Убедитесь, что выбрана конфигурация Debug.
       * Нажмите F5. Photino автоматически подключится к запущенному серверу Next.js.
    
@@ -42,7 +42,7 @@ FB2 Editor (Photino + Next.js)
 
 📂 Структура проекта
 
-├── FB2Editor.sln          # Файл решения Visual Studio
+├── FB2Writer.sln          # Файл решения Visual Studio
 ├── backend/               # C# проект (Photino хост)
 │   ├── Program.cs         # Точка входа, настройка окна
 │   └── wwwroot/           # Скомпилированный фронтенд (автогенерация)

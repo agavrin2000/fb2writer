@@ -153,7 +153,7 @@ export const EMPTY_FB2_TEMPLATE: Fb2Data = {
           lastName: "Безымянный автор",
         },
       ],
-      program: "FB2 Editor",
+      program: "FB2 Writer",
       date: new Date().toISOString().split("T")[0],
       dateValue: new Date().toISOString().split("T")[0],
       id: crypto.randomUUID?.() || "", // Генерация уникального ID документа

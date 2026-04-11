@@ -1,7 +1,7 @@
 using System.IO.Compression;
 using System.Text.Json;
 
-namespace FB2Editor.Services;
+namespace FB2Writer.Services;
 
 /// <summary>
 /// Сервис для работы с файлами: открытие, выбор изображений и сохранение FB2-документов.

@@ -1,6 +1,6 @@
 using System.Reflection;
 
-namespace FB2Editor.Services;
+namespace FB2Writer.Services;
 
 /// <summary>
 /// Статический класс для управления встроенными ресурсами приложения, такими как статические файлы (HTML, JS, CSS),
@@ -18,7 +18,7 @@ public static class AssetHandler
     /// <summary>
     /// Индексирует встроенные ресурсы из сборки, соответствующие статическим файлам в папке wwwroot.
     /// Создаёт карту путей (в формате URL) к именам ресурсов в манифесте, позволяя быстро получать доступ к файлам по их виртуальному пути.
-    /// Например, преобразует имя ресурса "FB2Editor.Resources.wwwroot.static.js.main.js" в путь "static/js/main.js".
+    /// Например, преобразует имя ресурса "FB2Writer.Resources.wwwroot.static.js.main.js" в путь "static/js/main.js".
     /// Выполняется один раз при инициализации хоста.
     /// </summary>
     public static void IndexEmbeddedResources(string assemblyName)

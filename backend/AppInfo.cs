@@ -1,4 +1,4 @@
-namespace FB2Editor;
+namespace FB2Writer;
 using System.Reflection;
 
 /// <summary>
@@ -10,7 +10,7 @@ public static class AppInfo
     private static readonly Assembly _assembly = Assembly.GetExecutingAssembly();
 
     /// <summary>
-    /// Получает техническое имя сборки (например, "FB2Editor").
+    /// Получает техническое имя сборки (например, "FB2Writer").
     /// Соответствует значению &lt;AssemblyName&gt; в CSPROJ-файле.
     /// Если имя не задано, возвращается значение по умолчанию "FB2 Writer".
     /// </summary>

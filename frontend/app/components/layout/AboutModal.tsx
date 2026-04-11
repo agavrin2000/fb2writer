@@ -25,7 +25,7 @@ interface AboutModalProps {
 }
 
 export const AboutModal = ({ isOpen, onClose }: AboutModalProps) => {
-  const [appDetails, setAppDetails] = useState<AppInfo>({ name: 'FB2 Editor', version: '0.0.0' });
+  const [appDetails, setAppDetails] = useState<AppInfo>({ name: 'FB2 Writer', version: '0.0.0' });
 
   const onAppInfo = useCallback(
     (message: string) => {

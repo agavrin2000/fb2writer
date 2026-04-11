@@ -1,7 +1,7 @@
 using Photino.NET;
-using FB2Editor.Services;
+using FB2Writer.Services;
 
-namespace FB2Editor;
+namespace FB2Writer;
 
 class Program
 {
@@ -89,7 +89,7 @@ class Program
     /// <summary>
     /// Индексирует встроенные ресурсы из сборки, соответствующие статическим файлам в папке wwwroot.
     /// Создаёт карту путей (в формате URL) к именам ресурсов в манифесте, позволяя быстро получать доступ к файлам по их виртуальному пути.
-    /// Например, преобразует имя ресурса "FB2Editor.Resources.wwwroot.static.js.main.js" в путь "static/js/main.js".
+    /// Например, преобразует имя ресурса "FB2Writer.Resources.wwwroot.static.js.main.js" в путь "static/js/main.js".
     /// Выполняется один раз при инициализации хоста.
     /// </summary>
     public static void UpdateWindowTitle(string? filePath = null)

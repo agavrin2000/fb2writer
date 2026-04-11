@@ -1,7 +1,7 @@
 using System.Text.Json;
 using Photino.NET;
 
-namespace FB2Editor.Services;
+namespace FB2Writer.Services;
 
 /// <summary>
 /// Центральный компонент приложения, отвечающий за обработку входящих сообщений из веб-интерфейса (frontend).

@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 
-namespace FB2Editor.Models;
+namespace FB2Writer.Models;
 
 /// <summary>
 /// Представляет полную структуру книги в формате FB2, готовую к экспорту или сохранению.

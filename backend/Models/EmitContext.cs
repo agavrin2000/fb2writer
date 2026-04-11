@@ -1,9 +1,9 @@
 using System.Text.Json;
 using System.Text.Encodings.Web;
 using System.Text.Json.Serialization;
-using FB2Editor.Models;
+using FB2Writer.Models;
 
-namespace FB2Editor;
+namespace FB2Writer;
 
 /// <summary>
 /// Представляет базовое сообщение, отправляемое из C#-кода во frontend.
