@@ -25,7 +25,7 @@ export interface Fb2TitleInfo {
   genres: string[];
   authors: Fb2Person[];
   title: string;
-  annotation?: any; // TipTap JSON
+  annotation?: TiptapContent; // TipTap JSON
   keywords?: string;
   date?: string;
   dateValue?: string;
@@ -47,7 +47,7 @@ export interface Fb2DocumentInfo {
   srcUrl?: string;
   srcOcr?: string;
   version: string;
-  history?: any;
+  history?: TiptapContent;
 }
 
 // Издательские данные
@@ -80,8 +80,8 @@ export interface Fb2Metadata {
 // Корневой объект для взаимодествия с бэкендом
 export interface Fb2Data {
   metadata: Fb2Metadata;
-  content: any;
-  footnotes: Record<string, any>;
+  content: TiptapContent;
+  footnotes: Record<string, unknown>;
   filePath: string;
 }
 
@@ -115,8 +115,11 @@ export interface TiptapContent {
   type: string;
   content?: TiptapContent[];
   text?: string;
-  marks?: Array<{ type: string; attrs?: Record<string, any> }>;
-  attrs?: Record<string, any>;
+  marks?: Array<{
+    type: string;
+    attrs?: Record<string, string | number | null>;
+  }>;
+  attrs?: Record<string, string | number | null>;
 }
 
 // Ссловарь сносок
@@ -206,7 +209,7 @@ export const EMPTY_FB2_TEMPLATE: Fb2Data = {
       },
     ],
   },
-  footnotes: [],
+  footnotes: {} as Record<string, unknown>,
   filePath: "",
 };
 
@@ -427,28 +430,27 @@ export const COMMAND_NAMES = [
 ] as const;
 
 export type Capabilities = {
-  [K in (typeof COMMAND_NAMES)[number]as
-  | `canInsert${K}`
-  | `canRemove${K}`]: boolean;
+  [K in (typeof COMMAND_NAMES)[number] as
+    | `canInsert${K}`
+    | `canRemove${K}`]: boolean;
 };
 
 // Специфические атрибуты для разных узлов
 type Fb2NodeAttrs = {
   InlineImage: { src: string; href?: string };
-  BlockImage: { src: string; title?: string; href?: string }; 
-  SectionImage: { src: string; title?: string; href?: string }; 
+  BlockImage: { src: string; title?: string; href?: string };
+  SectionImage: { src: string; title?: string; href?: string };
 };
 
 // Умный тип для аргументов команд
 export type Fb2Commands<ReturnType> = {
   // Генерация insert-команд
-  [K in (typeof COMMAND_NAMES)[number]as `insertFb2${K}`]:
-  K extends keyof Fb2NodeAttrs
-  ? (attributes: Fb2NodeAttrs[K]) => ReturnType
-  : () => ReturnType;
+  [K in (typeof COMMAND_NAMES)[number] as `insertFb2${K}`]: K extends keyof Fb2NodeAttrs
+    ? (attributes: Fb2NodeAttrs[K]) => ReturnType
+    : () => ReturnType;
 } & {
   // Генерация remove-команд (обычно без аргументов)
-  [K in (typeof COMMAND_NAMES)[number]as `removeFb2${K}`]: () => ReturnType;
+  [K in (typeof COMMAND_NAMES)[number] as `removeFb2${K}`]: () => ReturnType;
 };
 
 declare module "@tiptap/core" {
@@ -456,4 +458,3 @@ declare module "@tiptap/core" {
     fb2: Fb2Commands<ReturnType>;
   }
 }
-

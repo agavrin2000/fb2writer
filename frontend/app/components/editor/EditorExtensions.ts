@@ -101,7 +101,7 @@ export const EditorExtensions = [
     HTMLAttributes: {
       rel: "noopener noreferrer",
     },
-    validate: (href) => /^https?:\/\/|^\#/.test(href),
+    validate: (href) => /^https?:\/\/|^#/.test(href),
   }),
   Fb2Paragraph,
   Fb2InlineImage,

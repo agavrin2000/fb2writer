@@ -1,8 +1,7 @@
-import { useState, useCallback, useEffect, useRef, RefObject } from "react";
+import { useState, useCallback, useEffect, RefObject } from "react";
 import { Editor } from "@tiptap/react";
 import { ActiveNote, FootnotesMap, TiptapContent } from "@/types/types";
 import { useToast } from "@/hooks/ToastContext";
-
 
 // 1. Объявляем интерфейс (или импортируем его)
 export const useFootnotes = (
@@ -15,15 +14,15 @@ export const useFootnotes = (
   const { success: showToastSuccess, error: showToastError } = useToast();
 
   // Синхронизируем функцию установки активной заметки
-useEffect(() => {
-  if (externalSetActiveNoteRef) {
-    // Мы создаем стабильную функцию-обертку один раз
-    const setter = (note: ActiveNote | null) => {
-      setActiveNote(note);
-    };
-    externalSetActiveNoteRef.current = setter;
-  }
-}, [externalSetActiveNoteRef]);
+  useEffect(() => {
+    if (externalSetActiveNoteRef) {
+      // Мы создаем стабильную функцию-обертку один раз
+      const setter = (note: ActiveNote | null) => {
+        setActiveNote(note);
+      };
+      externalSetActiveNoteRef.current = setter;
+    }
+  }, [externalSetActiveNoteRef]);
 
   // Синхронизация данных для редактора
   useEffect(() => {
@@ -33,20 +32,20 @@ useEffect(() => {
   }, [footnotes]);
 
   // Функция для закрытия попапа сноски
-const closeNotePopup = useCallback(() => {
-  setActiveNote((current) => {
-    // Если мы закрываем именно НОВУЮ сноску, которую так и не сохранили
-    if (current?.isNew) {
-      setFootnotes((prev) => {
-        const next = { ...prev };
-        delete next[current.id];
-        return next;
-      });
-    }
-    editor?.commands.focus();
-    return null; // Закрываем окно
-  });
-}, []);
+  const closeNotePopup = useCallback(() => {
+    setActiveNote((current) => {
+      // Если мы закрываем именно НОВУЮ сноску, которую так и не сохранили
+      if (current?.isNew) {
+        setFootnotes((prev) => {
+          const next = { ...prev };
+          delete next[current.id];
+          return next;
+        });
+      }
+      editor?.commands.focus();
+      return null; // Закрываем окно
+    });
+  }, [editor?.commands]);
 
   const updateNoteContent = useCallback(
     (newContent: TiptapContent[], newId?: string) => {

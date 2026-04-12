@@ -81,7 +81,6 @@
 	
 	<PropertyGroup>
 		<FrontendRoot>..\frontend</FrontendRoot>
-		<OutDir>$(FrontendRoot)\out</OutDir>
 	</PropertyGroup>
 
 	<!-- Запускаем билд только для Release-конфигурации -->

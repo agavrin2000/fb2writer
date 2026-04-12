@@ -1,5 +1,12 @@
 "use client";
-import React, { useState, useMemo, useEffect, useCallback, memo, useRef } from "react";
+import React, {
+  useState,
+  useEffect,
+  useCallback,
+  memo,
+  useMemo,
+  useRef,
+} from "react";
 import {
   ChevronRight,
   ChevronLeft,
@@ -28,7 +35,7 @@ import { RichTextEditor } from "./RichTextEditor";
 import { CoverPicker } from "./CoverPicker";
 import { FB2_GENRES, LANGUAGES, Fb2Metadata } from "@/types/types";
 import { debounce } from "@/utils/utils";
-import { Editor, useEditorState } from '@tiptap/react';
+import { Editor, useEditorState } from "@tiptap/react";
 
 const formatDateForInput = (dateStr: string) => {
   if (!dateStr) return "";
@@ -38,55 +45,113 @@ const formatDateForInput = (dateStr: string) => {
 };
 
 export const MetadataSidebar = memo(
-  ({ editor, isOpen, onToggle }: { editor: Editor | null; isOpen: boolean; onToggle: () => void }) => {
-    if (!editor) return null;
-    const [activeTab, setActiveTab] = useState<"title" | "src-title" | "publish" | "custom" | "doc">("title");
+  ({
+    editor,
+    isOpen,
+    onToggle,
+  }: {
+    editor: Editor | null;
+    isOpen: boolean;
+    onToggle: () => void;
+  }) => {
+    const [activeTab, setActiveTab] = useState<
+      "title" | "src-title" | "publish" | "custom" | "doc"
+    >("title");
 
     // 1. Подписываемся ТОЛЬКО на изменения метаданных в хранилище.
     // Это предотвратит лишние рендеры при печати текста в самом редакторе.
-const meta = useEditorState({
-  editor,
-  selector: (ctx) => ctx.editor.storage.metadata.meta as Fb2Metadata,
-});
+    const meta = useEditorState({
+      editor,
+      selector: (ctx) => ctx.editor?.storage.metadata.meta as Fb2Metadata,
+    });
 
-    const [localMeta, setLocalMeta] = useState<Fb2Metadata>(meta);
+    const [localMeta, setLocalMeta] = useState<Fb2Metadata | null>(meta);
 
     // Реф для хранения последнего отправленного состояния, чтобы избежать "эха"
     const lastSentMetaRef = useRef<string>("");
 
     // 2. Синхронизация из редактора в сайдбар (для Undo/Redo)
-    useEffect(() => {
-      // Когда в storage изменилась мета (в т.ч. из-за Undo), обновляем локальный стейт
-      setLocalMeta(meta);
-      lastSentMetaRef.current = JSON.stringify(meta);
-    }, [meta]);
-    // 3. Дебаунс для записи в историю TipTap
-    const debouncedUpdate = useMemo(
-      () => debounce((next: Fb2Metadata) => {
-        lastSentMetaRef.current = JSON.stringify(next);
-        editor.commands.updateMetadata(next);
-      }, 500),
-      [editor]
+    const [prevMeta, setPrevMeta] = useState(meta);
+
+    // 1. Синхронизируем стейт
+    // 1. Вместо useRef для lastSentMeta, используем useState
+    const [lastSentMetaString, setLastSentMetaString] = useState<string>(
+      JSON.stringify(meta),
     );
 
-    const handleMetaUpdate = useCallback((section: string, field: string, newValue: any) => {
-      setLocalMeta((prev) => {
-        if (!prev) return prev;
+    if (meta !== prevMeta) {
+      setPrevMeta(meta);
 
-        // Глубокое копирование секции для безопасности
-        const next = {
-          ...prev,
-          [section]: {
-            ...(prev as any)[section],
-            [field]: newValue,
-          },
-        } as Fb2Metadata;
+      const incomingMetaString = JSON.stringify(meta);
 
-        debouncedUpdate(next);
-        return next;
-      });
+      // Если пришедшие данные не совпадают с тем, что мы сами отправили
+      // (значит, это Undo/Redo или внешняя загрузка)
+      if (incomingMetaString !== lastSentMetaString) {
+        setLocalMeta(meta);
+        setLastSentMetaString(incomingMetaString);
+      }
+    }
+
+    // 2. Синхронизируем реф (в эффекте, так как это побочное действие)
+    useEffect(() => {
+      lastSentMetaRef.current = JSON.stringify(meta);
+    }, [meta]);
+
+    // 1. Указываем правильный тип (функция + метод cancel)
+
+    // 1. Создаем стабильную дебаунс-функцию через useMemo
+    const debouncedUpdate = useMemo(() => {
+      return debounce((next: Fb2Metadata) => {
+        const nextString = JSON.stringify(next);
+        // Обновляем "предохранитель", чтобы не было эха
+        setLastSentMetaString(nextString);
+        editor?.commands.updateMetadata(next);
+      }, 500);
+    }, [editor]); // Пересоздаем, только если сменился экземпляр редактора
+
+    // 2. Очищаем дебаунс при размонтировании
+    useEffect(() => {
+      return () => {
+        debouncedUpdate.cancel();
+      };
     }, [debouncedUpdate]);
 
+    // 3. В обработчике вызываем напрямую
+    const handleMetaUpdate = useCallback(
+      (
+        section: keyof Fb2Metadata,
+        field: string,
+        // Добавляем поддержку массивов (any[] или конкретнее string[] | Fb2Person[])
+        newValue: string | number | boolean | null | unknown[],
+      ) => {
+        setLocalMeta((prev) => {
+          if (!prev || !prev[section]) return prev;
+
+          const sectionData = prev[section] as unknown as Record<
+            string,
+            unknown
+          >;
+
+          // Для массивов простая проверка === не всегда работает,
+          // но для предотвращения лишних дебаунсов этого обычно достаточно
+          if (sectionData[field] === newValue) return prev;
+
+          const next: Fb2Metadata = {
+            ...prev,
+            [section]: {
+              ...sectionData,
+              [field]: newValue,
+            },
+          } as Fb2Metadata;
+
+          debouncedUpdate(next);
+          return next;
+        });
+      },
+      [debouncedUpdate],
+    );
+
+    if (!editor) return null;
     // Безопасный доступ к веткам JSON (теперь берем из meta от редактора)
     // В инпутах используйте localMeta
     const titleInfo = localMeta?.titleInfo;
@@ -99,7 +164,7 @@ const meta = useEditorState({
     const generateUUID = () => {
       // Генерируем стандартный UUID v4
       const newId = crypto.randomUUID();
-      handleMetaUpdate("DocumentInfo", "Id", newId);
+      handleMetaUpdate("documentInfo", "id", newId);
     };
     return (
       <div className="relative flex h-full select-none shrink-0">
@@ -202,7 +267,7 @@ const meta = useEditorState({
                       <CoverPicker
                         value={titleInfo?.coverPage}
                         onUpdate={(base64) =>
-                          handleMetaUpdate("TitleInfo", "CoverPage", base64)
+                          handleMetaUpdate("titleInfo", "coverPage", base64)
                         }
                       />
 
@@ -212,7 +277,7 @@ const meta = useEditorState({
                         icon={Languages}
                         options={LANGUAGES}
                         onChange={(val) =>
-                          handleMetaUpdate("TitleInfo", "Lang", val)
+                          handleMetaUpdate("titleInfo", "lang", val)
                         }
                       />
                       <Field
@@ -221,7 +286,7 @@ const meta = useEditorState({
                         icon={Languages}
                         options={LANGUAGES}
                         onChange={(val) =>
-                          handleMetaUpdate("TitleInfo", "SrcLang", val)
+                          handleMetaUpdate("titleInfo", "srcLang", val)
                         }
                       />
                       <Field
@@ -231,7 +296,7 @@ const meta = useEditorState({
                         multiline
                         rows={2}
                         onChange={(val) =>
-                          handleMetaUpdate("TitleInfo", "Keywords", val)
+                          handleMetaUpdate("titleInfo", "keywords", val)
                         }
                       />
                     </Section>
@@ -245,7 +310,7 @@ const meta = useEditorState({
                       <GenreList
                         genres={titleInfo?.genres || []}
                         onUpdate={(newGenres) =>
-                          handleMetaUpdate("TitleInfo", "Genres", newGenres)
+                          handleMetaUpdate("titleInfo", "genres", newGenres)
                         }
                         availableGenres={FB2_GENRES}
                       />
@@ -261,7 +326,7 @@ const meta = useEditorState({
                         title="Автор"
                         items={titleInfo?.authors || []}
                         onUpdate={(newAuthors) =>
-                          handleMetaUpdate("TitleInfo", "Authors", newAuthors)
+                          handleMetaUpdate("titleInfo", "authors", newAuthors)
                         }
                       />
                     </Section>
@@ -277,8 +342,8 @@ const meta = useEditorState({
                         items={titleInfo?.translators || []}
                         onUpdate={(newTranslators) =>
                           handleMetaUpdate(
-                            "TitleInfo",
-                            "Translators",
+                            "titleInfo",
+                            "translators",
                             newTranslators,
                           )
                         }
@@ -294,7 +359,7 @@ const meta = useEditorState({
                       <SequenceList
                         items={titleInfo?.sequence || []}
                         onUpdate={(newSeqs) =>
-                          handleMetaUpdate("TitleInfo", "Sequence", newSeqs)
+                          handleMetaUpdate("titleInfo", "sequence", newSeqs)
                         }
                       />
                     </Section>
@@ -308,7 +373,7 @@ const meta = useEditorState({
                       <RichTextEditor
                         content={titleInfo?.annotation}
                         onChange={(newJson) =>
-                          handleMetaUpdate("TitleInfo", "Annotation", newJson)
+                          handleMetaUpdate("titleInfo", "annotation", newJson)
                         }
                       />
                     </Section>
@@ -327,14 +392,14 @@ const meta = useEditorState({
                         value={srctitleInfo?.title}
                         icon={BookOpen}
                         onChange={(val) =>
-                          handleMetaUpdate("SrcTitleInfo", "Title", val)
+                          handleMetaUpdate("srcTitleInfo", "title", val)
                         }
                       />
                       {/* Блок обложки */}
                       <CoverPicker
                         value={srctitleInfo?.coverPage}
                         onUpdate={(base64) =>
-                          handleMetaUpdate("TitleInfo", "CoverPage", base64)
+                          handleMetaUpdate("titleInfo", "coverPage", base64)
                         }
                       />
                       <Field
@@ -343,7 +408,7 @@ const meta = useEditorState({
                         icon={Languages}
                         options={LANGUAGES}
                         onChange={(val) =>
-                          handleMetaUpdate("SrcTitleInfo", "Lang", val)
+                          handleMetaUpdate("srcTitleInfo", "lang", val)
                         }
                       />
                       <Field
@@ -352,7 +417,7 @@ const meta = useEditorState({
                         icon={Languages}
                         options={LANGUAGES}
                         onChange={(val) =>
-                          handleMetaUpdate("SrcTitleInfo", "SrcLang", val)
+                          handleMetaUpdate("srcTitleInfo", "srcLang", val)
                         }
                       />
                       <Field
@@ -362,7 +427,7 @@ const meta = useEditorState({
                         multiline
                         rows={2}
                         onChange={(val) =>
-                          handleMetaUpdate("SrcTitleInfo", "Keywords", val)
+                          handleMetaUpdate("srcTitleInfo", "keywords", val)
                         }
                       />
                     </Section>
@@ -375,7 +440,7 @@ const meta = useEditorState({
                       <GenreList
                         genres={srctitleInfo?.genres ?? []}
                         onUpdate={(newGenres) =>
-                          handleMetaUpdate("TitleInfo", "Genres", newGenres)
+                          handleMetaUpdate("titleInfo", "genres", newGenres)
                         }
                         availableGenres={FB2_GENRES}
                       />
@@ -392,8 +457,8 @@ const meta = useEditorState({
                         items={srctitleInfo?.authors || []}
                         onUpdate={(newAuthors) =>
                           handleMetaUpdate(
-                            "SrcTitleInfo",
-                            "Authors",
+                            "srcTitleInfo",
+                            "authors",
                             newAuthors,
                           )
                         }
@@ -411,8 +476,8 @@ const meta = useEditorState({
                         items={srctitleInfo?.translators || []}
                         onUpdate={(newTranslators) =>
                           handleMetaUpdate(
-                            "SrcTitleInfo",
-                            "Translators",
+                            "srcTitleInfo",
+                            "translators",
                             newTranslators,
                           )
                         }
@@ -428,7 +493,7 @@ const meta = useEditorState({
                       <SequenceList
                         items={srctitleInfo?.sequence || []}
                         onUpdate={(newSeqs) =>
-                          handleMetaUpdate("SrcTitleInfo", "Sequence", newSeqs)
+                          handleMetaUpdate("srcTitleInfo", "sequence", newSeqs)
                         }
                       />
                     </Section>
@@ -442,8 +507,8 @@ const meta = useEditorState({
                         content={srctitleInfo?.annotation || []}
                         onChange={(newJson) =>
                           handleMetaUpdate(
-                            "SrcTitleInfo",
-                            "Annotation",
+                            "srcTitleInfo",
+                            "annotation",
                             newJson,
                           )
                         }
@@ -463,22 +528,34 @@ const meta = useEditorState({
                       <Field
                         label="Название книги"
                         value={publishInfo?.bookName}
+                        onChange={(val) =>
+                          handleMetaUpdate("publishInfo", "bookName", val)
+                        }
                       />
                       <Field
                         label="Издатель"
                         value={publishInfo?.publisher}
                         icon={Printer}
+                        onChange={(val) =>
+                          handleMetaUpdate("publishInfo", "publisher", val)
+                        }
                       />
                       <Field label="Город" value={publishInfo?.city} />
                       <Field
                         label="Год издания"
                         value={publishInfo?.year}
                         icon={Calendar}
+                        onChange={(val) =>
+                          handleMetaUpdate("publishInfo", "year", val)
+                        }
                       />
                       <Field
                         label="ISBN"
                         value={publishInfo?.isbn}
                         icon={ShieldCheck}
+                        onChange={(val) =>
+                          handleMetaUpdate("publishInfo", "isbn", val)
+                        }
                       />
                     </Section>
 
@@ -491,7 +568,7 @@ const meta = useEditorState({
                       <SequenceList
                         items={publishInfo?.sequence || []}
                         onUpdate={(newSeqs) =>
-                          handleMetaUpdate("PublishInfo", "Sequence", newSeqs)
+                          handleMetaUpdate("publishInfo", "sequence", newSeqs)
                         }
                       />
                     </Section>
@@ -510,7 +587,7 @@ const meta = useEditorState({
                         label="ID Документа"
                         value={docInfo?.id}
                         onChange={(val) =>
-                          handleMetaUpdate("DocumentInfo", "Id", val)
+                          handleMetaUpdate("documentInfo", "id", val)
                         }
                         action={{
                           icon: Dices,
@@ -518,15 +595,27 @@ const meta = useEditorState({
                           title: "Сгенерировать уникальный ID",
                         }}
                       />
-                      <Field label="Версия" value={docInfo?.version} />
-                      <Field label="Программа" value={docInfo?.program} />
+                      <Field
+                        label="Версия"
+                        value={docInfo?.version}
+                        onChange={(val) =>
+                          handleMetaUpdate("documentInfo", "version", val)
+                        }
+                      />
+                      <Field
+                        label="Программа"
+                        value={docInfo?.program}
+                        onChange={(val) =>
+                          handleMetaUpdate("documentInfo", "program", val)
+                        }
+                      />
                       <Field
                         label="Дата создания файла"
                         value={formatDateForInput(meta.documentInfo?.date)}
                         type="date"
                         icon={Calendar}
                         onChange={(val) =>
-                          handleMetaUpdate("DocumentInfo", "Date", val)
+                          handleMetaUpdate("documentInfo", "date", val)
                         }
                       />
                     </Section>
@@ -542,8 +631,8 @@ const meta = useEditorState({
                         items={docInfo?.authors || []}
                         onUpdate={(newAuthors) =>
                           handleMetaUpdate(
-                            "DocumentInfo",
-                            "Authors",
+                            "documentInfo",
+                            "authors",
                             newAuthors,
                           )
                         }
@@ -560,11 +649,17 @@ const meta = useEditorState({
                         label="Source URL"
                         value={docInfo?.srcUrl}
                         icon={Link}
+                        onChange={(val) =>
+                          handleMetaUpdate("documentInfo", "srcUrl", val)
+                        }
                       />
                       <Field
                         label="Автор OCR"
                         value={docInfo?.srcOcr}
                         icon={Link}
+                        onChange={(val) =>
+                          handleMetaUpdate("documentInfo", "srcOcr", val)
+                        }
                       />
                     </Section>
 
@@ -577,7 +672,7 @@ const meta = useEditorState({
                       <RichTextEditor
                         content={docInfo?.history || []}
                         onChange={(newJson) =>
-                          handleMetaUpdate("DocumentInfo", "History", newJson)
+                          handleMetaUpdate("documentInfo", "history", newJson)
                         }
                       />
                     </Section>
@@ -593,10 +688,10 @@ const meta = useEditorState({
                       defaultOpen={true}
                     >
                       <CustomInfoList
-                        items={meta?.customInfo?.customItems || []}
+                        items={customInfo?.customItems || []}
                         onUpdate={(newItems) =>
                           handleMetaUpdate(
-                            "CustomInfo",
+                            "customInfo",
                             "customItems",
                             newItems,
                           )
@@ -621,15 +716,22 @@ const meta = useEditorState({
 );
 
 // --- Вспомогательные компоненты ---
+interface TabButtonProps {
+  active: boolean;
+  onClick: () => void;
+  label: string;
+  icon: React.ReactNode;
+}
 
-const TabButton = ({ active, onClick, label, icon }: any) => (
+const TabButton = ({ active, onClick, label, icon }: TabButtonProps) => (
   <button
     type="button"
     onClick={onClick}
-    className={`flex-1 flex flex-col items-center gap-1 py-3 transition-all border-b-2 ${active
-      ? "border-blue-600 text-blue-600 bg-blue-50/50"
-      : "border-transparent text-gray-400 hover:text-gray-600 hover:bg-gray-50"
-      }`}
+    className={`flex-1 flex flex-col items-center gap-1 py-3 transition-all border-b-2 ${
+      active
+        ? "border-blue-600 text-blue-600 bg-blue-50/50"
+        : "border-transparent text-gray-400 hover:text-gray-600 hover:bg-gray-50"
+    }`}
   >
     {icon}
     <span className="text-[9px] font-bold uppercase tracking-tighter">
@@ -637,3 +739,5 @@ const TabButton = ({ active, onClick, label, icon }: any) => (
     </span>
   </button>
 );
+
+MetadataSidebar.displayName = "MetadataSidebar";

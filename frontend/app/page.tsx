@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { Header } from "@/components/layout/Header";
 import { ContentsSidebar } from "@/components/layout/ContentsSidebar";
 import { MetadataSidebar } from "@/components/layout/metadata-sidebar/MetadataSidebar";
