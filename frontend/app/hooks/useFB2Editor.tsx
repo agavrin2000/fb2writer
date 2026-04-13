@@ -1,6 +1,12 @@
 "use client";
 
-import { useRef, useMemo, RefObject, useCallback, useLayoutEffect } from "react";
+import {
+  useRef,
+  useMemo,
+  RefObject,
+  useCallback,
+  useLayoutEffect,
+} from "react";
 import { useEditor, Editor } from "@tiptap/react";
 import { Transaction } from "@tiptap/pm/state";
 import { EditorExtensions } from "@/components/editor/EditorExtensions";
@@ -11,7 +17,7 @@ import {
   TocItem,
   ActiveNote,
   FootnotesMap,
-  EMPTY_FB2_TEMPLATE,
+  createInitialContent,
 } from "@/types/types";
 
 export const useFB2Editor = (
@@ -41,7 +47,7 @@ export const useFB2Editor = (
   const editor = useEditor(
     {
       extensions: EditorExtensions,
-      content: EMPTY_FB2_TEMPLATE.content,
+      content: createInitialContent().content,
       immediatelyRender: false,
       editorProps: editorProps,
       // Обработка изменений контента

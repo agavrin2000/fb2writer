@@ -132,7 +132,7 @@ export interface Fb2ImageData {
 }
 
 // Шаблон для новой книги
-export const EMPTY_FB2_TEMPLATE: Fb2Data = {
+export const createInitialContent = () => ({
   metadata: {
     titleInfo: {
       genres: ["antique"], // Обязательный тег для валидности FB2
@@ -207,7 +207,7 @@ export const EMPTY_FB2_TEMPLATE: Fb2Data = {
   },
   footnotes: {} as FootnotesMap,
   filePath: "",
-};
+});
 
 // Список жанров
 export const FB2_GENRES: { id: string; label: string }[] = [

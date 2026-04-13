@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo, useRef } from "react";
-import { JSONContent } from '@tiptap/core';
+import { JSONContent } from "@tiptap/core";
 import { Editor, useEditorState } from "@tiptap/react";
 import { EditorState } from "@tiptap/pm/state";
 import { useFB2Editor } from "./useFB2Editor";
@@ -9,7 +9,15 @@ import { getFileName } from "../utils/utils";
 import { photino } from "@/api/photino";
 import { useConfirm } from "@/hooks/ConfirmContext";
 import { useToast } from "@/hooks/ToastContext";
-import { Fb2Data, TocItem, EMPTY_FB2_TEMPLATE, FootnotesMap, ImageDisplayType, ActiveNote } from "@/types/types";
+import {
+  Fb2Data,
+  TocItem,
+  createInitialContent,
+  FootnotesMap,
+  ImageDisplayType,
+  ActiveNote,
+  Fb2Metadata,
+} from "@/types/types";
 
 interface EditorActions {
   save: () => Promise<void> | void;
@@ -53,7 +61,7 @@ export function useEditorManager(): EditorManager {
    * Ссылка на функцию установки активной сноски.
    * Позволяет обновлять состояние активной сноски из любого места.
    */
-  const setActiveNoteRef = useRef<(note: ActiveNote | null) => void>(() => { });
+  const setActiveNoteRef = useRef<(note: ActiveNote | null) => void>(() => {});
 
   /**
    * Флаг состояния загрузки.
@@ -73,7 +81,7 @@ export function useEditorManager(): EditorManager {
    * Пусто для нового документа, содержит путь после открытия/сохранения.
    */
   const [currentFilePath, setCurrentFilePath] = useState<string>(
-    EMPTY_FB2_TEMPLATE.filePath,
+    createInitialContent().filePath,
   );
 
   /**
@@ -96,7 +104,7 @@ export function useEditorManager(): EditorManager {
     return fb2.editor?.can().undo() ?? false;
   }, [fb2.editor?.state.doc]); // Пересчитываем при каждом изменении документа*/
 
-  const isContentDirty = useEditorState({
+  const isDirty = useEditorState({
     editor: fb2.editor,
     selector: (ctx): boolean => {
       // Если редактора нет, то и истории нет
@@ -106,13 +114,6 @@ export function useEditorManager(): EditorManager {
       return ctx.editor.can().undo();
     },
   });
-  /**
-   * Итоговый флаг "грязности" документа.
-   * Документ считается изменённым, если изменены метаданные или контент.
-   * @returns {boolean} `true`, если документ имеет несохранённые изменения.
-   */
-  const isDirty = isContentDirty;
-
   // 2. Инициализируем Сноски
   const notes = useFootnotes(fb2.editor, footnotesRef, setActiveNoteRef);
 
@@ -122,6 +123,8 @@ export function useEditorManager(): EditorManager {
    */
   const clearHistory = useCallback(() => {
     if (!fb2.editor) return;
+
+    // 1. Сбрасываем данные в хранилище расширения вручную
     const { view, state } = fb2.editor;
 
     const newState = EditorState.create({
@@ -157,21 +160,22 @@ export function useEditorManager(): EditorManager {
         data = payload as Fb2Data;
       }
 
-      fb2.editor.commands.updateMetadata(data.metadata || {});
-      console.log("fb2.editor.storage.metadata.meta", fb2.editor.storage.metadata.meta)
-
       if (data.content) {
         fb2.editor.commands.setContent(data.content);
-        clearHistory();
-        // Устанавливаем курсор в позицию 0 (начало документа) и фокусируем редактор, чтобы сработали события onUpdate/onSelectionUpdate
-        if (data.footnotes) {
-          notes.setFootnotes(data.footnotes);
-          if (footnotesRef.current) footnotesRef.current = data.footnotes;
-        } else {
-          notes.setFootnotes({});
-        }
-        fb2.editor.commands.focus("start");
       }
+      if (data.metadata) {
+        fb2.editor.commands.updateMetadata(data.metadata || {});
+      }
+      clearHistory();
+      if (data.footnotes) {
+        notes.setFootnotes(data.footnotes);
+        if (footnotesRef.current) footnotesRef.current = data.footnotes;
+      } else {
+        notes.setFootnotes({});
+      }
+
+      // Устанавливаем курсор в позицию 0 (начало документа) и фокусируем редактор, чтобы сработали события onUpdate/onSelectionUpdate
+      fb2.editor.commands.focus("start");
 
       setCurrentFilePath(data.filePath ?? "");
       setLoadingFileName("");
@@ -185,7 +189,7 @@ export function useEditorManager(): EditorManager {
       setLoadingFileName,
       setIsLoading,
       setLoaderConfig,
-      notes
+      notes,
     ],
   );
 
@@ -283,7 +287,7 @@ export function useEditorManager(): EditorManager {
    * @param {any} newFilePath - Новый путь к сохранённому файлу.
    */
   const onSaveSuccess = useCallback(
-    (payload: object|string| null) => {
+    (payload: object | string | null) => {
       if (!payload || typeof payload !== "string") return;
 
       // 1. Сохраняем КЛОН объекта, чтобы разорвать связь с текущим стейтом
@@ -300,7 +304,7 @@ export function useEditorManager(): EditorManager {
       setLoadingFileName,
       setIsLoading,
       setLoaderConfig,
-      showToastSuccess
+      showToastSuccess,
     ],
   );
 
@@ -310,7 +314,7 @@ export function useEditorManager(): EditorManager {
    * @param {string} message - Текст сообщения об ошибке.
    */
   const onError = useCallback(
-    (payload: object|string| null) => {
+    (payload: object | string | null) => {
       if (!payload || typeof payload !== "string") return;
       setIsLoading(false);
       setLoaderConfig(null);
@@ -341,14 +345,11 @@ export function useEditorManager(): EditorManager {
   }, [isDirty, confirm]);
 
   // Обработка закрытия окна по "крестику"
-  const onShowExitConfirmation = useCallback(
-    async () => {
-      const canProceed = await ensureSafeToProceed();
-      if (!canProceed) return;
-      photino.send("close-app");
-    },
-    [ensureSafeToProceed],
-  );
+  const onShowExitConfirmation = useCallback(async () => {
+    const canProceed = await ensureSafeToProceed();
+    if (!canProceed) return;
+    photino.send("close-app");
+  }, [ensureSafeToProceed]);
 
   /**
    * Объект с обработчиками событий, получаемых от Photino.
@@ -373,7 +374,7 @@ export function useEditorManager(): EditorManager {
       onStartSaving,
       onSaveSuccess,
       onShowExitConfirmation,
-      onError
+      onError,
     ],
   );
 
@@ -512,7 +513,7 @@ export function useEditorManager(): EditorManager {
     // Сбрасываем имя файла в заголовке окна приложения
     photino.send("set-file-name", "Новая книга");
 
-    onFb2Content(EMPTY_FB2_TEMPLATE);
+    onFb2Content(createInitialContent());
   }, [onFb2Content, ensureSafeToProceed]);
 
   // --- ИТОГОВЫЙ ОБЪЕКТ ---

@@ -1,9 +1,14 @@
-import React, { useState, useImperativeHandle, forwardRef, useEffect, useCallback } from 'react';
+import React, {
+  useState,
+  useImperativeHandle,
+  useEffect,
+  useCallback,
+} from "react";
 
 /**
  * Типы для настроек диалога подтверждения.
  */
-type DialogVariant = 'default' | 'danger';
+type DialogVariant = "default" | "danger";
 
 /**
  * Конфигурация отображаемого диалога подтверждения.
@@ -37,20 +42,24 @@ interface DialogConfig {
  */
 export interface ConfirmHandle {
   /**
- * Открывает модальное окно подтверждения и возвращает Promise.
- * @param title - Заголовок окна.
- * @param message - Текстовое сообщение.
- * @param variant - Вариант стилизации: `'default'` или `'danger'`.
- * @returns `true`, если пользователь нажал "OK", иначе `false`.
- *
- * @example
- * const confirmed = await confirmRef.current?.ask(
- *   "Удалить файл?",
- *   "Это действие нельзя отменить.",
- *   "danger"
- * );
- */
-  ask: (title: string, message: string, variant?: DialogVariant) => Promise<boolean>;
+   * Открывает модальное окно подтверждения и возвращает Promise.
+   * @param title - Заголовок окна.
+   * @param message - Текстовое сообщение.
+   * @param variant - Вариант стилизации: `'default'` или `'danger'`.
+   * @returns `true`, если пользователь нажал "OK", иначе `false`.
+   *
+   * @example
+   * const confirmed = await confirmRef.current?.ask(
+   *   "Удалить файл?",
+   *   "Это действие нельзя отменить.",
+   *   "danger"
+   * );
+   */
+  ask: (
+    title: string,
+    message: string,
+    variant?: DialogVariant,
+  ) => Promise<boolean>;
 }
 
 /**
@@ -90,68 +99,79 @@ export interface ConfirmHandle {
  * };
  */
 
-export const ConfirmDialog = forwardRef<ConfirmHandle, object>((_, ref) => {
+export const ConfirmDialog = ({ ref, ..._ }) => {
   const [config, setConfig] = useState<DialogConfig | null>(null);
   const [isAnimate, setIsAnimate] = useState(false);
 
   useImperativeHandle(ref, () => ({
-    ask(title, message, variant = 'default') {
+    ask(title, message, variant = "default") {
       return new Promise((resolve) => {
         setConfig({ title, message, variant, resolve });
         // Небольшая задержка для запуска анимации появления
         setTimeout(() => setIsAnimate(true), 10);
       });
-    }
+    },
   }));
 
   /**
    * Закрывает диалог и разрешает промис с указанным значением.
    * @param value - Результат действия: `true` — подтверждено, `false` — отменено.
    */
-  const close = useCallback((value: boolean) => {
-    if (!config) return;
+  const close = useCallback(
+    (value: boolean) => {
+      if (!config) return;
 
-    setIsAnimate(false);
+      setIsAnimate(false);
 
-    // Извлекаем resolve сразу
-    const currentResolve = config.resolve;
+      // Извлекаем resolve сразу
+      const currentResolve = config.resolve;
 
-    setTimeout(() => {
-      currentResolve(value);
-      setConfig(null);
-    }, 200);
-  }, [config]); // Добавляем config в зависимости, так как он используется внутри
+      setTimeout(() => {
+        currentResolve(value);
+        setConfig(null);
+      }, 200);
+    },
+    [config],
+  ); // Добавляем config в зависимости, так как он используется внутри
 
   // 2. Теперь useEffect будет работать корректно
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && config) {
+      if (e.key === "Escape" && config) {
         close(false);
       }
     };
 
-    window.addEventListener('keydown', handleEsc);
-    return () => window.removeEventListener('keydown', handleEsc);
+    window.addEventListener("keydown", handleEsc);
+    return () => window.removeEventListener("keydown", handleEsc);
   }, [config, close]); // close теперь стабилен
 
   if (!config) return null;
 
-  const isDanger = config.variant === 'danger';
+  const isDanger = config.variant === "danger";
 
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
       {/* Overlay (Задний фон) */}
       <div
-        className={`absolute inset-0 bg-slate-900/40 backdrop-blur-sm transition-opacity duration-300 ${isAnimate ? 'opacity-100' : 'opacity-0'
-          }`}
+        className={`absolute inset-0 bg-slate-900/40 backdrop-blur-sm transition-opacity duration-300 ${
+          isAnimate ? "opacity-100" : "opacity-0"
+        }`}
         onClick={() => close(false)}
       />
 
       {/* Модальное окно */}
-      <div className={`relative bg-white w-full max-w-sm rounded-2xl shadow-2xl border border-slate-200 overflow-hidden transform transition-all duration-300 ${isAnimate ? 'scale-100 opacity-100 translate-y-0' : 'scale-95 opacity-0 translate-y-4'
-        }`}>
+      <div
+        className={`relative bg-white w-full max-w-sm rounded-2xl shadow-2xl border border-slate-200 overflow-hidden transform transition-all duration-300 ${
+          isAnimate
+            ? "scale-100 opacity-100 translate-y-0"
+            : "scale-95 opacity-0 translate-y-4"
+        }`}
+      >
         <div className="p-6">
-          <h3 className={`text-lg font-bold mb-2 ${isDanger ? 'text-red-600' : 'text-slate-900'}`}>
+          <h3
+            className={`text-lg font-bold mb-2 ${isDanger ? "text-red-600" : "text-slate-900"}`}
+          >
             {config.title}
           </h3>
           <p className="text-slate-600 text-sm leading-relaxed">
@@ -170,10 +190,11 @@ export const ConfirmDialog = forwardRef<ConfirmHandle, object>((_, ref) => {
           <button
             type="button"
             onClick={() => close(true)}
-            className={`flex-1 px-4 py-2.5 text-sm font-bold text-white rounded-xl shadow-md transition-all active:scale-95 ${isDanger
-              ? 'bg-red-500 hover:bg-red-600 shadow-red-100'
-              : 'bg-blue-600 hover:bg-blue-700 shadow-blue-100'
-              }`}
+            className={`flex-1 px-4 py-2.5 text-sm font-bold text-white rounded-xl shadow-md transition-all active:scale-95 ${
+              isDanger
+                ? "bg-red-500 hover:bg-red-600 shadow-red-100"
+                : "bg-blue-600 hover:bg-blue-700 shadow-blue-100"
+            }`}
           >
             OK
           </button>
@@ -181,6 +202,6 @@ export const ConfirmDialog = forwardRef<ConfirmHandle, object>((_, ref) => {
       </div>
     </div>
   );
-});
+};
 
-ConfirmDialog.displayName = 'ConfirmDialog';
+ConfirmDialog.displayName = "ConfirmDialog";

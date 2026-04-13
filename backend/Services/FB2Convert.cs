@@ -120,7 +120,7 @@ public class Fb2Service
     /// <param name="fileName">Имя файла, определяющее формат (FB2 или ZIP).</param>
     /// <returns>JSON-строка с метаданными, контентом, сносками и путём к файлу.</returns>
     /// <exception cref="Exception">Выбрасывается при ошибках валидации, отсутствии FB2 внутри архива или других критических ошибках.</exception>
-    public string ConvertXMLToJson(Stream fileStream, string fileName)
+    public Fb2BookExport ConvertXMLToJson(Stream fileStream, string fileName)
     {
         // Обязательно для поддержки русских кодировок (windows-1251) в FB2
         Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
@@ -294,7 +294,8 @@ public class Fb2Service
                     Footnotes: footnotesList, // Передаем список сносок отдельно
                     FilePath: fileName // Полный путь к файлу для сохранения
         );
-        return JsonSerializer.Serialize(exportData, EmitContext.CustomOptions);
+        return exportData;
+        //return JsonSerializer.Serialize(exportData, EmitContext.CustomOptions);
     }
 
     /// <summary>

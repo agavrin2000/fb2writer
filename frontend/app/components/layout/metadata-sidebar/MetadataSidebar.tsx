@@ -33,7 +33,12 @@ import { GenreList } from "./GenreList";
 import { CustomInfoList } from "./CustomInfoList";
 import { RichTextEditor } from "./RichTextEditor";
 import { CoverPicker } from "./CoverPicker";
-import { FB2_GENRES, LANGUAGES, Fb2Metadata, TiptapContent } from "@/types/types";
+import {
+  FB2_GENRES,
+  LANGUAGES,
+  Fb2Metadata,
+  TiptapContent,
+} from "@/types/types";
 import { debounce } from "@/utils/utils";
 import { Editor, useEditorState } from "@tiptap/react";
 
@@ -151,6 +156,23 @@ export const MetadataSidebar = memo(
       [debouncedUpdate],
     );
 
+    const handleKeyDown = (event: React.KeyboardEvent) => {
+      // Проверяем нажатие Ctrl+Z (или Cmd+Z на Mac)
+      if ((event.ctrlKey || event.metaKey) && event.key === "z") {
+        // Если нажата ещё и Shift — это Redo
+        if (event.shiftKey) {
+          if (editor?.chain().focus().redo().run()) {
+            event.preventDefault();
+          }
+        } else {
+          // Иначе — Undo
+          if (editor?.chain().focus().undo().run()) {
+            event.preventDefault(); // Останавливаем откат внутри инпута
+          }
+        }
+      }
+    };
+
     if (!editor) return null;
     // Безопасный доступ к веткам JSON (теперь берем из meta от редактора)
     // В инпутах используйте localMeta
@@ -167,7 +189,10 @@ export const MetadataSidebar = memo(
       handleMetaUpdate("documentInfo", "id", newId);
     };
     return (
-      <div className="relative flex h-full select-none shrink-0">
+      <div
+        className="relative flex h-full select-none shrink-0"
+        onKeyDown={handleKeyDown}
+      >
         {/* Кнопка открытия (Плавающая справа, когда закрыто) */}
         {!isOpen && (
           <button

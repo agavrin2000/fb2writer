@@ -13,8 +13,8 @@ namespace FB2Writer;
 /// <param name="Type">Тип сообщения (например, "fb2-content", "error", "app-info").</param>
 /// <param name="Payload">Полезная нагрузка сообщения, сериализованная в строку.</param>
 public record EmitMessage(
-    [property: JsonPropertyName("type")] string Type, 
-    [property: JsonPropertyName("payload")] string Payload);
+    [property: JsonPropertyName("type")] string Type,
+    [property: JsonPropertyName("payload")] object? Payload);
 /// <summary>
 /// Содержит информацию о выбранном изображении для вставки в редактор.
 /// Включает данные изображения, способ отображения и уникальный идентификатор ссылки.
@@ -23,8 +23,8 @@ public record EmitMessage(
 /// <param name="Display">Тип отображения: "block" (как блок) или "inline" (встроенный).</param>
 /// <param name="Href">Уникальный идентификатор ссылки, используемый в HTML-атрибуте href.</param>
 public record ImageInfoMessage(
-    [property: JsonPropertyName("data")] string Data, 
-    [property: JsonPropertyName("display")] string Display, 
+    [property: JsonPropertyName("data")] string Data,
+    [property: JsonPropertyName("display")] string Display,
     [property: JsonPropertyName("href")] string Href
 );
 /// <summary>
@@ -34,7 +34,7 @@ public record ImageInfoMessage(
 /// <param name="Name">Отображаемое имя приложения (значение атрибута &lt;Product&gt;).</param>
 /// <param name="Version">Версия приложения в формате Major.Minor.Build.</param>
 public record AppDetails(
-    [property: JsonPropertyName("name")] string Name, 
+    [property: JsonPropertyName("name")] string Name,
     [property: JsonPropertyName("version")] string Version
 );
 

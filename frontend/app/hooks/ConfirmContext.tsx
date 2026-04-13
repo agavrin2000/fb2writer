@@ -1,6 +1,6 @@
-"use client"
-import React, { createContext, useContext, useRef, ReactNode } from 'react';
-import { ConfirmDialog, ConfirmHandle } from '@/components/ui/ConfirmDialog';
+"use client";
+import React, { createContext, useContext, useRef, ReactNode } from "react";
+import { ConfirmDialog, ConfirmHandle } from "@/components/ui/ConfirmDialog";
 
 /**
  * Контекст для предоставления функциональности модального окна подтверждения.
@@ -26,13 +26,17 @@ export const ConfirmProvider = ({ children }: { children: ReactNode }) => {
   const confirmRef = useRef<ConfirmHandle>(null);
 
   return (
-    <ConfirmContext.Provider value={{
-      // Проксируем вызов ask через ref, возвращая false при отсутствии диалога
-      ask: (title, message, variant) =>
-        confirmRef.current?.ask(title, message, variant) ?? Promise.resolve(false)
-    }}>
+    <ConfirmContext.Provider
+      value={{
+        // Проксируем вызов ask через ref, возвращая false при отсутствии диалога
+        ask: (title, message, variant) =>
+          confirmRef.current?.ask(title, message, variant) ??
+          Promise.resolve(false),
+      }}
+    >
       {children}
-      {/* Единственный экземпляр диалога подтверждения в приложении */}      <ConfirmDialog ref={confirmRef} />
+      {/* Единственный экземпляр диалога подтверждения в приложении */}{" "}
+      <ConfirmDialog ref={confirmRef} />
     </ConfirmContext.Provider>
   );
 };
@@ -52,6 +56,7 @@ export const ConfirmProvider = ({ children }: { children: ReactNode }) => {
  */
 export const useConfirm = () => {
   const context = useContext(ConfirmContext);
-  if (!context) throw new Error('useConfirm must be used within ConfirmProvider');
+  if (!context)
+    throw new Error("useConfirm must be used within ConfirmProvider");
   return context;
 };

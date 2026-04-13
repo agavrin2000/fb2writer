@@ -1,4 +1,3 @@
-using System.Security.Cryptography;
 using System.Text.Json;
 using Photino.NET;
 
@@ -19,7 +18,7 @@ public class MessageHub(PhotinoWindow window, FileService fileService, string? i
     /// Флаг, определяющий необходимость подтверждения выхода из приложения
     /// По умолчанию: выход  без подтверждения запрещен
     /// </summary>
-    public bool canClose = false; 
+    public bool canClose = false;
 
     /// <summary>
     /// Хранит путь к последней использованной директории для открытия или сохранения файлов.
@@ -93,7 +92,7 @@ public class MessageHub(PhotinoWindow window, FileService fileService, string? i
     {
         // 1. Инфо о приложении
         var appDetails = new AppDetails(AppInfo.FriendlyName, AppInfo.Version);
-        Emit("app-info", JsonSerializer.Serialize(appDetails, EmitContext.CustomOptions));
+        Emit("app-info", appDetails);
 
         // 2. Открытие переданного файла
         if (!string.IsNullOrEmpty(initialFile))
@@ -104,7 +103,7 @@ public class MessageHub(PhotinoWindow window, FileService fileService, string? i
         }
         else
         {
-            Emit("cancel-loading", string.Empty);
+            Emit("cancel-loading");
         }
     }
 
@@ -117,13 +116,12 @@ public class MessageHub(PhotinoWindow window, FileService fileService, string? i
         string? path = await ChooseFileAsync("Выберите книгу", [("Книги FB2", ["fb2", "fb2.zip"]), ("Все файлы", ["*"])]);
         if (string.IsNullOrEmpty(path))
         {
-            Emit("cancel-loading", string.Empty);
+            Emit("cancel-loading");
             return;
         }
 
         Emit("start-loading", Path.GetFileName(path));
-        string json = await fileService.LoadFileByPathAsync(path);
-        Emit("fb2-content", json);
+        Emit("fb2-content", await fileService.LoadFileByPathAsync(path));
         UpdateWindowTitle(path);
     }
 
@@ -144,7 +142,7 @@ public class MessageHub(PhotinoWindow window, FileService fileService, string? i
             localPath = await ChooseFileAsync("Сохранить книгу", [("Книги FB2", ["fb2", "fb2.zip"]), ("Все файлы", ["*"])]);
             if (string.IsNullOrEmpty(localPath))
             {
-                Emit("cancel-loading", string.Empty);
+                Emit("cancel-loading");
                 return;
             }
         }
@@ -174,13 +172,13 @@ public class MessageHub(PhotinoWindow window, FileService fileService, string? i
         string? path = await ChooseFileAsync("Выберите изображение", [("Изображения", ["jpg", "jpeg", "png"])]);
         if (string.IsNullOrEmpty(path))
         {
-            Emit("cancel-loading", string.Empty);
+            Emit("cancel-loading");
             return;
         }
 
         string data = await FileService.SelectImageAsync(path);
         var info = new ImageInfoMessage(data, displayType, $"#{Guid.NewGuid()}");
-        Emit("image-selected", JsonSerializer.Serialize(info, EmitContext.CustomOptions));
+        Emit("image-selected", info);
     }
 
     /// <summary>
@@ -225,7 +223,7 @@ public class MessageHub(PhotinoWindow window, FileService fileService, string? i
     /// </summary>
     /// <param name="type">Тип сообщения (например, "fb2-content", "error", "start-loading").</param>
     /// <param name="payload">Полезная нагрузка сообщения в виде строки (может быть JSON).</param>
-    public void Emit(string type, string payload)
+    public void Emit(string type, object? payload = null)
     {
         var message = JsonSerializer.Serialize(
             new EmitMessage(type, payload), EmitContext.CustomOptions

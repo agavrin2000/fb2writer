@@ -1,5 +1,6 @@
 using System.IO.Compression;
 using System.Text.Json;
+using FB2Writer.Models;
 
 namespace FB2Writer.Services;
 
@@ -25,7 +26,7 @@ public class FileService
     /// <param name="filePath">Полный путь к файлу на диске </param>
     /// <returns>Задача, представляющая асинхронную операцию загрузки и конвертации. Результат — JSON-строка с содержимым книги.</returns>
     /// <exception cref="FileNotFoundException">Исключение, если файл по указанному пути не найден.</exception>
-    public async Task<string> LoadFileByPathAsync(string filePath)
+    public async Task<Fb2BookExport> LoadFileByPathAsync(string filePath)
     {
         bool isZip = filePath.EndsWith(".zip", StringComparison.OrdinalIgnoreCase);
 
