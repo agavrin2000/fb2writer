@@ -28,6 +28,7 @@ import { Fb2Placeholder } from "./extensions/fb2placeholder";
 import { Fb2Annotation } from "./extensions/fb2annotation";
 import { Fb2Paragraph } from "./extensions/fb2paragraph";
 import { MetadataExtension } from "./extensions/MetadataExtension";
+import { EMPTY_FB2_TEMPLATE } from "@/types/types";
 
 /**
  * Кастомное расширение документа, переопределяющее корневой узел.
@@ -78,7 +79,7 @@ export const EditorExtensions = [
     },
   }),
   MetadataExtension.configure({
-    initialMeta: {}, // Передаем стартовые данные из файла
+    initialMeta: EMPTY_FB2_TEMPLATE.metadata, // Передаем стартовые данные из файла
   }),
   CustomDocument,
   Superscript, // Верхний индекс <sup>

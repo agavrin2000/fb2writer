@@ -87,7 +87,7 @@ class PhotinoBridge extends EventEmitter {
   }
 
   // Метод для отправки команд в C#
-  send(type: string, payload: string | object| null = null) {
+  send(type: string, payload: string | object = "") {
     if (!this.bridge?.sendMessage) {
       console.warn("⚠️ Мост Photino не готов к отправке.");
       return;

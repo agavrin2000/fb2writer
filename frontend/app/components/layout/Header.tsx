@@ -208,37 +208,9 @@ export const Header = memo(
                   <button
                     type="button"
                     disabled={!editor?.can().redo()}
-                    onClick={() => {
-                      // --- НАЧАЛО ЛОГОВ ---
-                      // 1. Проверяем, что сейчас лежит в атрибутах документа
-                      const metaBefore = editor?.state.doc.attrs.bookMeta;
-                      console.log('--- ТЕСТ UNDO ---');
-                      console.log('1. Состояние ДО нажатия:', metaBefore);
-
-                      // 2. Вызываем само действие отмены
-                      // handleAction — это ваша обертка, если она есть, используйте её
-                      editor?.commands.undo();
-
-                      // 3. Проверяем через мгновение, откатились ли атрибуты
-                      setTimeout(() => {
-                        const metaAfter = editor?.state.doc.attrs.bookMeta;
-                        console.log('2. Состояние ПОСЛЕ нажатия:', metaAfter);
-
-                        if (JSON.stringify(metaBefore) === JSON.stringify(metaAfter)) {
-                          console.warn('ВНИМАНИЕ: Метаданные в документе НЕ изменились. История их проигнорировала.');
-                        } else {
-                          console.log('УСПЕХ: Метаданные в документе откатились!');
-                        }
-                      }, 50);
-                      // --- КОНЕЦ ЛОГОВ ---
-                    }
-                    }
+                    onClick={() => handleAction(() => editor?.chain().focus().redo().run())}
                     className="header-item"
                   >
-                                        {/*                onClick={() =>
-                      handleAction(() => editor?.chain().focus().redo().run())} */}
-
-
                     <span className="flex items-center gap-2">
                       <Redo size={14} /> Повторить
                     </span>
