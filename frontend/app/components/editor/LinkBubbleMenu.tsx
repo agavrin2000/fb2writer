@@ -37,7 +37,7 @@ export const LinkBubbleMenu: React.FC<LinkBubbleMenuProps> = ({ editor }) => {
     if (!editor) return;
     const trimmed = targetUrl.trim();
     const oldUrl = editor.getAttributes('link').href || '';
-    
+
     if (trimmed === oldUrl) return;
 
     if (trimmed) {
@@ -47,8 +47,9 @@ export const LinkBubbleMenu: React.FC<LinkBubbleMenuProps> = ({ editor }) => {
     }
   }, [editor]);
 
+  const isLinkActive = editor?.isActive('link');
   // СЛУШАТЕЛЬ ДЛЯ ФОКУСА (вызывается из Toolbar через CustomEvent)
-useEffect(() => {
+  useEffect(() => {
     const forceFocus = () => {
       setTimeout(() => {
         if (inputRef.current) {
@@ -72,7 +73,7 @@ useEffect(() => {
       window.removeEventListener('fb2-force-link-focus', forceFocus);
     };
     // Добавляем isActive в зависимости, чтобы реагировать на клики
-  }, [editor?.isActive('link'), editor]); 
+  }, [isLinkActive, editor]);
 
   // Автосохранение при клике вне меню
   useEffect(() => {
@@ -141,11 +142,10 @@ useEffect(() => {
             onClick={() => {
               editor.chain().focus().extendMarkRange('link').unsetLink().run();
             }}
-            className={`p-2 transition-all rounded-lg ${
-              (!url || url === '#') 
-                ? 'text-slate-200 cursor-not-allowed' 
+            className={`p-2 transition-all rounded-lg ${(!url || url === '#')
+                ? 'text-slate-200 cursor-not-allowed'
                 : 'text-slate-400 hover:text-red-500 hover:bg-red-50'
-            }`}
+              }`}
           >
             <Trash2 size={16} />
           </button>

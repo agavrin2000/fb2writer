@@ -62,7 +62,7 @@ export const Fb2Subtitle = Node.create({
             let titleOffset = 0;
 
             // Быстро проверяем структуру строфы (в ней мало узлов)
-            parentNode.forEach((child, offset) => {
+            parentNode.forEach((child) => {
               if (child.type.name === "fb2Subtitle") hasSubtitle = true;
               if (child.type.name === "fb2Title") titleOffset = child.nodeSize;
             });

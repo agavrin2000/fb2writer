@@ -51,12 +51,14 @@ export const Fb2SectionMenu = ({ editor, onSelectImage }: Props) => {
 
   const [localId, setLocalId] = useState(currentElementId);
 
-  // Синхронизация локального ID с текущим узлом
-  useEffect(() => {
-    if (!isTyping.current) {
+useEffect(() => {
+  if (!isTyping.current && localId !== currentElementId) {
+    // Оборачиваем в микрозадачу, чтобы убрать ошибку каскадного рендера
+    queueMicrotask(() => {
       setLocalId(currentElementId);
-    }
-  }, [currentElementId]);
+    });
+  }
+}, [currentElementId, localId]);
 
   useEffect(() => {
     if (!editor) return;
@@ -106,7 +108,7 @@ export const Fb2SectionMenu = ({ editor, onSelectImage }: Props) => {
       window.removeEventListener("scroll", update, true);
       window.removeEventListener("mousedown", handleClickOutside);
     };
-  }, [editor, update, isOpen]);
+  }, [editor, update, isOpen, refs]);
 
   if (!isOpen || !editor) return null;
 
@@ -121,13 +123,13 @@ export const Fb2SectionMenu = ({ editor, onSelectImage }: Props) => {
     if (!(selection instanceof NodeSelection)) return;
 
     const currentLevel = selection.node.attrs.level || 1;
-    let insertPos =
+    const insertPos =
       position === "start"
         ? selection.from + 1
         : position === "after"
           ? selection.to
           : selection.to - 1;
-    let targetLevel = position === "after" ? currentLevel : currentLevel + 1;
+    const targetLevel = position === "after" ? currentLevel : currentLevel + 1;
 
     editor
       .chain()
@@ -154,7 +156,7 @@ export const Fb2SectionMenu = ({ editor, onSelectImage }: Props) => {
   return (
     <FloatingPortal>
       <div
-        ref={refs.setFloating}
+        ref={(node) => { refs.setFloating(node); }}
         style={floatingStyles}
         className="z-[9999] flex flex-col bg-white border border-gray-200 rounded-lg shadow-xl p-1 gap-1 animate-in fade-in slide-in-from-left-2 duration-150"
         onMouseDown={(e) => e.stopPropagation()}

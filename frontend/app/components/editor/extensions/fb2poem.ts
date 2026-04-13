@@ -124,6 +124,6 @@ export const Fb2Poem = Node.create({
           }
           return true;
         },
-    } as any;
+    };
   },
 });

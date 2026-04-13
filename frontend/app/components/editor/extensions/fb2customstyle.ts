@@ -1,4 +1,4 @@
-import { Node, mergeAttributes, Mark } from '@tiptap/core'
+import { mergeAttributes, Mark } from '@tiptap/core'
 
 export const Fb2CustomStyle = Mark.create({
     name: 'fb2CustomStyle',
@@ -7,7 +7,7 @@ export const Fb2CustomStyle = Mark.create({
             name: {
                 default: null,
                 parseHTML: (element: HTMLElement) => element.getAttribute('name'),
-                renderHTML: (attributes: Record<string, any>) => ({ name: attributes.name }),
+                renderHTML: (attributes) => ({ name: attributes.name }),
             },
         }
     },

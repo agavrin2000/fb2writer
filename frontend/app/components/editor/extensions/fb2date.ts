@@ -100,11 +100,11 @@ export const Fb2Date = Node.create({
     };
   },
 
-  addCommands(): any {
+  addCommands() {
     return {
       insertFb2Date:
         () =>
-        ({ chain, state, dispatch }: any) => {
+        ({ chain, state, dispatch }: CommandProps) => {
           const { selection } = state;
           let poemPos = -1;
           let poemNode = null;
@@ -126,7 +126,7 @@ export const Fb2Date = Node.create({
           }
 
           // Если не нашли поэму или дата уже есть — блокируем команду
-          if (poemPos == -1) return false;
+          if (poemPos == -1 || poemNode == null) return false;
 
           const lastChild = poemNode.lastChild;
           const hasDate = lastChild?.type.name === "fb2Date";

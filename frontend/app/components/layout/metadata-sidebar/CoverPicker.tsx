@@ -1,5 +1,6 @@
 import React from "react";
 import { Image as ImageIcon, X, Upload, Download } from "lucide-react";
+import Image from 'next/image';
 
 interface CoverPickerProps {
   value?: string; // Строка base64
@@ -50,10 +51,12 @@ export const CoverPicker = ({ value, onUpdate }: CoverPickerProps) => {
       <div className="relative group aspect-3/4 w-40 mx-auto bg-gray-50 rounded-lg border-2 border-dashed border-gray-200 overflow-hidden flex flex-col items-center justify-center transition-all hover:border-blue-300 shadow-inner">
         {imageSrc ? (
           <>
-            <img
+            <Image
               src={imageSrc}
               alt="Обложка"
+              fill
               className="w-full h-full object-cover"
+              unoptimized 
             />
             {/* Кнопки управления при наведении */}
             <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">

@@ -1,17 +1,28 @@
-import { useState, useCallback, useEffect, RefObject } from "react";
+import { useState, useCallback, useEffect, RefObject, Dispatch, SetStateAction } from "react";
 import { Editor } from "@tiptap/react";
 import { ActiveNote, FootnotesMap, TiptapContent } from "@/types/types";
 import { useToast } from "@/hooks/ToastContext";
+
+export interface Footnotes {
+    activeNote: ActiveNote | null;
+    setActiveNote: Dispatch<SetStateAction<ActiveNote | null>>;
+    setFootnotes: Dispatch<SetStateAction<FootnotesMap>>;
+    addFootnote: () => void;
+    footnotes: FootnotesMap;
+    updateNoteContent: (newContent: TiptapContent, newId?: string) => void;
+    closeNotePopup: () => void;
+    deleteFootnote: (id: string) => void;
+};
 
 // 1. Объявляем интерфейс (или импортируем его)
 export const useFootnotes = (
   editor: Editor | null,
   externalFootnotesRef: RefObject<FootnotesMap>, // Используем RefObject
   externalSetActiveNoteRef: RefObject<(note: ActiveNote | null) => void>,
-) => {
+): Footnotes => {
   const [footnotes, setFootnotes] = useState<FootnotesMap>({});
   const [activeNote, setActiveNote] = useState<ActiveNote | null>(null);
-  const { success: showToastSuccess, error: showToastError } = useToast();
+  const { error: showToastError } = useToast();
 
   // Синхронизируем функцию установки активной заметки
   useEffect(() => {
@@ -29,7 +40,7 @@ export const useFootnotes = (
     if (externalFootnotesRef) {
       externalFootnotesRef.current = footnotes;
     }
-  }, [footnotes]);
+  }, [footnotes, externalFootnotesRef]);
 
   // Функция для закрытия попапа сноски
   const closeNotePopup = useCallback(() => {
@@ -48,7 +59,7 @@ export const useFootnotes = (
   }, [editor?.commands]);
 
   const updateNoteContent = useCallback(
-    (newContent: TiptapContent[], newId?: string) => {
+    (newContent: TiptapContent, newId?: string) => {
       if (!activeNote || !editor) return;
 
       const oldId = activeNote.id;
@@ -120,7 +131,7 @@ export const useFootnotes = (
         showToastError("Не удалось привязать сноску к тексту.");
       }
     },
-    [activeNote, editor, showToastError, showToastSuccess], // footnotes убрали!
+    [activeNote, editor, showToastError], // footnotes убрали!
   );
 
   // Добавить ссылку
@@ -134,21 +145,25 @@ export const useFootnotes = (
     const id = `n_${Date.now().toString(36).slice(-4)}`;
 
     // Формируем шаблон с текущим ID
-    const initialContent = [
-      {
-        type: "fb2Title",
-        content: [
-          {
-            type: "paragraph",
-            content: [{ type: "text", text: `${id.replace(/^n_/, "")}` }],
-          },
-        ],
-      },
-      {
-        type: "paragraph",
-        content: [{ type: "text", text: "Новая сноска" }],
-      },
-    ];
+    // 1. Оборачиваем массив в структуру Tiptap документа
+    const initialContent = {
+      type: "doc", // Это поле теперь удовлетворит типизацию TiptapContent
+      content: [
+        {
+          type: "fb2Title",
+          content: [
+            {
+              type: "paragraph",
+              content: [{ type: "text", text: `${id.replace(/^n_/, "")}` }],
+            },
+          ],
+        },
+        {
+          type: "paragraph",
+          content: [{ type: "text", text: "Новая сноска" }],
+        },
+      ],
+    };
 
     // Сохраняем в стейт под временным ID
     // 4. Обновляем стейты

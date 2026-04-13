@@ -1,6 +1,6 @@
 import React from "react";
-import { FileCode, Plus, X, Type, AlignLeft } from "lucide-react";
-import { Section } from "./Section";
+import { Plus, X, Type, AlignLeft } from "lucide-react";
+
 
 interface CustomItem {
   infoType: string;
@@ -10,13 +10,11 @@ interface CustomItem {
 interface CustomInfoProps {
   items: CustomItem[];
   onUpdate: (newItems: CustomItem[]) => void;
-  defaultOpen?: boolean;
 }
 
 export const CustomInfoList = ({
   items = [],
   onUpdate,
-  defaultOpen = false,
 }: CustomInfoProps) => {
   const addItem = () => {
     onUpdate([...items, { infoType: "", value: "" }]);

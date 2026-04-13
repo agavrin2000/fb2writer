@@ -23,7 +23,7 @@ export const Fb2Annotation = Node.create({
     };
   },
 
-  addCommands(): any {
+  addCommands() {
     return {
       insertFb2Annotation:
         () =>
@@ -49,7 +49,7 @@ export const Fb2Annotation = Node.create({
           }
 
           // Если не нашли секцию или аннотация уже есть — блокируем команду
-          if (sectionPos === -1) return false;
+          if (sectionPos === -1 || sectionNode == null) return false;
 
           let hasAnnotation = false;
           let insertOffset = 0; // По умолчанию 0 (в самое начало контента секции)

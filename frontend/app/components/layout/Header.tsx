@@ -8,6 +8,7 @@ import React, { useEffect, useState, useRef, useCallback, memo } from "react";
 import { Editor } from "@tiptap/react";
 import { Info, LogOut, Save, FolderOpen, Undo, Redo, FileCode, FilePlus } from "lucide-react";
 import { AboutModal } from "./AboutModal";
+import { photino } from "@/api/photino";
 
 /**
  * Интерфейс свойств компонента шапки приложения.
@@ -76,16 +77,9 @@ export const Header = memo(
     onOpen,
     onNew,
     fileName,
-  }: {
-    editor: Editor | null;
-    onSave: (saveAs: boolean) => void;
-    onOpen: () => void;
-    onNew: () => void;
-    fileName: string;
-  }) => {
+  }: HeaderProps) => {
     const [activeMenu, setActiveMenu] = useState<string | null>(null);
     const [isAboutOpen, setIsAboutOpen] = useState(false);
-    const [isExitModalOpen, setIsExitModalOpen] = useState(false);
 
     const menuRef = useRef<HTMLDivElement>(null);
 
@@ -174,7 +168,7 @@ export const Header = memo(
                   <div className="border-t my-1"></div>
                   <button
                     type="button"
-                    onClick={() => handleAction(() => setIsExitModalOpen(true))}
+                    onClick={() => handleAction(() => photino.send("show-exit-confirmation"))}
                     className="header-item text-red-600"
                   >
                     <span className="flex items-center gap-2">
@@ -296,3 +290,5 @@ export const Header = memo(
     );
   },
 );
+
+Header.displayName = "Header";

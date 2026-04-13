@@ -1,5 +1,5 @@
 import React, {useCallback, useMemo, useState} from 'react';
-import { X, Info, BookOpen, Command } from 'lucide-react';
+import { X, BookOpen, Command } from 'lucide-react';
 import { AppInfo } from "@/types/types";
 import { usePhotinoEvents } from "@/hooks/usePhotinoEvents";
 import { LucideProps } from 'lucide-react';
@@ -28,9 +28,15 @@ export const AboutModal = ({ isOpen, onClose }: AboutModalProps) => {
   const [appDetails, setAppDetails] = useState<AppInfo>({ name: 'FB2 Writer', version: '0.0.0' });
 
   const onAppInfo = useCallback(
-    (message: string) => {
-      console.log("app-info", message);
-      setAppDetails(JSON.parse(message));
+    (payload: string | object | null) => {
+      if (typeof payload == "string") {
+      setAppDetails(JSON.parse(payload));
+      return;
+      }
+      if (typeof payload == "object" && payload !=null) {
+      setAppDetails(payload as AppInfo);
+      return;
+      }
     },
     [setAppDetails],
   );

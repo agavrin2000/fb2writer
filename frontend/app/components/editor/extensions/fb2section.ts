@@ -113,7 +113,7 @@ export const Fb2Section = Node.create({
           if (sectionNode.type.name === "fb2BodySection") {
             // Считаем количество секций у родителя
             let sectionCount = 0;
-            sectionNode.forEach((child: any) => {
+            sectionNode.forEach((child) => {
               if (child.type.name === "fb2Section") sectionCount++;
             });
             // Удаляем секцию

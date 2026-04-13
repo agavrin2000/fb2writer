@@ -2,8 +2,8 @@
 
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
-import { useEffect, useState, useMemo, FC } from 'react';
-import { Bold, Italic, Quote, Strikethrough, Superscript as SuperscriptIcon, Subscript as SubscriptIcon, Hash, X, RotateCcw, Trash2 } from 'lucide-react';
+import { useEffect, useState, useMemo } from 'react';
+import { Bold, Italic, Quote, Strikethrough, Superscript as SuperscriptIcon, Subscript as SubscriptIcon, Hash, X, Trash2 } from 'lucide-react';
 import Superscript from '@tiptap/extension-superscript';
 import Subscript from '@tiptap/extension-subscript';
 import { Fb2Title } from './extensions/fb2title';
@@ -11,6 +11,7 @@ import { Fb2Cite } from './extensions/fb2cite';
 import React, { useCallback } from 'react';
 import { useConfirm } from "@/hooks/ConfirmContext";
 import { createPortal } from 'react-dom';
+import {TiptapContent}  from '@/types/types';
 
 /**
  * Интерфейс свойств компонента всплывающего окна редактирования сноски.
@@ -24,7 +25,7 @@ interface NotePopupProps {
   /**
    * Текущее содержимое сноски (в формате TipTap JSON или массив узлов).
    */
-  content: any;
+  content: TiptapContent;
 
   /**
    * Список существующих ID сносок, используется для проверки дубликатов.
@@ -36,7 +37,7 @@ interface NotePopupProps {
    * @param json - Новое содержимое сноски в формате JSON.
    * @param newId - Новый ID сноски (если был изменён).
    */
-  onUpdate: (json: any, newId?: string) => void;
+  onUpdate: (json: TiptapContent, newId?: string) => void;
 
   /**
    * Функция закрытия всплывающего окна без сохранения.
@@ -86,9 +87,9 @@ export const NotePopup: React.FC<NotePopupProps> = ({ note, content, existingIds
   const POPUP_WIDTH = 384; // w-96 в Tailwind
   const POPUP_HEIGHT = 350; // Примерная средняя высота
 
-    /**
-   * Обработчик удаления сноски с подтверждением действия.
-   */
+  /**
+ * Обработчик удаления сноски с подтверждением действия.
+ */
   const handleDelete = async () => {
     setIsConfirming(true); // Блокируем onClose
     const confirmed = await confirm.ask(
@@ -102,15 +103,16 @@ export const NotePopup: React.FC<NotePopupProps> = ({ note, content, existingIds
     setIsConfirming(false);
   };
 
-   // Обновляем ID при смене активной сноски
-  useEffect(() => {
+  // Обновляем ID при смене активной сноски
+  if (editableId !== note.id) {
     setEditableId(note.id);
-  }, [note.id]);
+  }
 
-  // Закрываем попап при прокрутке, изменении размера или клике вне его
   useEffect(() => {
-    const handleEvent = (e: any) => {
-      if (isConfirming || e.target.closest('.note-popup-container')) return;
+    const handleEvent = (e: Event) => {
+      const target = e.target as Element;
+      
+      if (isConfirming || target?.closest('.note-popup-container')) return;
       onClose();
     };
 
@@ -127,8 +129,8 @@ export const NotePopup: React.FC<NotePopupProps> = ({ note, content, existingIds
   /**
    * Вычисляет корректные координаты для попапа, чтобы он не выходил за границы экрана.
    * При недостатке места снизу — отображается над точкой клика.
-   */  
-  const { adjustedPosition, isFullUp } = useMemo(() => {
+   */
+  const { adjustedPosition } = useMemo(() => {
     if (typeof window === 'undefined') return { adjustedPosition: { top: note.y + 15, left: note.x }, isFullUp: false };
 
     let left = note.x;
@@ -161,7 +163,7 @@ export const NotePopup: React.FC<NotePopupProps> = ({ note, content, existingIds
   /**
    * Преобразует входящий контент в единый стандартный формат TipTap (doc).
    */
-    const safeContent = useMemo(() => {
+  const safeContent = useMemo(() => {
     // Если контента нет вообще
     if (!content) return { type: 'doc', content: [] };
 
@@ -178,7 +180,7 @@ export const NotePopup: React.FC<NotePopupProps> = ({ note, content, existingIds
   /**
    * Экземпляр редактора TipTap для внутреннего редактирования содержимого сноски.
    */
-    const editor = useEditor({
+  const editor = useEditor({
     extensions: [StarterKit.configure({
       gapcursor: false,
     }), Superscript, Subscript, Fb2Title, Fb2Cite],
@@ -198,7 +200,7 @@ export const NotePopup: React.FC<NotePopupProps> = ({ note, content, existingIds
     onTransaction: forceUpdate,
   });
 
-   // Синхронизация контента при переключении между сносками
+  // Синхронизация контента при переключении между сносками
   useEffect(() => {
     if (editor && !editor.isDestroyed && safeContent) {
       const currentJson = JSON.stringify(editor.getJSON());
@@ -232,9 +234,9 @@ export const NotePopup: React.FC<NotePopupProps> = ({ note, content, existingIds
   /**
    * Обработчик сохранения изменений в сноске.
    */
-    const handleSave = () => {
+  const handleSave = () => {
     if (hasError) return;
-    onUpdate(editor.getJSON().content, editableId.trim());
+    onUpdate(editor.getJSON(), editableId.trim());
     onClose();
   };
 
@@ -331,7 +333,6 @@ export const NotePopup: React.FC<NotePopupProps> = ({ note, content, existingIds
             active={editor.isActive("fb2Cite")}
             disabled={!editor.can().chain().toggleBlockquote()}
             icon={<Quote size={14} />}
-            title="Цитата"
           />
         </div>
 
@@ -357,6 +358,13 @@ export const NotePopup: React.FC<NotePopupProps> = ({ note, content, existingIds
     document.body);
 };
 
+interface ToolbarButtonProps {
+  onClick: () => void;
+  active?: boolean;
+  disabled?: boolean;
+  icon: React.ReactNode;
+}
+
 /**
  * Кнопка тулбара форматирования текста.
  * Отображает иконку и изменяет стиль в зависимости от состояния (активна/неактивна/недоступна).
@@ -366,7 +374,7 @@ export const NotePopup: React.FC<NotePopupProps> = ({ note, content, existingIds
  * @param disabled - Флаг недоступности (например, если команда не может быть применена).
  * @param icon - Иконка кнопки (React-элемент).
  */
-const ToolbarButton = ({ onClick, active, disabled, icon }: any) => (
+const ToolbarButton = ({ onClick, active, disabled, icon }: ToolbarButtonProps) => (
   <button
     type="button"
     onClick={onClick}

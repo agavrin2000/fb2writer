@@ -1,26 +1,34 @@
-import { useState, useCallback, useMemo, useRef, useEffect } from "react";
+import { useState, useCallback, useMemo, useRef } from "react";
 import { useFB2Editor } from "./useFB2Editor";
-import { useFootnotes } from "./useFootnotes";
+import { useFootnotes, Footnotes } from "./useFootnotes";
 import { usePhotinoEvents } from "./usePhotinoEvents";
-import { Fb2Metadata, TocItem, EMPTY_FB2_TEMPLATE } from "../types/types";
+import { TocItem, EMPTY_FB2_TEMPLATE } from "../types/types";
 import { getFileName } from "../utils/utils";
 import { photino } from "@/api/photino";
 import { EditorState } from "@tiptap/pm/state";
 import { Editor, useEditorState } from "@tiptap/react";
-import isEqual from "fast-deep-equal";
 import { useConfirm } from "@/hooks/ConfirmContext";
 import { useToast } from "@/hooks/ToastContext";
-import { FootnotesMap } from "@/types/types";
+import { FootnotesMap, TiptapContent, ImageDisplayType, ActiveNote } from "@/types/types";
+
+interface EditorActions {
+  save: () => Promise<void> | void;
+  open: () => Promise<void> | void;
+  selectImage: (type: ImageDisplayType) => void;
+  addFootnote: (id?: string) => void;
+  addLink: () => void;
+  newFile: () => void;
+}
 
 interface EditorManager {
   editor: Editor | null; // Замените any на тип вашего редактора (например, Editor | null)
-  notes: any;
+  notes: Footnotes;
   isLoading: boolean;
   loaderConfig: { title?: string; subtitle?: string } | null;
   loadingFileName: string;
   currentFilePath: string;
   tocTree: TocItem[];
-  actions: any;
+  actions: EditorActions;
   scrollToHeading: (item: TocItem) => void;
 }
 
@@ -39,13 +47,13 @@ export function useEditorManager(): EditorManager {
    * Ссылка на текущий объект сносков.
    * Используется для прямого доступа к данным сносок из внешних колбэков.
    */
-  const footnotesRef = useRef<Record<string, any>>({});
+  const footnotesRef = useRef<Record<string, TiptapContent>>({});
 
   /**
    * Ссылка на функцию установки активной сноски.
    * Позволяет обновлять состояние активной сноски из любого места.
    */
-  const setActiveNoteRef = useRef<(note: any) => void>(() => { });
+  const setActiveNoteRef = useRef<(note: ActiveNote | null) => void>(() => { });
 
   /**
    * Флаг состояния загрузки.
@@ -79,9 +87,6 @@ export function useEditorManager(): EditorManager {
 
   // 1. Сначала инициализируем Редактор
   const fb2 = useFB2Editor(footnotesRef, setActiveNoteRef);
-if (typeof window !== 'undefined') {
-  (window as any).editor = fb2.editor; // Теперь переменная 'editor' будет доступна в консоли
-}
   /**
    * Проверяет, были ли изменения в содержимом редактора.
    * Основано на возможности отмены действий в Tiptap.
@@ -140,7 +145,7 @@ if (typeof window !== 'undefined') {
     (payload: string) => {
       const data = typeof payload === "string" ? JSON.parse(payload) : payload;
       if (!fb2.editor || !data) return;
-     fb2.editor.commands.updateMetadata(data.metadata || {});
+      fb2.editor.commands.updateMetadata(data.metadata || {});
       console.log("fb2.editor.storage.metadata.meta", fb2.editor.storage.metadata.meta)
       if (data.content) {
         fb2.editor.commands.setContent(data.content);
@@ -167,6 +172,7 @@ if (typeof window !== 'undefined') {
       setLoadingFileName,
       setIsLoading,
       setLoaderConfig,
+      notes
     ],
   );
 
@@ -214,7 +220,7 @@ if (typeof window !== 'undefined') {
         showToastError("Ошибка при вставке изображения");
       }
     },
-    [fb2.editor, setIsLoading, setLoaderConfig],
+    [fb2.editor, setIsLoading, setLoaderConfig, showToastError],
   );
 
   /**
@@ -245,7 +251,7 @@ if (typeof window !== 'undefined') {
       subtitle: "Формирование XML",
     });
     setLoadingFileName(getFileName(currentFilePath));
-  }, [setLoadingFileName, setIsLoading, setLoaderConfig]);
+  }, [setLoadingFileName, setIsLoading, setLoaderConfig, currentFilePath]);
 
   /**
    * Обрабатывает отмену процесса загрузки.
@@ -263,7 +269,7 @@ if (typeof window !== 'undefined') {
    * @param {any} newFilePath - Новый путь к сохранённому файлу.
    */
   const onSaveSuccess = useCallback(
-    (newFilePath: any) => {
+    (newFilePath: string) => {
       // 1. Сохраняем КЛОН объекта, чтобы разорвать связь с текущим стейтом
       clearHistory();
       setCurrentFilePath(newFilePath);
@@ -278,6 +284,7 @@ if (typeof window !== 'undefined') {
       setLoadingFileName,
       setIsLoading,
       setLoaderConfig,
+      showToastSuccess
     ],
   );
 
@@ -293,7 +300,7 @@ if (typeof window !== 'undefined') {
       setLoadingFileName("");
       showToastError(message);
     },
-    [setLoadingFileName, setIsLoading, setLoaderConfig],
+    [setLoadingFileName, setIsLoading, setLoaderConfig, showToastError],
   );
   /**
    * Проверяет, можно ли безопасно продолжить операцию с учётом несохранённых изменений.
@@ -318,12 +325,12 @@ if (typeof window !== 'undefined') {
 
   // Обработка закрытия окна по "крестику"
   const onShowExitConfirmation = useCallback(
-    async (message: string) => {
+    async () => {
       const canProceed = await ensureSafeToProceed();
       if (!canProceed) return;
       photino.send("close-app");
     },
-    [ensureSafeToProceed, photino],
+    [ensureSafeToProceed],
   );
 
   /**
@@ -349,6 +356,7 @@ if (typeof window !== 'undefined') {
       onStartSaving,
       onSaveSuccess,
       onShowExitConfirmation,
+      onError
     ],
   );
 
@@ -411,7 +419,6 @@ if (typeof window !== 'undefined') {
       currentFilePath,
       setLoaderConfig,
       setIsLoading,
-      photino,
     ],
   );
 
@@ -430,7 +437,6 @@ if (typeof window !== 'undefined') {
     photino.send("open-file", { action: "select_new" });
   }, [
     isLoading,
-    photino,
     ensureSafeToProceed,
     setLoadingFileName,
     setIsLoading,
@@ -452,7 +458,7 @@ if (typeof window !== 'undefined') {
       // Отправляем объект с данными, чтобы бэкенд знал, какой тип вставки использовать
       photino.send("select-image", { type });
     },
-    [isLoading, photino, setIsLoading, setLoaderConfig],
+    [isLoading, setIsLoading, setLoaderConfig],
   );
 
   /**
@@ -477,7 +483,7 @@ if (typeof window !== 'undefined') {
       })
       .run();
     window.dispatchEvent(new CustomEvent("fb2-force-link-focus"));
-  }, [fb2.editor, photino]);
+  }, [fb2.editor]);
 
   /**
    * Создаёт новый пустой документ.

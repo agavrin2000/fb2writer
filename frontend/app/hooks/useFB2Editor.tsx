@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useMemo, RefObject, useCallback, useEffect } from "react";
+import { useRef, useMemo, RefObject, useCallback, useLayoutEffect } from "react";
 import { useEditor, Editor } from "@tiptap/react";
 import { Transaction } from "@tiptap/pm/state";
 import { EditorExtensions } from "@/components/editor/EditorExtensions";
@@ -26,7 +26,10 @@ export const useFB2Editor = (
   // Используем реф для функции обновления заголовка,
   // чтобы onUpdate/onSelectionUpdate всегда видели свежую версию без пересоздания опций редактора
   const updateActiveHeadingRef = useRef(updateActiveHeading);
-  updateActiveHeadingRef.current = updateActiveHeading;
+  // 2. Обновляем его значение внутри эффекта (БЕЗОПАСНО)
+  useLayoutEffect(() => {
+    updateActiveHeadingRef.current = updateActiveHeading;
+  }); // Без массива зависимостей, чтобы обновлять при каждом рендере
 
   // 2. Вынесенные пропсы (обработка кликов по сноскам)
   const editorProps = useMemo(

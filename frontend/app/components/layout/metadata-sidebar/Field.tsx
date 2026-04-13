@@ -3,7 +3,7 @@ import { ChevronDown } from "lucide-react";
 interface FieldProps {
   label: string;
   value?: string;
-  icon?: any;
+  icon?: React.ElementType; 
   type?: string;
   onChange?: (val: string) => void;
   isEditable?: boolean;
@@ -12,7 +12,7 @@ interface FieldProps {
   multiline?: boolean; // Добавляем флаг многострочности
   rows?: number; // Количество строк
   action?: {
-    icon: any;
+    icon: React.ElementType; 
     onClick: () => void;
     title?: string;
   };

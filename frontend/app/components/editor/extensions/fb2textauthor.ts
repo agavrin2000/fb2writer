@@ -1,6 +1,6 @@
 import { Node, mergeAttributes } from "@tiptap/core";
 import { CommandProps } from "@tiptap/core";
-import { NodeSelection, TextSelection } from "@tiptap/pm/state";
+import { NodeSelection } from "@tiptap/pm/state";
 import { findParentNodeByType } from "@/utils/utils";
 
 export const Fb2TextAuthor = Node.create({
@@ -30,13 +30,13 @@ export const Fb2TextAuthor = Node.create({
     };
   },
 
-  addCommands(): any {
+  addCommands() {
     return {
       insertFb2TextAuthor:
         () =>
-        ({ state, chain }: any) => {
+        ({ state, chain }:CommandProps) => {
           const { selection } = state;
-          let parentNode: any = null;
+          let parentNode = null;
           let parentPos = -1;
 
           // 1. Проверяем: выделена ли сама секция?
@@ -55,14 +55,14 @@ export const Fb2TextAuthor = Node.create({
             ));
           }
 
-          if (parentPos == -1) return false;
+          if (parentPos == -1 || parentNode == null) return false;
 
           // Начальная точка вставки (сразу после открытия тега родителя)
           let insertPos = parentPos + 1;
 
           if (parentNode.type.name === "fb2Poem") {
             // 2. В Poem ищем конец последней Stanza ИЛИ последнего TextAuthor
-            parentNode.forEach((child: any, offset: number) => {
+            parentNode.forEach((child, offset: number) => {
               if (
                 child.type.name === "fb2Stanza" ||
                 child.type.name === "fb2TextAuthor"
@@ -74,7 +74,7 @@ export const Fb2TextAuthor = Node.create({
             // 3. В Epigraph/Cite ищем конец последнего TextAuthor
             // Если авторов нет, вставим в самый конец блока
             let lastAuthorEnd = -1;
-            parentNode.forEach((child: any, offset: number) => {
+            parentNode.forEach((child, offset) => {
               if (child.type.name === "fb2TextAuthor") {
                 lastAuthorEnd = parentPos + 1 + offset + child.nodeSize;
               }

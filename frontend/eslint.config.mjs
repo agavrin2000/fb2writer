@@ -1,40 +1,38 @@
 import js from "@eslint/js";
-import tseslint from "typescript-eslint"; // Добавьте этот импорт
-import nextPlugin from "@next/eslint-plugin-next";
-import reactPlugin from "eslint-plugin-react";
-import hooksPlugin from "eslint-plugin-react-hooks";
-import globals from "globals";
+import { defineConfig } from 'eslint/config';
+import tseslint from "typescript-eslint";
+import { dirname } from "path";
+import { fileURLToPath } from "url";
+import { FlatCompat } from "@eslint/eslintrc";
 
-export default [
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+const compat = new FlatCompat({
+  baseDirectory: __dirname,
+});
+
+export default defineConfig(
+  {
+    ignores: [".next/*", "node_modules/*", "out/*", "next-env.d.ts"],
+  },
   js.configs.recommended,
-  // 1. Подключаем базовые рекомендации TypeScript
   ...tseslint.configs.recommended,
-
+  // Подключаем конфиги Next.js через compat
+  // Это само подтянет нужные версии react-hooks без конфликтов
+  ...compat.extends("next/core-web-vitals", "next/typescript"),
   {
     files: ["**/*.{js,mjs,cjs,ts,jsx,tsx}"],
-    plugins: {
-      "@next/next": nextPlugin,
-      react: reactPlugin,
-      "react-hooks": hooksPlugin,
-      "@typescript-eslint": tseslint.plugin, // 2. Регистрируем плагин
-    },
     languageOptions: {
-      parser: tseslint.parser, // 3. Используем TS парсер
       globals: {
-        ...globals.browser,
-        ...globals.node,
         React: "writable",
       },
     },
     rules: {
-      ...reactPlugin.configs.recommended.rules,
-      ...hooksPlugin.configs.recommended.rules,
-      ...nextPlugin.configs.recommended.rules,
-      ...nextPlugin.configs["core-web-vitals"].rules,
-
+      "react/prop-types": "off",
       "react/react-in-jsx-scope": "off",
 
-      // 4. Правильно настраиваем неиспользуемые переменные
+      // Настройка неиспользуемых переменных
       "no-unused-vars": "off",
       "@typescript-eslint/no-unused-vars": [
         "warn",
@@ -51,7 +49,4 @@ export default [
       },
     },
   },
-  {
-    ignores: [".next/*", "node_modules/*", "out/*"],
-  },
-];
+);

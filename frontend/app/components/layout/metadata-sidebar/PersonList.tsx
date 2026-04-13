@@ -10,10 +10,9 @@ interface PersonListProps {
     title: string;
     items: Fb2Person[];
     onUpdate: (newItems: Fb2Person[]) => void;
-    icon?: any;
 }
 
-export const PersonList = ({ title, items = [], onUpdate, icon: Icon = User }: PersonListProps) => {
+export const PersonList = ({ title, items = [], onUpdate }: PersonListProps) => {
     const confirm = useConfirm();
     const addPerson = () => {
         const newPerson: Fb2Person = { firstName: '', middleName: '', lastName: '', nickname: '', emails: [], id: '' };

@@ -21,7 +21,7 @@ export const Fb2Title = Node.create({
     }),
     0,
   ],
-  addCommands(): any {
+  addCommands() {
     return {
       insertFb2Title:
         () =>
@@ -46,7 +46,7 @@ export const Fb2Title = Node.create({
             ));
           }
           // Если не нашли секцию или  — блокируем команду
-          if (sectionPos == -1) return false;
+          if (sectionPos == -1 || sectionNode == null) return false;
 
           const isBody = sectionNode.type.name === "fb2BodySection";
           const targetIndex = isBody ? 1 : 0;

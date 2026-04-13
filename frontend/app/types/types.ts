@@ -123,7 +123,7 @@ export interface TiptapContent {
 }
 
 // Ссловарь сносок
-export type FootnotesMap = Record<string, TiptapContent[]>;
+export type FootnotesMap = Record<string, TiptapContent>;
 
 // Тип отображения изображения
 export type ImageDisplayType = "block" | "inline" | "section";

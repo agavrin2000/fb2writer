@@ -77,3 +77,6 @@ export const Loader: React.FC<LoaderProps> = memo(
     );
   },
 );
+
+
+Loader.displayName = "Loader";

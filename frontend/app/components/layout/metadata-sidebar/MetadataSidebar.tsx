@@ -33,7 +33,7 @@ import { GenreList } from "./GenreList";
 import { CustomInfoList } from "./CustomInfoList";
 import { RichTextEditor } from "./RichTextEditor";
 import { CoverPicker } from "./CoverPicker";
-import { FB2_GENRES, LANGUAGES, Fb2Metadata } from "@/types/types";
+import { FB2_GENRES, LANGUAGES, Fb2Metadata, TiptapContent } from "@/types/types";
 import { debounce } from "@/utils/utils";
 import { Editor, useEditorState } from "@tiptap/react";
 
@@ -122,7 +122,7 @@ export const MetadataSidebar = memo(
         section: keyof Fb2Metadata,
         field: string,
         // Добавляем поддержку массивов (any[] или конкретнее string[] | Fb2Person[])
-        newValue: string | number | boolean | null | unknown[],
+        newValue: TiptapContent | string | number | boolean | null | unknown[],
       ) => {
         setLocalMeta((prev) => {
           if (!prev || !prev[section]) return prev;
@@ -371,7 +371,7 @@ export const MetadataSidebar = memo(
                       defaultOpen={false}
                     >
                       <RichTextEditor
-                        content={titleInfo?.annotation}
+                        content={titleInfo?.annotation ?? null}
                         onChange={(newJson) =>
                           handleMetaUpdate("titleInfo", "annotation", newJson)
                         }
@@ -504,7 +504,7 @@ export const MetadataSidebar = memo(
                       defaultOpen={false}
                     >
                       <RichTextEditor
-                        content={srctitleInfo?.annotation || []}
+                        content={srctitleInfo?.annotation ?? null}
                         onChange={(newJson) =>
                           handleMetaUpdate(
                             "srcTitleInfo",
@@ -670,7 +670,7 @@ export const MetadataSidebar = memo(
                       defaultOpen={false}
                     >
                       <RichTextEditor
-                        content={docInfo?.history || []}
+                        content={docInfo?.history ?? null}
                         onChange={(newJson) =>
                           handleMetaUpdate("documentInfo", "history", newJson)
                         }
@@ -696,7 +696,6 @@ export const MetadataSidebar = memo(
                             newItems,
                           )
                         }
-                        defaultOpen={true}
                       />
                     </Section>
 

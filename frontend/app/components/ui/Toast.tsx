@@ -120,8 +120,9 @@ const config = {
  *     </>
  *   );
  * };
- */export const Toast = memo(
-  forwardRef<ToastHandle, {}>((_, ref) => {
+ */
+export const Toast = memo(
+  forwardRef<ToastHandle, object>((_, ref) => {
     const [visible, setVisible] = useState(false);
     const [message, setMessage] = useState("");
     const [type, setType] = useState<ToastType>("success");

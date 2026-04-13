@@ -6,7 +6,7 @@ export function useGlobalShortcuts(actions: {
   newFile: () => void;
   toggleContentsSidebar: () => void;
   toggleMetadataSidebar: () => void;
-  [key: string]: any; // Это позволит передавать доп. поля без ошибок
+  [key: string]: ((...args: never[]) => unknown) | undefined;  // Это позволит передавать доп. поля без ошибок
 }) {
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {

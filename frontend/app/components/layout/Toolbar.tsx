@@ -1,5 +1,5 @@
 import { Editor } from "@tiptap/react";
-import React, { memo, useMemo } from "react";
+import React, { memo } from "react";
 import {
   Bold,
   Italic,
@@ -116,11 +116,11 @@ export const Toolbar: React.FC<ToolbarProps> = memo(
               // Используем (undefined as any), чтобы удовлетворить сигнатуру вызова
               [
                 `canInsert${name}`,
-                (ed.can() as any)[insertCommand]?.() ?? false,
+                (ed.can()as unknown as Record<keyof Fb2Commands<boolean>, () => boolean>)[insertCommand]?.() ?? false,
               ],
               [
                 `canRemove${name}`,
-                (ed.can() as any)[removeCommand]?.() ?? false,
+                (ed.can()as unknown as Record<keyof Fb2Commands<boolean>, () => boolean>)[removeCommand]?.() ?? false,
               ],
             ];
           }),

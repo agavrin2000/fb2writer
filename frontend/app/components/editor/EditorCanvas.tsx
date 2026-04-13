@@ -62,3 +62,4 @@ export const EditorCanvas = React.memo(
 );
 
 EditorCanvas.displayName = 'EditorCanvas';
+EditorCanvasRender.displayName = 'EditorCanvasRender';

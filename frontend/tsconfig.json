@@ -35,7 +35,8 @@
     ".next/types/**/*.ts",
     "./build/types/**/*.ts",
     "out/types/**/*.ts",
-    "out/dev/types/**/*.ts"
+    "out/dev/types/**/*.ts",
+    "./out/types/routes.d.ts"
   ],
   "exclude": [
     "node_modules"

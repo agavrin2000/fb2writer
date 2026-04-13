@@ -1,5 +1,6 @@
 import { Selection } from "@tiptap/pm/state";
 import { FlatNode, TocItem } from "@/types/types";
+import { Node as ProsemirrorNode } from "@tiptap/pm/model";
 
 /**
  * Строит иерархическое дерево из плоского массива узлов на основе их уровня (`level`).
@@ -57,10 +58,14 @@ import { FlatNode, TocItem } from "@/types/types";
  * debouncedSave(); // Перезапускает таймер
  * debouncedSave.cancel(); // Отменяет сохранение
  */
-export function debounce<T extends (...args: any[]) => any>(fn: T, ms: number) {
+export function debounce<A extends unknown[], R>(
+  fn: (...args: A) => R,
+  ms: number
+) {
   let timeoutId: ReturnType<typeof setTimeout> | undefined;
 
-  const debounced = function (this: any, ...args: Parameters<T>) {
+  // 1. Создаем основную функцию
+  const debouncedFn = function (this: unknown, ...args: A) {
     if (timeoutId) {
       clearTimeout(timeoutId);
     }
@@ -70,7 +75,9 @@ export function debounce<T extends (...args: any[]) => any>(fn: T, ms: number) {
     }, ms);
   };
 
-  // Метод для отмены отложенного вызова
+  // 2. Явно добавляем метод
+  const debounced = debouncedFn as typeof debouncedFn & { cancel: () => void };
+
   debounced.cancel = () => {
     if (timeoutId) {
       clearTimeout(timeoutId);
@@ -91,11 +98,11 @@ export function debounce<T extends (...args: any[]) => any>(fn: T, ms: number) {
  * @param doc - Корневой узел документа ProseMirror.
  * @returns Массив плоских узлов типа `FlatNode[]`.
  */
-export const collectNodes = (doc: any) => {
+export const collectNodes = (doc: ProsemirrorNode) => {
   const nodes: FlatNode[] = [];
 
   // Используем descendants, но жестко ограничиваем глубину поиска
-  doc.descendants((node: any, pos: number) => {
+  doc.descendants((node: ProsemirrorNode, pos: number) => {
     const isSection =
       node.type.name === "fb2Section" || node.type.name === "fb2BodySection";
 
@@ -112,7 +119,7 @@ export const collectNodes = (doc: any) => {
 
       if (titleNode && titleNode.type.name === "fb2Title") {
         const parts: string[] = [];
-        titleNode.forEach((child: any) => {
+        titleNode.forEach((child: ProsemirrorNode) => {
           const text = child.textContent.trim();
           if (text) parts.push(text);
         });
@@ -168,7 +175,10 @@ export const findParentNodeByType = (
   targetTypes: string[],
 ) => {
   // Проверяем, есть ли у выделения свойство $from (оно есть у TextSelection и NodeSelection)
-  const $from = (selection as any).$from;
+  if (!("$from" in selection)) {
+    return { node: null, pos: -1, depth: null, nodeSize: 0 };
+  }
+  const { $from } = selection;
 
   if (!$from) {
     return { node: null, pos: -1, depth: null, nodeSize: 0 };

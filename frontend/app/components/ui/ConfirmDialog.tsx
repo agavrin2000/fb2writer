@@ -1,4 +1,4 @@
-import React, { useState, useImperativeHandle, forwardRef, useEffect } from 'react';
+import React, { useState, useImperativeHandle, forwardRef, useEffect, useCallback } from 'react';
 
 /**
  * Типы для настроек диалога подтверждения.
@@ -88,7 +88,9 @@ export interface ConfirmHandle {
  *     </>
  *   );
  * };
- */export const ConfirmDialog = forwardRef<ConfirmHandle, {}>((_, ref) => {
+ */
+
+export const ConfirmDialog = forwardRef<ConfirmHandle, object>((_, ref) => {
   const [config, setConfig] = useState<DialogConfig | null>(null);
   const [isAnimate, setIsAnimate] = useState(false);
 
@@ -106,27 +108,31 @@ export interface ConfirmHandle {
    * Закрывает диалог и разрешает промис с указанным значением.
    * @param value - Результат действия: `true` — подтверждено, `false` — отменено.
    */
-  const close = (value: boolean) => {
+  const close = useCallback((value: boolean) => {
     if (!config) return;
 
     setIsAnimate(false);
-    // Извлекаем resolve сразу, чтобы не потерять его при быстрой смене config
+
+    // Извлекаем resolve сразу
     const currentResolve = config.resolve;
 
     setTimeout(() => {
-      currentResolve(value); // Разрешаем Promise
+      currentResolve(value);
       setConfig(null);
     }, 200);
-  };
+  }, [config]); // Добавляем config в зависимости, так как он используется внутри
 
-  // Закрытие по клавише Escape
+  // 2. Теперь useEffect будет работать корректно
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && config) close(false);
+      if (e.key === 'Escape' && config) {
+        close(false);
+      }
     };
+
     window.addEventListener('keydown', handleEsc);
     return () => window.removeEventListener('keydown', handleEsc);
-  }, [config]);
+  }, [config, close]); // close теперь стабилен
 
   if (!config) return null;
 

@@ -33,7 +33,7 @@ export const Fb2Epigraph = Node.create({
       },
     };
   },
-  addCommands(): any {
+  addCommands() {
     return {
       insertFb2Epigraph:
         () =>
@@ -59,7 +59,7 @@ export const Fb2Epigraph = Node.create({
           }
 
           // 1. Ищем родительскую секцию (автоматически обрабатывает и NodeSelection, и курсор)
-          if (sectionPos === -1) return false;
+          if (sectionPos === -1 || sectionNode == null) return false;
 
           // 2. Определяем позицию вставки: после последнего заголовка или эпиграфа
           let insertOffset = 0;

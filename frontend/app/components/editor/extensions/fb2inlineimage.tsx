@@ -1,6 +1,5 @@
 import Image from "@tiptap/extension-image";
 import { CommandProps } from "@tiptap/core";
-import { findParentNodeByType } from "@/utils/utils";
 
 const INLINE_ACTIVE_NODES = [
   "paragraph",
@@ -32,11 +31,11 @@ export const Fb2InlineImage = Image.extend({
       class: { default: "inline-block align-bottom mx-1 max-w-full h-auto" },
     };
   },
-  addCommands(): any {
+  addCommands() {
     return {
       insertFb2InlineImage:
         (attributes: { src: string, href?: string }) => // Принимаем данные изображения
-          ({ state, dispatch, chain, commands }: CommandProps) => {
+          ({ state, dispatch, chain }: CommandProps) => {
             // 1. Логика проверки (Dry Run)
             const canInsert = INLINE_ACTIVE_NODES.includes(
               state.selection.$from.parent.type.name

@@ -3,16 +3,7 @@ import { CommandProps } from "@tiptap/core";
 import { findParentNodeByType } from "@/utils/utils";
 import { NodeSelection } from "@tiptap/pm/state";
 
-// Типы, в которых запрещена вставка изображения
-const FORBIDDEN_PARENTS = [
-  "fb2Epigraph",
-  "fb2Subtitle",
-  "fb2Title",
-  "fb2Annotation",
-  "fb2Poem",
-  "fb2Cite",
-  "fb2Placeholder",
-];
+
 // Блочное изображение (для структуры FB2)
 export const Fb2BlockImage = Image.extend({
   name: "fb2BlockImage",
@@ -37,7 +28,7 @@ export const Fb2BlockImage = Image.extend({
         parseHTML: (element) => element.getAttribute("href"),
         renderHTML: (attributes) => ({ href: attributes.href }),
       },
-            id: {
+      id: {
         default: null,
         // Отрисовка в HTML: добавляем атрибут id к тегу <p>
         renderHTML: attributes => {
@@ -52,7 +43,7 @@ export const Fb2BlockImage = Image.extend({
       class: { default: "fb2-block-image" },
     };
   },
-  addCommands(): any {
+  addCommands() {
     return {
       insertFb2BlockImage:
         (attributes: { src: string, href?: string, title?: string }) => // Принимаем данные изображения
@@ -62,7 +53,7 @@ export const Fb2BlockImage = Image.extend({
             // 1. Проверяем: выделена ли сама секция?
             if (selection instanceof NodeSelection && selection.node.type.name === "fb2Section") return false;
 
-            const { pos: parentPos, node: parentNode } = findParentNodeByType(
+            const { pos: parentPos} = findParentNodeByType(
               selection,
               ["fb2Section"],
             );
@@ -100,8 +91,8 @@ export const Fb2BlockImage = Image.extend({
               ));
             }
 
-            if (sectionPos === -1) return false;
-            
+            if (sectionPos === -1 || sectionNode == null) return false;
+
             // 2. Определяем позицию вставки внутри найденной секции
             let insertRelativePos = 0;
 

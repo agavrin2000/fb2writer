@@ -76,13 +76,13 @@ export const Fb2PoemMenu = ({ editor }: Props) => {
 
     // Проверяем наличие элементов внутри выделенной секции
     const canRemoveTitle = editor.can().removeFb2Title();
-    const canRemoveTextAuthor = editor.can().removeFb2TextAuthor();
+    //const canRemoveTextAuthor = editor.can().removeFb2TextAuthor();
     const canRemoveDate = editor.can().removeFb2Date();
 
     return (
         <FloatingPortal>
             <div
-                ref={refs.setFloating}
+                ref={(node) => { refs.setFloating(node);}}
                 style={floatingStyles}
                 className="z-[9999] flex flex-col bg-white border border-gray-200 rounded-lg shadow-xl p-1 gap-1 animate-in fade-in slide-in-from-left-2 duration-150"
             >

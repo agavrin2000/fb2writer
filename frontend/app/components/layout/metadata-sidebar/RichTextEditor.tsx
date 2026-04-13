@@ -5,10 +5,11 @@ import React from 'react';
 import Superscript from '@tiptap/extension-superscript';
 import Subscript from '@tiptap/extension-subscript';
 import { Fb2Subtitle } from '../../editor/extensions/fb2subtitle';
+import { TiptapContent } from '@/types/types';
 
 interface RichTextProps {
-    content: any; // TipTap JSON
-    onChange: (json: any) => void;
+    content: TiptapContent | null; // TipTap JSON
+    onChange: (json: TiptapContent) => void;
 }
 
 export const RichTextEditor = ({ content, onChange }: RichTextProps) => {
@@ -39,7 +40,7 @@ export const RichTextEditor = ({ content, onChange }: RichTextProps) => {
         if (editor && content && editor.isEmpty) {
             editor.commands.setContent(safeContent);
         }
-    }, [content, editor]);
+    }, [content, editor,safeContent]);
 
     if (!editor) return null;
 
@@ -74,7 +75,6 @@ export const RichTextEditor = ({ content, onChange }: RichTextProps) => {
                         onClick={() => editor.chain().focus().toggleBlockquote().run()}
                         active={editor.isActive('blockquote')}
                         icon={<Quote size={14} />}
-                        title="Цитата"
                     />
                 </div>
 
@@ -85,7 +85,15 @@ export const RichTextEditor = ({ content, onChange }: RichTextProps) => {
     );
 };
 
-const ToolbarButton = ({ onClick, active, icon }: any) => (
+interface ToolbarButtonProps {
+    onClick: () => void;
+    active?: boolean;
+    icon: React.ReactNode;
+}
+
+// 2. Применяем его к компоненту
+const ToolbarButton = ({ onClick, active, icon }: ToolbarButtonProps) => (
+ 
     <button
         type="button"
         onClick={onClick}

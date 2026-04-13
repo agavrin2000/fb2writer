@@ -1,5 +1,5 @@
 import React from "react";
-import { Image, ImageDown, PanelTop, ChevronDown } from "lucide-react";
+import { Image as ImageIcon, ImageDown, PanelTop, ChevronDown } from "lucide-react";
 
 /**
  * Расширение команд TipTap для работы с изображениями в формате FB2.
@@ -96,7 +96,7 @@ export const ImageDropdown: React.FC<{
         className="p-1.5 px-2 rounded text-gray-600 hover:bg-gray-100 border border-transparent hover:border-gray-200 flex items-center gap-1"
         title="Вставить изображение"
       >
-        <Image size={20} />
+        <ImageIcon size={20} />
         <ChevronDown
           size={14}
           className={`transition-transform ${isOpen ? "rotate-180" : ""}`}
@@ -115,7 +115,7 @@ export const ImageDropdown: React.FC<{
             }}
             className={itemClass}
           >
-            <Image size={18} className="text-indigo-600" />
+            <ImageIcon size={18} className="text-indigo-600" />
             <div className="flex flex-col">
               <span className="text-xs font-semibold text-gray-700">
                 Блочное

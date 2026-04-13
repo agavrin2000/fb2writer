@@ -1,4 +1,4 @@
-import { Node, mergeAttributes, Mark } from '@tiptap/core'
+import { mergeAttributes, Mark } from '@tiptap/core'
 
 export const Fb2Note = Mark.create({
     name: 'fb2Note',

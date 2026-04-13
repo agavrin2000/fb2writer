@@ -13,7 +13,7 @@ interface SequenceListProps {
     defaultOpen?: boolean;
 }
 
-export const SequenceList = ({ items = [], onUpdate, defaultOpen = false }: SequenceListProps) => {
+export const SequenceList = ({ items = [], onUpdate }: SequenceListProps) => {
     
     const addSequence = () => {
         onUpdate([...items, { name: '', number: '' }]);

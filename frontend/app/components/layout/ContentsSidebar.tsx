@@ -123,3 +123,5 @@ export const ContentsSidebar = memo(
     );
   },
 );
+
+ContentsSidebar.displayName = "ContentsSidebar";

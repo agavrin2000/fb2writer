@@ -76,19 +76,19 @@ export const useTOC = () => {
    * Дебоунс-версия функции установки оглавления, предотвращающая частые перерисовки.
    * Выполняется не чаще чем раз в 500 мс после последнего вызова.
    */
-  const debouncedSetToc = useMemo(
-    () =>
-      debounce((nodes: FlatNode[]) => {
-        const tree = buildTree(nodes);
-        setTocTree(tree);
-      }, 500),
-    [],
-  );
+const debouncedSetToc = useMemo(
+  () =>
+    debounce((nodes: FlatNode[]) => {
+      const tree = buildTree(nodes);
+      setTocTree(tree);
+    }, 500),
+  [],
+);
 
   // Очистка дебаунса при размонтировании хука (если используется отменяемый debounce)
   useEffect(() => {
     return () => {
-      if ((debouncedSetToc as any).cancel) (debouncedSetToc as any).cancel();
+      debouncedSetToc.cancel();
     };
   }, [debouncedSetToc]);
 

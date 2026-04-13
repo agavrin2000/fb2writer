@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
-import { Mail, Plus, X, Check } from 'lucide-react';
+import { Mail, Plus, X } from 'lucide-react';
 
 interface EditableListProps {
     label: string;
     items: string[];
     onUpdate: (newItems: string[]) => void;
-    icon?: any;
+    icon?: React.ElementType;
     placeholder?: string;
 }
 

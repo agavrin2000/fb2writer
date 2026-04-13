@@ -1,17 +1,17 @@
 import EventEmitter from "eventemitter3";
 
 export type PhotinoEvent =
-  | { type: "open-file"; payload?: any }
-  | { type: "set-file-name"; payload: string }
-  | { type: "start-loading"; payload: string }
-  | { type: "start-saving"; payload: string }
-  | { type: "image-selected"; payload: string }
-  | { type: "cancel-loading"; payload: string }
-  | { type: "save-file"; payload: string }
-  | { type: "error"; payload: string }
-  | { type: "fb2-content"; payload: string }
-  | { type: "save-success"; payload: string }
-  | { type: "show-exit-confirmation"; payload: string };
+  | { type: "open-file"; payload?: string | object }
+  | { type: "set-file-name"; payload: string | object }
+  | { type: "start-loading"; payload: string | object }
+  | { type: "start-saving"; payload: string | object }
+  | { type: "image-selected"; payload: string | object }
+  | { type: "cancel-loading"; payload: string | object }
+  | { type: "save-file"; payload: string | object }
+  | { type: "error"; payload: string | object }
+  | { type: "fb2-content"; payload: string | object }
+  | { type: "save-success"; payload: string | object }
+  | { type: "show-exit-confirmation"; payload: string | object };
 
 // Вспомогательный тип для извлечения только имен событий
 export type PhotinoEventType = PhotinoEvent["type"];
@@ -20,7 +20,7 @@ interface IPhotinoBridge {
   // Отправка строки в C#
   sendMessage(message: string): void;
   // Подписка на сообщения из C# (для Linux/macOS)
-  receiveMessage(callback: (data: string | object) => void): void;
+  receiveMessage(callback: (data: PhotinoEvent | string) => void): void;
 }
 
 class PhotinoBridge extends EventEmitter {
@@ -32,19 +32,18 @@ class PhotinoBridge extends EventEmitter {
 
     // 1. Инициализируем мост для отправки (JS -> C#)
     // В Photino объект external доступен напрямую в window
-    this.bridge = (window as any).external as IPhotinoBridge;
-
+    this.bridge = window.external as unknown as IPhotinoBridge;
     // 2. Настраиваем получение сообщений (C# -> JS)
     this.setupReceiver();
   }
 
   private setupReceiver() {
-    const chromeWebview = (window as any).chrome?.webview;
+    const chromeWebview = window.chrome?.webview;
 
     // Вариант А: Современный WebView2 (Windows)
     if (chromeWebview) {
-      chromeWebview.addEventListener("message", (event: any) => {
-        this.handleMessage(event.data);
+      chromeWebview.addEventListener("message", (event: { data: unknown }) => {
+        this.handleMessage(event.data as string | PhotinoEvent);
       });
     }
 
@@ -54,14 +53,16 @@ class PhotinoBridge extends EventEmitter {
     // а handleMessage внутри сам разберется с дубликатами, если они возникнут.
     if (this.bridge && typeof this.bridge.receiveMessage === "function") {
       try {
-        this.bridge.receiveMessage((data: any) => this.handleMessage(data));
+        this.bridge.receiveMessage((data: PhotinoEvent | string) =>
+          this.handleMessage(data),
+        );
       } catch (e) {
         console.error("🚨 Ошибка подписки receiveMessage:", e);
       }
     }
   }
 
-  private handleMessage(data: any): void {
+  private handleMessage(data: PhotinoEvent | string): void {
     if (data === null || data === undefined) return;
 
     try {
@@ -86,7 +87,7 @@ class PhotinoBridge extends EventEmitter {
   }
 
   // Метод для отправки команд в C#
-  send(type: string, payload: any = null) {
+  send(type: string, payload: string | object| null = null) {
     if (!this.bridge?.sendMessage) {
       console.warn("⚠️ Мост Photino не готов к отправке.");
       return;

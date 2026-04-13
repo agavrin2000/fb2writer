@@ -1,7 +1,6 @@
 import { Node, mergeAttributes } from "@tiptap/core";
 import { CommandProps } from "@tiptap/core";
 import { findParentNodeByType } from "@/utils/utils";
-import { Node as ProsemirrorNode } from "@tiptap/pm/model";
 
 export const Fb2Stanza = Node.create({
   name: "fb2Stanza",
@@ -23,7 +22,7 @@ export const Fb2Stanza = Node.create({
       insertFb2Stanza:
         () =>
         ({ state, chain }: CommandProps) => {
-          let poemNode: any = null;
+          let poemNode = null;
           let poemPos = -1;
 
           // 1. Ищем родительский 'poem' вверх по дереву
@@ -33,11 +32,11 @@ export const Fb2Stanza = Node.create({
           ));
 
           // Если мы не внутри poem — команда недоступна
-          if (poemPos === -1) return false;
+          if (poemPos === -1 || poemNode == null) return false;
 
           // 2. Находим позицию ПОСЛЕ последней строфы внутри этой poem
           let lastStanzaEnd = poemPos + 1; // Начинаем от начала poem
-          poemNode.forEach((child: any, offset: number) => {
+          poemNode.forEach((child, offset) => {
             if (child.type.name === "fb2Stanza") {
               lastStanzaEnd = poemPos + 1 + offset + child.nodeSize;
             }
@@ -62,21 +61,27 @@ export const Fb2Stanza = Node.create({
         ({ state, dispatch, chain }: CommandProps) => {
           let stanzaPos = -1;
           let stanzaNodeSize = 0;
-          let stanzaNode: any = null;
+          let stanzaNode = null;
+          let stanzaDepth: number | null = null;
 
           // 1. Ищем саму строфу и её родителя
           ({
             pos: stanzaPos,
-            node: stanzaNodeSize,
             node: stanzaNode,
+            nodeSize : stanzaNodeSize,
+            depth: stanzaDepth,
           } = findParentNodeByType(state.selection, ["fb2Stanza"]));
 
           // Если мы не в строфе — выходим
-          if (stanzaPos === -1) return false;
+          if (stanzaPos === -1 || stanzaNode==null || stanzaDepth==null) return false;
+
+          // 2. Получаем родительский узел (он находится на один уровень выше)
+          // depth - 1 даст нам родителя строфы (обычно это fb2Poem)
+          const poemNode = state.selection.$from.node(stanzaDepth); 
 
           // 2. Считаем количество строф у родителя
           let stanzaCount = 0;
-          stanzaNode.parentNode?.forEach((child: any) => {
+          poemNode.forEach((child) => {
             if (child.type.name === "fb2Stanza") stanzaCount++;
           });
 
