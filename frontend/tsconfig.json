@@ -15,7 +15,7 @@
     "moduleResolution": "bundler",
     "resolveJsonModule": true,
     "isolatedModules": true,
-    "jsx": "preserve",
+    "jsx": "react-jsx",
     "incremental": true,
     "plugins": [
       {
@@ -23,7 +23,9 @@
       }
     ],
     "paths": {
-      "@/*": [  "./app/*" ]
+      "@/*": [
+        "./app/*"
+      ]
     },
     "target": "ES2017"
   },
