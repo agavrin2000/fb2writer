@@ -49,7 +49,16 @@ export const GenreList = ({ genres = [], onUpdate, availableGenres = [] }: Genre
     }, [genres, searchTerm, availableGenres]);
 
     // Сбрасываем индекс при изменении поиска
-    useEffect(() => setActiveIndex(0), [searchTerm]);
+    //   useEffect(() => setActiveIndex(0), [searchTerm]);
+
+    // 1. Добавляем стейт для отслеживания предыдущего поискового запроса
+    const [prevSearchTerm, setPrevSearchTerm] = useState(searchTerm);
+
+    // 2. Сбрасываем индекс прямо во время рендера, если поиск изменился
+    if (searchTerm !== prevSearchTerm) {
+        setPrevSearchTerm(searchTerm);
+        setActiveIndex(0);
+    }
 
     const handleSelect = (genreId: string) => {
         if (!genreId) return;
@@ -111,7 +120,9 @@ export const GenreList = ({ genres = [], onUpdate, availableGenres = [] }: Genre
 
             {isAdding ? (
                 <div className="relative inline-block">
-                    <div className="relative flex items-center" ref={refs.setReference}>
+                    <div className="relative flex items-center" ref={(node) => {
+                        refs.setFloating(node);
+                    }}>
                         <input
                             autoFocus
                             type="text"
@@ -128,7 +139,7 @@ export const GenreList = ({ genres = [], onUpdate, availableGenres = [] }: Genre
                     {searchTerm && (
                         <FloatingPortal>
                             <div
-                                ref={refs.setFloating}
+                                ref={(node) => { refs.setFloating(node); }}
                                 style={{
                                     ...floatingStyles,
                                     // Если позиция 0,0 — принудительно скрываем, чтобы не было вспышки в углу

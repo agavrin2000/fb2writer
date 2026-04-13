@@ -4,7 +4,7 @@ import { photino } from "@/api/photino";
 /**
  * Тип для хранения обработчиков событий, где ключ — имя события, значение — функция обратного вызова.
  */
-type Handlers = Record<string, (payload: string) => void>;
+type Handlers = Record<string, (payload: object|string| null) => void>;
 
 /**
  * Хук для подписки на нативные события из приложения Photino (C#).

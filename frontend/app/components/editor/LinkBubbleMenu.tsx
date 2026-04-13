@@ -26,7 +26,9 @@ export const LinkBubbleMenu: React.FC<LinkBubbleMenuProps> = ({ editor }) => {
   useEffect(() => {
     if (!editor) return;
     editor.on('selectionUpdate', updateUrlFromEditor);
-    updateUrlFromEditor();
+    queueMicrotask(() => {
+      updateUrlFromEditor();
+    });
     return () => {
       editor.off('selectionUpdate', updateUrlFromEditor);
     };

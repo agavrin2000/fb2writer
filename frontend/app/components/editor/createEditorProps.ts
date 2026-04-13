@@ -1,6 +1,7 @@
-import { ActiveNote, TiptapContent } from "@/types/types";
+import { ActiveNote } from "@/types/types";
 import { EditorView } from "@tiptap/pm/view";
 import { RefObject } from "react";
+import { JSONContent } from "@tiptap/core";
 
 /**
  * Фабрика пропсов для Tiptap, отвечающая за обработку кликов по содержимому редактора.
@@ -20,7 +21,7 @@ import { RefObject } from "react";
  * <Editor extensions={extensions} editorProps={editorProps} />
  */
 export const createEditorProps = (
-  footnotesRef: RefObject<Record<string, TiptapContent>>,
+  footnotesRef: RefObject<Record<string, JSONContent[]>>,
   setActiveNoteRef: RefObject<(note: ActiveNote) => void>,
 ) => ({
   /**

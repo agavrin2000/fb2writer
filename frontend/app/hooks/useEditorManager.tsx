@@ -1,15 +1,15 @@
 import { useState, useCallback, useMemo, useRef } from "react";
+import { JSONContent } from '@tiptap/core';
+import { Editor, useEditorState } from "@tiptap/react";
+import { EditorState } from "@tiptap/pm/state";
 import { useFB2Editor } from "./useFB2Editor";
 import { useFootnotes, Footnotes } from "./useFootnotes";
 import { usePhotinoEvents } from "./usePhotinoEvents";
-import { TocItem, EMPTY_FB2_TEMPLATE } from "../types/types";
 import { getFileName } from "../utils/utils";
 import { photino } from "@/api/photino";
-import { EditorState } from "@tiptap/pm/state";
-import { Editor, useEditorState } from "@tiptap/react";
 import { useConfirm } from "@/hooks/ConfirmContext";
 import { useToast } from "@/hooks/ToastContext";
-import { FootnotesMap, TiptapContent, ImageDisplayType, ActiveNote } from "@/types/types";
+import { Fb2Data, TocItem, EMPTY_FB2_TEMPLATE, FootnotesMap, ImageDisplayType, ActiveNote } from "@/types/types";
 
 interface EditorActions {
   save: () => Promise<void> | void;
@@ -47,7 +47,7 @@ export function useEditorManager(): EditorManager {
    * Ссылка на текущий объект сносков.
    * Используется для прямого доступа к данным сносок из внешних колбэков.
    */
-  const footnotesRef = useRef<Record<string, TiptapContent>>({});
+  const footnotesRef = useRef<Record<string, JSONContent[]>>({});
 
   /**
    * Ссылка на функцию установки активной сноски.
@@ -142,11 +142,24 @@ export function useEditorManager(): EditorManager {
    * @param {string} payload - JSON-строка с данными документа.
    */
   const onFb2Content = useCallback(
-    (payload: string) => {
-      const data = typeof payload === "string" ? JSON.parse(payload) : payload;
-      if (!fb2.editor || !data) return;
+    (payload: string | object | null) => {
+      if (!fb2.editor || !payload) return;
+
+      let data: Fb2Data;
+      if (typeof payload === "string") {
+        try {
+          data = JSON.parse(payload);
+        } catch (e) {
+          console.error("Failed to parse Fb2Data:", e);
+          return;
+        }
+      } else {
+        data = payload as Fb2Data;
+      }
+
       fb2.editor.commands.updateMetadata(data.metadata || {});
       console.log("fb2.editor.storage.metadata.meta", fb2.editor.storage.metadata.meta)
+
       if (data.content) {
         fb2.editor.commands.setContent(data.content);
         clearHistory();
@@ -182,7 +195,7 @@ export function useEditorManager(): EditorManager {
    * @param {string} payload - JSON-строка с данными изображения (src, href, display).
    */
   const onImageSelected = useCallback(
-    (payload: string) => {
+    (payload: string | object | null) => {
       try {
         const imageData =
           typeof payload === "string" ? JSON.parse(payload) : payload;
@@ -229,13 +242,14 @@ export function useEditorManager(): EditorManager {
    * @param {string} name - Имя файла, который будет загружен.
    */
   const onStartLoading = useCallback(
-    (name: string) => {
+    (payload: string | object | null) => {
+      if (!payload || typeof payload !== "string") return;
       setIsLoading(true);
       setLoaderConfig({
         title: "Загрузка книги",
         subtitle: "Парсинг XML и извлечение Binary",
       });
-      setLoadingFileName(name || "Загрузка...");
+      setLoadingFileName(payload || "Загрузка...");
     },
     [setLoadingFileName, setIsLoading, setLoaderConfig],
   );
@@ -269,10 +283,12 @@ export function useEditorManager(): EditorManager {
    * @param {any} newFilePath - Новый путь к сохранённому файлу.
    */
   const onSaveSuccess = useCallback(
-    (newFilePath: string) => {
+    (payload: object|string| null) => {
+      if (!payload || typeof payload !== "string") return;
+
       // 1. Сохраняем КЛОН объекта, чтобы разорвать связь с текущим стейтом
       clearHistory();
-      setCurrentFilePath(newFilePath);
+      setCurrentFilePath(payload);
       setLoadingFileName("");
       setIsLoading(false);
       setLoaderConfig(null);
@@ -294,11 +310,12 @@ export function useEditorManager(): EditorManager {
    * @param {string} message - Текст сообщения об ошибке.
    */
   const onError = useCallback(
-    (message: string) => {
+    (payload: object|string| null) => {
+      if (!payload || typeof payload !== "string") return;
       setIsLoading(false);
       setLoaderConfig(null);
       setLoadingFileName("");
-      showToastError(message);
+      showToastError(payload);
     },
     [setLoadingFileName, setIsLoading, setLoaderConfig, showToastError],
   );
@@ -434,7 +451,7 @@ export function useEditorManager(): EditorManager {
     setLoaderConfig({ title: "Загрузка книги", subtitle: "Выбор файла" });
     setLoadingFileName("");
 
-    photino.send("open-file", { action: "select_new" });
+    photino.send("open-file");
   }, [
     isLoading,
     ensureSafeToProceed,
@@ -495,7 +512,7 @@ export function useEditorManager(): EditorManager {
     // Сбрасываем имя файла в заголовке окна приложения
     photino.send("set-file-name", "Новая книга");
 
-    onFb2Content(JSON.stringify(EMPTY_FB2_TEMPLATE));
+    onFb2Content(EMPTY_FB2_TEMPLATE);
   }, [onFb2Content, ensureSafeToProceed]);
 
   // --- ИТОГОВЫЙ ОБЪЕКТ ---

@@ -1,3 +1,5 @@
+import { JSONContent } from "@tiptap/core";
+
 export interface AppInfo {
   name: string;
   version: string;
@@ -81,7 +83,7 @@ export interface Fb2Metadata {
 export interface Fb2Data {
   metadata: Fb2Metadata;
   content: TiptapContent;
-  footnotes: Record<string, unknown>;
+  footnotes: FootnotesMap;
   filePath: string;
 }
 
@@ -113,17 +115,11 @@ export interface ActiveNote {
 // Структура контента Tiptap
 export interface TiptapContent {
   type: string;
-  content?: TiptapContent[];
-  text?: string;
-  marks?: Array<{
-    type: string;
-    attrs?: Record<string, string | number | null>;
-  }>;
-  attrs?: Record<string, string | number | null>;
+  content?: JSONContent[];
 }
 
 // Ссловарь сносок
-export type FootnotesMap = Record<string, TiptapContent>;
+export type FootnotesMap = Record<string, JSONContent[]>;
 
 // Тип отображения изображения
 export type ImageDisplayType = "block" | "inline" | "section";
@@ -209,7 +205,7 @@ export const EMPTY_FB2_TEMPLATE: Fb2Data = {
       },
     ],
   },
-  footnotes: {} as Record<string, unknown>,
+  footnotes: {} as FootnotesMap,
   filePath: "",
 };
 

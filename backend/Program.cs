@@ -12,7 +12,7 @@ class Program
     /// </summary>
     private static PhotinoWindow _window = null!;
 
-#if DEBUG
+    #if DEBUG
     public static bool IsDebugMode = true;
 #else
     public static bool IsDebugMode = false;
@@ -55,6 +55,8 @@ class Program
         _window.RegisterWebMessageReceivedHandler(messageHub.Handle);
         _window.RegisterWindowClosingHandler((sender, args) =>
          {
+             // Если поднята рука "можно закрывать" — возвращаем false (не отменять закрытие)
+            if (messageHub.canClose) return false;
              // Внимание: В Photino.NET логика инвертирована относительно WPF:
              // возвращаемое значение типа bool указывает, нужно ли ОТМЕНИТЬ закрытие.
              messageHub.Emit("show-exit-confirmation", "");

@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using System.Text.Json;
 using Photino.NET;
 
@@ -14,9 +15,12 @@ namespace FB2Writer.Services;
 /// </summary>
 public class MessageHub(PhotinoWindow window, FileService fileService, string? initialFile)
 {
-    private readonly PhotinoWindow _window = window;
-    private readonly FileService _fileService = fileService;
-    private string? _initialFile = initialFile;
+    /// <summary>
+    /// Флаг, определяющий необходимость подтверждения выхода из приложения
+    /// По умолчанию: выход  без подтверждения запрещен
+    /// </summary>
+    public bool canClose = false; 
+
     /// <summary>
     /// Хранит путь к последней использованной директории для открытия или сохранения файлов.
     /// Используется для улучшения пользовательского опыта, запоминая место предыдущей операции.
@@ -61,7 +65,8 @@ public class MessageHub(PhotinoWindow window, FileService fileService, string? i
                     break;
 
                 case "close-app":
-                    Environment.Exit(0);
+                    canClose = true;
+                    window.Close();
                     break;
 
                 case "set-file-name":
@@ -91,11 +96,11 @@ public class MessageHub(PhotinoWindow window, FileService fileService, string? i
         Emit("app-info", JsonSerializer.Serialize(appDetails, EmitContext.CustomOptions));
 
         // 2. Открытие переданного файла
-        if (!string.IsNullOrEmpty(_initialFile))
+        if (!string.IsNullOrEmpty(initialFile))
         {
-            Emit("fb2-content", await _fileService.LoadFileByPathAsync(_initialFile));
-            UpdateWindowTitle(_initialFile);
-            _initialFile = null;
+            Emit("fb2-content", await fileService.LoadFileByPathAsync(initialFile));
+            UpdateWindowTitle(initialFile);
+            initialFile = null;
         }
         else
         {
@@ -117,7 +122,7 @@ public class MessageHub(PhotinoWindow window, FileService fileService, string? i
         }
 
         Emit("start-loading", Path.GetFileName(path));
-        string json = await _fileService.LoadFileByPathAsync(path);
+        string json = await fileService.LoadFileByPathAsync(path);
         Emit("fb2-content", json);
         UpdateWindowTitle(path);
     }
@@ -146,7 +151,7 @@ public class MessageHub(PhotinoWindow window, FileService fileService, string? i
 
         string fileName = Path.GetFileName(localPath);
         Emit("start-saving", fileName);
-        await _fileService.SaveFileAsync(payload, localPath);
+        await fileService.SaveFileAsync(payload, localPath);
         UpdateWindowTitle(localPath);
         Emit("save-success", fileName);
     }
@@ -198,7 +203,7 @@ public class MessageHub(PhotinoWindow window, FileService fileService, string? i
         // Примечание: В текущей версии Photino.NET ShowSaveFileAsync может отсутствовать, 
         // тогда используйте ShowOpenFileAsync (многие системы позволяют это)
 
-        string[] result = await _window.ShowOpenFileAsync(
+        string[] result = await window.ShowOpenFileAsync(
             title: title,
             defaultPath: _lastUsedPath,
             multiSelect: false,
@@ -225,6 +230,6 @@ public class MessageHub(PhotinoWindow window, FileService fileService, string? i
         var message = JsonSerializer.Serialize(
             new EmitMessage(type, payload), EmitContext.CustomOptions
         );
-        _window.SendWebMessage(message);
+        window.SendWebMessage(message);
     }
 }

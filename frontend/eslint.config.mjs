@@ -1,26 +1,21 @@
-import js from "@eslint/js";
 import { defineConfig } from 'eslint/config';
-import tseslint from "typescript-eslint";
-import { dirname } from "path";
-import { fileURLToPath } from "url";
-import { FlatCompat } from "@eslint/eslintrc";
+import nextVitals from 'eslint-config-next/core-web-vitals';
+import nextTs from 'eslint-config-next/typescript';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
-const compat = new FlatCompat({
-  baseDirectory: __dirname,
-});
+//const __filename = fileURLToPath(import.meta.url);
+//const __dirname = dirname(__filename);
 
 export default defineConfig(
   {
-    ignores: [".next/*", "node_modules/*", "out/*", "next-env.d.ts"],
+    ignores: [".next/*", "node_modules/*", "out/*"],
   },
-  js.configs.recommended,
-  ...tseslint.configs.recommended,
+    ...nextVitals,
+  ...nextTs,
+  //js.configs.recommended,
+  //...tseslint.configs.recommended,
   // Подключаем конфиги Next.js через compat
   // Это само подтянет нужные версии react-hooks без конфликтов
-  ...compat.extends("next/core-web-vitals", "next/typescript"),
+  //...compat.extends("next/core-web-vitals", "next/typescript"),
   {
     files: ["**/*.{js,mjs,cjs,ts,jsx,tsx}"],
     languageOptions: {
@@ -42,11 +37,7 @@ export default defineConfig(
           ignoreRestSiblings: true,
         },
       ],
-    },
-    settings: {
-      react: {
-        version: "detect",
-      },
+      "@typescript-eslint/triple-slash-reference": "off",
     },
   },
 );
