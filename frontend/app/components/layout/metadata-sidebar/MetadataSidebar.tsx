@@ -5,7 +5,6 @@ import React, {
   useCallback,
   memo,
   useMemo,
-  useRef,
 } from "react";
 import {
   ChevronRight,
@@ -63,62 +62,37 @@ export const MetadataSidebar = memo(
       "title" | "src-title" | "publish" | "custom" | "doc"
     >("title");
 
-    // 1. Подписываемся ТОЛЬКО на изменения метаданных в хранилище.
-    // Это предотвратит лишние рендеры при печати текста в самом редакторе.
+    // 1. Источник истины из редактора (синхронизируется при Undo/Redo)
     const meta = useEditorState({
       editor,
       selector: (ctx) => ctx.editor?.storage.metadata.meta as Fb2Metadata,
     });
 
+    // 2. Локальное состояние для быстрой печати в инпутах
     const [localMeta, setLocalMeta] = useState<Fb2Metadata | null>(meta);
 
-    // Реф для хранения последнего отправленного состояния, чтобы избежать "эха"
-    const lastSentMetaRef = useRef<string>("");
+    // 3. Храним "предыдущую" мету, чтобы поймать момент Undo/Redo
+    const [prevMeta, setPrevMeta] = useState<Fb2Metadata | null>(meta);
 
-    // 2. Синхронизация из редактора в сайдбар (для Undo/Redo)
-    const [prevMeta, setPrevMeta] = useState(meta);
-
-    // 1. Синхронизируем стейт
-    // 1. Вместо useRef для lastSentMeta, используем useState
-    const [lastSentMetaString, setLastSentMetaString] = useState<string>(
-      JSON.stringify(meta),
-    );
-
+    // --- СИНХРОНИЗАЦИЯ ПРИ РЕНДЕРЕ (React 19 Way) ---
+    // Если meta в редакторе изменилась (Undo/Redo), обновляем локальный стейт немедленно
     if (meta !== prevMeta) {
       setPrevMeta(meta);
-
-      const incomingMetaString = JSON.stringify(meta);
-
-      // Если пришедшие данные не совпадают с тем, что мы сами отправили
-      // (значит, это Undo/Redo или внешняя загрузка)
-      if (incomingMetaString !== lastSentMetaString) {
-        setLocalMeta(meta);
-        setLastSentMetaString(incomingMetaString);
-      }
+      setLocalMeta(meta);
     }
+    // ------------------------------------------------
 
-    // 2. Синхронизируем реф (в эффекте, так как это побочное действие)
-    useEffect(() => {
-      lastSentMetaRef.current = JSON.stringify(meta);
-    }, [meta]);
-
-    // 1. Указываем правильный тип (функция + метод cancel)
-
-    // 1. Создаем стабильную дебаунс-функцию через useMemo
+    // 3. Стабильная функция обновления редактора с дебаунсом
     const debouncedUpdate = useMemo(() => {
       return debounce((next: Fb2Metadata) => {
-        const nextString = JSON.stringify(next);
-        // Обновляем "предохранитель", чтобы не было эха
-        setLastSentMetaString(nextString);
+        // Выполняем команду обновления в редакторе
         editor?.commands.updateMetadata(next);
       }, 500);
-    }, [editor]); // Пересоздаем, только если сменился экземпляр редактора
+    }, [editor]);
 
-    // 2. Очищаем дебаунс при размонтировании
+    // Очистка при размонтировании
     useEffect(() => {
-      return () => {
-        debouncedUpdate.cancel();
-      };
+      return () => debouncedUpdate.cancel();
     }, [debouncedUpdate]);
 
     // 3. В обработчике вызываем напрямую
@@ -156,21 +130,19 @@ export const MetadataSidebar = memo(
       [debouncedUpdate],
     );
 
-    const handleKeyDown = (event: React.KeyboardEvent) => {
-      // Проверяем нажатие Ctrl+Z (или Cmd+Z на Mac)
-      if ((event.ctrlKey || event.metaKey) && event.key === "z") {
-        // Если нажата ещё и Shift — это Redo
-        if (event.shiftKey) {
-          if (editor?.chain().focus().redo().run()) {
-            event.preventDefault();
-          }
-        } else {
-          // Иначе — Undo
-          if (editor?.chain().focus().undo().run()) {
-            event.preventDefault(); // Останавливаем откат внутри инпута
-          }
-        }
+    const [touchedFields, setTouchedFields] = useState<Record<string, boolean>>({});
+
+    const markAsTouched = useCallback((section: string, field: string) => {
+      const key = `${section}.${field}`;
+      setTouchedFields((prev) => (prev[key] ? prev : { ...prev, [key]: true }));
+    }, []);
+
+    // Универсальная функция валидации
+    const getFieldError = (section: keyof Fb2Metadata, field: string, value: string | null | undefined) => {
+      if (section === "srcTitleInfo" && field === "title" && !value) {
+        return "Название обязательно для заполнения";
       }
+      return "";
     };
 
     if (!editor) return null;
@@ -191,7 +163,7 @@ export const MetadataSidebar = memo(
     return (
       <div
         className="relative flex h-full select-none shrink-0"
-        onKeyDown={handleKeyDown}
+      //onKeyDown={handleKeyDown}
       >
         {/* Кнопка открытия (Плавающая справа, когда закрыто) */}
         {!isOpen && (
@@ -284,9 +256,13 @@ export const MetadataSidebar = memo(
                         label="Название книги"
                         value={titleInfo?.title}
                         icon={BookOpen}
-                        onChange={(val) =>
-                          handleMetaUpdate("titleInfo", "title", val)
-                        }
+                        required={true}
+                        error={getFieldError("srcTitleInfo", "title", titleInfo?.title)}
+                        touched={touchedFields["titleInfo.title"]}
+                        onChange={(val) => {
+                          handleMetaUpdate("titleInfo", "title", val);
+                          markAsTouched("titleInfo", "title");
+                        }}
                       />
                       {/* Блок обложки */}
                       <CoverPicker
@@ -751,11 +727,10 @@ const TabButton = ({ active, onClick, label, icon }: TabButtonProps) => (
   <button
     type="button"
     onClick={onClick}
-    className={`flex-1 flex flex-col items-center gap-1 py-3 transition-all border-b-2 ${
-      active
-        ? "border-blue-600 text-blue-600 bg-blue-50/50"
-        : "border-transparent text-gray-400 hover:text-gray-600 hover:bg-gray-50"
-    }`}
+    className={`flex-1 flex flex-col items-center gap-1 py-3 transition-all border-b-2 ${active
+      ? "border-blue-600 text-blue-600 bg-blue-50/50"
+      : "border-transparent text-gray-400 hover:text-gray-600 hover:bg-gray-50"
+      }`}
   >
     {icon}
     <span className="text-[9px] font-bold uppercase tracking-tighter">

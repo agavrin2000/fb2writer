@@ -78,72 +78,6 @@ export const MetadataExtension = Extension.create({
       }),
     ];
   },
-  /*
-  addProseMirrorPlugins() {
-    return [
-      new Plugin({
-        key: metadataKey,
-        historyPreserveItems: true, // Не удалять шаги из истории
-        state: {
-          init: () => this.options.initialMeta, // Здесь 'this' доступен
-          apply: (tr, value) => {
-            if (tr.getMeta("history$")) console.log("!!! РАБОТАЕТ ИСТОРИЯ !!!");
-            const nextMeta = tr.getMeta("metadataUpdate");
-
-            if (nextMeta) {
-              console.trace("Update command called");
-              console.log("📦 Metadata Update:", {
-                before: value,
-                after: nextMeta,
-                isUndo: !!tr.getMeta("history$"),
-              });
-              // Создаем глубокую копию для storage (React) и возвращаем её же для истории
-              const freshCopy = JSON.parse(JSON.stringify(nextMeta));
-              this.storage.meta = freshCopy;
-              return freshCopy;
-            }
-
-            // ОТКАТ: Если транзакция изменила документ (а наш мета-атрибут - часть документа)
-            // или если это явно команда истории
-            if (tr.docChanged || tr.getMeta("history$")) {
-              // ВАЖНО: value — это состояние плагина, которое ProseMirror УЖЕ откатил.
-              // Нам нужно просто пробросить его в storage, чтобы React увидел.
-              console.log("⏪ History Undo/Redo detected!");
-              console.log("Value from History:", value);
-              console.log("Current Storage:", this.storage.meta);
-
-              if (
-                value &&
-                JSON.stringify(value) !== JSON.stringify(this.storage.meta)
-              ) {
-                // Используем requestAnimationFrame или setTimeout, чтобы не мешать текущему циклу рендера
-                console.log("Values are different");
-                console.log("tr.docChanged", tr.docChanged);
-                console.log("tr.getMeta(history$)", tr.getMeta("history$"));
-                const rolledBackCopy = value
-                  ? JSON.parse(JSON.stringify(value))
-                  : value;
-
-                Promise.resolve().then(() => {
-                  this.storage.meta = rolledBackCopy;
-                });
-                return rolledBackCopy;
-              }
-            }
-            return value;
-          },
-          // ГОВОРИМ ИСТОРИИ, КАК СОХРАНЯТЬ НАШИ ДАННЫЕ
-          toJSON(value) {
-            return value;
-          },
-          fromJSON(_, value) {
-            return value;
-          },
-        },
-      }),
-    ];
-  },*/
-
   addCommands() {
     return {
       updateMetadata:
@@ -169,13 +103,14 @@ export const MetadataExtension = Extension.create({
             return true;
 
           if (dispatch) {
-            const snapshot = JSON.parse(JSON.stringify(nextMeta));
+            tr.setNodeAttribute(pos, 'meta', JSON.parse(JSON.stringify(nextMeta)));
+            /*const snapshot = JSON.parse(JSON.stringify(nextMeta));
             tr.setNodeMarkup(pos, undefined, {
               ...node?.attrs,
               meta: snapshot,
             });
             // Разрешаем истории объединять эти шаги
-            tr.setMeta("addToHistory", true);
+            tr.setMeta("addToHistory", true);*/
           }
           return true;
         },

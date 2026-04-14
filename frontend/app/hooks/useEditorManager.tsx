@@ -16,7 +16,6 @@ import {
   FootnotesMap,
   ImageDisplayType,
   ActiveNote,
-  Fb2Metadata,
 } from "@/types/types";
 
 interface EditorActions {
@@ -26,6 +25,8 @@ interface EditorActions {
   addFootnote: (id?: string) => void;
   addLink: () => void;
   newFile: () => void;
+  undo: () => void;
+  redo: () => void;
 }
 
 interface EditorManager {
@@ -532,6 +533,8 @@ export function useEditorManager(): EditorManager {
       addFootnote: notes.addFootnote,
       addLink,
       newFile: createNewFile,
+      undo: () => fb2.editor?.chain().undo().run(),
+      redo: () => fb2.editor?.chain().redo().run(),
     },
     scrollToHeading: fb2.scrollToHeading,
   };

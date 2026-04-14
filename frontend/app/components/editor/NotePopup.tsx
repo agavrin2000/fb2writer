@@ -12,6 +12,7 @@ import React, { useCallback } from 'react';
 import { useConfirm } from "@/hooks/ConfirmContext";
 import { createPortal } from 'react-dom';
 import {TiptapContent}  from '@/types/types';
+import { JSONContent } from "@tiptap/core";
 
 /**
  * Интерфейс свойств компонента всплывающего окна редактирования сноски.
@@ -25,7 +26,7 @@ interface NotePopupProps {
   /**
    * Текущее содержимое сноски (в формате TipTap JSON или массив узлов).
    */
-  content: TiptapContent;
+  content: JSONContent;
 
   /**
    * Список существующих ID сносок, используется для проверки дубликатов.

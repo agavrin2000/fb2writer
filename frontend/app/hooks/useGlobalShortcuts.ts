@@ -1,6 +1,8 @@
 import { useEffect } from "react";
 
 export function useGlobalShortcuts(actions: {
+  undo: () => void;
+  redo: () => void;
   save: () => void;
   open: () => void;
   newFile: () => void;
@@ -31,6 +33,20 @@ export function useGlobalShortcuts(actions: {
         event.preventDefault();
         event.stopImmediatePropagation(); // Предотвращаем всплытие к браузеру
         actions.open();
+        return;
+      }
+
+      if (isCtrl && event.code === "KeyZ") {
+        event.preventDefault();
+        event.stopImmediatePropagation(); // Предотвращаем всплытие к браузеру
+        actions.undo();
+        return;
+      }
+
+      if (isCtrl && event.code === "KeyY") {
+        event.preventDefault();
+        event.stopImmediatePropagation(); // Предотвращаем всплытие к браузеру
+        actions.redo();
         return;
       }
 

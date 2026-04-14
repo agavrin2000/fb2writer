@@ -6,7 +6,12 @@
 
 "use client";
 import { EditorContent, Editor } from "@tiptap/react";
-import React from "react";
+import React, { RefObject } from "react";
+
+interface EditorCanvasProps {
+  editor: Editor | null;
+  ref?: RefObject<HTMLDivElement | null>; // Добавляем ref в пропсы
+}
 
 /**
  * Внутренний компонент рендера холста редактора.
@@ -25,9 +30,7 @@ import React from "react";
 const EditorCanvasRender = ({
   ref,
   editor,
-}: { editor: Editor | null } & {
-  ref: React.RefObject<HTMLDivElement>;
-}) => {
+}: EditorCanvasProps) => {
   // Если editor еще не инициализирован, возвращаем заглушку,
   // чтобы не ломать дерево рендеринга
   if (!editor) return <div ref={ref} className="grow bg-gray-200" />;
