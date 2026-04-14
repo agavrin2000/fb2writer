@@ -1,11 +1,13 @@
 import { ChevronDown } from "lucide-react";
+import { useEffect, useRef } from "react";
 
 interface FieldProps {
   label: string;
-  value?: string;
+  defaultValue?: string;
   icon?: React.ElementType;
   type?: string;
   onChange?: (val: string) => void;
+  onBlur?: (val: string) => void; // 
   isEditable?: boolean;
   className?: string;
   options?: { value: string; label: string }[];
@@ -23,10 +25,11 @@ interface FieldProps {
 
 export const Field = ({
   label,
-  value,
+  defaultValue,
   type = "text",
   icon: Icon,
   onChange,
+  onBlur,
   isEditable = true,
   className,
   options,
@@ -38,18 +41,45 @@ export const Field = ({
   action,
 }: FieldProps) => {
   const fieldId = `field-${label.replace(/\s+/g, "-").toLowerCase()}`;
-  
+  // Универсальный реф для всех типов элементов
+  // 1. Создаем универсальный тип для рефа
+  type FormElement = HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
+
+  // ... внутри компонента ...
+
+  // 2. Указываем тип в useRef
+  const inputRef = useRef<FormElement>(null);
+
+  // 3. Используем типизированный Callback Ref без any
+  const setRef = (el: FormElement | null) => {
+    // Используем type assertion к базовому RefObject, если линтер все еще ругается,
+    // но обычно в React 19 достаточно прямого присвоения, если типы в useRef верны.
+    (inputRef as React.MutableRefObject<FormElement | null>).current = el;
+  };
+
+
+useEffect(() => {
+  if (inputRef.current) {
+    // Если значение в инпуте отличается от того, что пришло сверху (Undo/Redo)
+    // и при этом инпут сейчас НЕ в фокусе (чтобы не перебивать ввод пользователя)
+    // или если это целенаправленный откат версии
+    if (inputRef.current.value !== defaultValue) {
+      inputRef.current.value = defaultValue || "";
+    }
+  }
+}, [defaultValue]); 
+
   // Показываем ошибку только если она есть и поле было "тронуто"
   const showError = !!(error && touched);
   // Добавляем отступ справа, если есть кнопка (pr-8), чтобы текст не заезжал под неё
   const baseInputStyles = `w-full text-[12px] py-1.5 
     ${Icon ? "pl-8" : "px-2"} 
     ${action ? "pr-8" : "pr-2"} bg-gray-50 border border-gray-100 rounded focus:bg-white focus:ring-1 focus:ring-blue-100 focus:border-blue-400 outline-none transition-all text-gray-700 
-    ${showError 
-      ? "border-red-300 focus:border-red-500 focus:ring-1 focus:ring-red-100 bg-red-50/30" 
+    ${showError
+      ? "border-red-300 focus:border-red-500 focus:ring-1 focus:ring-red-100 bg-red-50/30"
       : "border-gray-100 focus:bg-white focus:ring-1 focus:ring-blue-100 focus:border-blue-400"
     } 
-    ${required && !value ? "border-l-2 border-l-amber-400" : ""}`;
+    ${required && !defaultValue ? "border-l-2 border-l-amber-400" : ""}`;
 
   // Базовые стили для input, select и textarea
   //  const baseInputStyles = `w-full text-[12px] py-1.5 ${Icon ? "pl-8" : "px-2"} pr-2 bg-gray-50 border border-gray-100 rounded focus:bg-white focus:ring-1 focus:ring-blue-100 focus:border-blue-400 outline-none transition-all text-gray-700`;
@@ -89,10 +119,12 @@ export const Field = ({
         {options ? (
           <select
             id={fieldId}
-            value={value || ""}
+            ref={setRef}
+            defaultValue={defaultValue || ""}
             disabled={!isEditable}
             required={required}
             onChange={(e) => onChange?.(e.target.value)}
+            onBlur={(e) => onBlur?.(e.target.value)}
             className={`${baseInputStyles} pr-8 appearance-none cursor-pointer`}
           >
             <option value="" disabled>
@@ -107,21 +139,25 @@ export const Field = ({
         ) : multiline ? (
           <textarea
             id={fieldId}
-            value={value || ""}
+            ref={setRef}
+            defaultValue={defaultValue || ""}
             rows={rows}
             required={required}
             readOnly={!isEditable}
             onChange={(e) => onChange?.(e.target.value)}
+            onBlur={(e) => onBlur?.(e.target.value)}
             className={`${baseInputStyles} resize-none`}
           />
         ) : (
           <input
             id={fieldId}
+            ref={setRef}
             type={type}
-            value={value || ""}
+            defaultValue={defaultValue || ""}
             readOnly={!isEditable}
             required={required}
             onChange={(e) => onChange?.(e.target.value)}
+            onBlur={(e) => onBlur?.(e.target.value)}
             className={baseInputStyles}
           />
         )}

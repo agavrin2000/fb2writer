@@ -68,67 +68,39 @@ export const MetadataSidebar = memo(
       selector: (ctx) => ctx.editor?.storage.metadata.meta as Fb2Metadata,
     });
 
-    // 2. Локальное состояние для быстрой печати в инпутах
-    const [localMeta, setLocalMeta] = useState<Fb2Metadata | null>(meta);
-
-    // 3. Храним "предыдущую" мету, чтобы поймать момент Undo/Redo
-    const [prevMeta, setPrevMeta] = useState<Fb2Metadata | null>(meta);
-
-    // --- СИНХРОНИЗАЦИЯ ПРИ РЕНДЕРЕ (React 19 Way) ---
-    // Если meta в редакторе изменилась (Undo/Redo), обновляем локальный стейт немедленно
-    if (meta !== prevMeta) {
-      setPrevMeta(meta);
-      setLocalMeta(meta);
-    }
     // ------------------------------------------------
 
     // 3. Стабильная функция обновления редактора с дебаунсом
     const debouncedUpdate = useMemo(() => {
       return debounce((next: Fb2Metadata) => {
         // Выполняем команду обновления в редакторе
-        editor?.commands.updateMetadata(next);
+        editor?.chain().updateMetadata(next).setMeta("metadataUpdated", true).run();
       }, 500);
     }, [editor]);
 
     // Очистка при размонтировании
-    useEffect(() => {
-      return () => debouncedUpdate.cancel();
-    }, [debouncedUpdate]);
+    useEffect(() => debouncedUpdate.cancel(), [debouncedUpdate]);
 
-    // 3. В обработчике вызываем напрямую
-    const handleMetaUpdate = useCallback(
-      (
-        section: keyof Fb2Metadata,
-        field: string,
-        // Добавляем поддержку массивов (any[] или конкретнее string[] | Fb2Person[])
-        newValue: TiptapContent | string | number | boolean | null | unknown[],
-      ) => {
-        setLocalMeta((prev) => {
-          if (!prev || !prev[section]) return prev;
+    const handleMetaUpdate = useCallback((
+      section: keyof Fb2Metadata,
+      field: string,
+      newValue: TiptapContent | string | number | boolean | null | unknown[],
+      immediate = false // по умолчанию используем дебаунс
+    ) => {
+      if (!meta) return;
 
-          const sectionData = prev[section] as unknown as Record<
-            string,
-            unknown
-          >;
+      const next = {
+        ...meta,
+        [section]: { ...meta[section], [field]: newValue },
+      } as Fb2Metadata;
 
-          // Для массивов простая проверка === не всегда работает,
-          // но для предотвращения лишних дебаунсов этого обычно достаточно
-          if (sectionData[field] === newValue) return prev;
-
-          const next: Fb2Metadata = {
-            ...prev,
-            [section]: {
-              ...sectionData,
-              [field]: newValue,
-            },
-          } as Fb2Metadata;
-
-          debouncedUpdate(next);
-          return next;
-        });
-      },
-      [debouncedUpdate],
-    );
+      if (immediate) {
+        debouncedUpdate.cancel(); // Отменяем запланированные хвосты, если шлем мгновенно
+        editor?.chain().updateMetadata(next).setMeta("metadataUpdated", true).run();
+      } else {
+        debouncedUpdate(next);
+      }
+    }, [debouncedUpdate, meta, editor]);
 
     const [touchedFields, setTouchedFields] = useState<Record<string, boolean>>({});
 
@@ -148,11 +120,11 @@ export const MetadataSidebar = memo(
     if (!editor) return null;
     // Безопасный доступ к веткам JSON (теперь берем из meta от редактора)
     // В инпутах используйте localMeta
-    const titleInfo = localMeta?.titleInfo;
-    const srctitleInfo = localMeta?.srcTitleInfo;
-    const publishInfo = localMeta?.publishInfo;
-    const docInfo = localMeta?.documentInfo;
-    const customInfo = localMeta?.customInfo;
+    const titleInfo = meta?.titleInfo;
+    const srctitleInfo = meta?.srcTitleInfo;
+    const publishInfo = meta?.publishInfo;
+    const docInfo = meta?.documentInfo;
+    const customInfo = meta?.customInfo;
 
     //if (!meta) return <div>Загрузка...</div>;
     const generateUUID = () => {
@@ -254,15 +226,14 @@ export const MetadataSidebar = memo(
                     >
                       <Field
                         label="Название книги"
-                        value={titleInfo?.title}
+                        key="titleInfo.title"
+                        defaultValue={titleInfo?.title}
                         icon={BookOpen}
                         required={true}
                         error={getFieldError("srcTitleInfo", "title", titleInfo?.title)}
                         touched={touchedFields["titleInfo.title"]}
-                        onChange={(val) => {
-                          handleMetaUpdate("titleInfo", "title", val);
-                          markAsTouched("titleInfo", "title");
-                        }}
+                        onChange={(val) => handleMetaUpdate("titleInfo", "title", val)}
+                        onBlur={() => markAsTouched("titleInfo", "title")}
                       />
                       {/* Блок обложки */}
                       <CoverPicker
@@ -274,31 +245,36 @@ export const MetadataSidebar = memo(
 
                       <Field
                         label="Язык книги"
-                        value={titleInfo?.lang}
+                        key="titleInfo.lang"
+                        defaultValue={titleInfo?.lang}
                         icon={Languages}
                         options={LANGUAGES}
-                        onChange={(val) =>
-                          handleMetaUpdate("titleInfo", "lang", val)
-                        }
+                        required={true}
+                        error={getFieldError("titleInfo", "lang", titleInfo?.lang)}
+                        touched={touchedFields["titleInfo.lang"]}
+                        onChange={(val) => handleMetaUpdate("titleInfo", "lang", val)}
+                        onBlur={() => markAsTouched("titleInfo", "lang")}
                       />
                       <Field
                         label="Язык оригигинала"
-                        value={titleInfo?.srcLang}
+                        key="titleInfo.srcLang"
+                        defaultValue={titleInfo?.srcLang}
                         icon={Languages}
                         options={LANGUAGES}
-                        onChange={(val) =>
-                          handleMetaUpdate("titleInfo", "srcLang", val)
-                        }
+                        touched={touchedFields["titleInfo.srcLang"]}
+                        onChange={(val) => handleMetaUpdate("titleInfo", "srcLang", val)}
+                        onBlur={() => markAsTouched("titleInfo", "srcLang")}
                       />
                       <Field
                         label="Ключевые слова"
-                        value={titleInfo?.keywords}
+                        key="titleInfo.keywords"
+                        defaultValue={titleInfo?.keywords}
                         icon={Hash}
                         multiline
                         rows={2}
-                        onChange={(val) =>
-                          handleMetaUpdate("titleInfo", "keywords", val)
-                        }
+                        touched={touchedFields["titleInfo.keywords"]}
+                        onChange={(val) => handleMetaUpdate("titleInfo", "keywords", val)}
+                        onBlur={() => markAsTouched("titleInfo", "keywords")}
                       />
                     </Section>
 
@@ -309,9 +285,10 @@ export const MetadataSidebar = memo(
                       defaultOpen={false}
                     >
                       <GenreList
+                        key="titleInfo.genres"
                         genres={titleInfo?.genres || []}
                         onUpdate={(newGenres) =>
-                          handleMetaUpdate("titleInfo", "genres", newGenres)
+                          handleMetaUpdate("titleInfo", "genres", newGenres, true)
                         }
                         availableGenres={FB2_GENRES}
                       />
@@ -324,10 +301,11 @@ export const MetadataSidebar = memo(
                       defaultOpen={false}
                     >
                       <PersonList
+                        key="titleInfo.authors"
                         title="Автор"
                         items={titleInfo?.authors || []}
                         onUpdate={(newAuthors) =>
-                          handleMetaUpdate("titleInfo", "authors", newAuthors)
+                          handleMetaUpdate("titleInfo", "authors", newAuthors, true)
                         }
                       />
                     </Section>
@@ -339,13 +317,14 @@ export const MetadataSidebar = memo(
                       defaultOpen={false}
                     >
                       <PersonList
+                        key="titleInfo.translators"
                         title="Автор"
                         items={titleInfo?.translators || []}
                         onUpdate={(newTranslators) =>
                           handleMetaUpdate(
                             "titleInfo",
                             "translators",
-                            newTranslators,
+                            newTranslators, true
                           )
                         }
                       />
@@ -358,9 +337,10 @@ export const MetadataSidebar = memo(
                       defaultOpen={false}
                     >
                       <SequenceList
+                        key="titleInfo.sequence"
                         items={titleInfo?.sequence || []}
                         onUpdate={(newSeqs) =>
-                          handleMetaUpdate("titleInfo", "sequence", newSeqs)
+                          handleMetaUpdate("titleInfo", "sequence", newSeqs, true)
                         }
                       />
                     </Section>
@@ -372,6 +352,7 @@ export const MetadataSidebar = memo(
                       defaultOpen={false}
                     >
                       <RichTextEditor
+                        key="titleInfo.annotation"
                         content={titleInfo?.annotation ?? null}
                         onChange={(newJson) =>
                           handleMetaUpdate("titleInfo", "annotation", newJson)
@@ -390,7 +371,7 @@ export const MetadataSidebar = memo(
                     >
                       <Field
                         label="Название книги"
-                        value={srctitleInfo?.title}
+                        defaultValue={srctitleInfo?.title}
                         icon={BookOpen}
                         onChange={(val) =>
                           handleMetaUpdate("srcTitleInfo", "title", val)
@@ -405,7 +386,7 @@ export const MetadataSidebar = memo(
                       />
                       <Field
                         label="Язык книги"
-                        value={srctitleInfo?.lang}
+                        defaultValue={srctitleInfo?.lang}
                         icon={Languages}
                         options={LANGUAGES}
                         onChange={(val) =>
@@ -414,7 +395,7 @@ export const MetadataSidebar = memo(
                       />
                       <Field
                         label="Язык оригигинала"
-                        value={srctitleInfo?.srcLang}
+                        defaultValue={srctitleInfo?.srcLang}
                         icon={Languages}
                         options={LANGUAGES}
                         onChange={(val) =>
@@ -423,7 +404,7 @@ export const MetadataSidebar = memo(
                       />
                       <Field
                         label="Ключевые слова"
-                        value={titleInfo?.keywords}
+                        defaultValue={titleInfo?.keywords}
                         icon={Hash}
                         multiline
                         rows={2}
@@ -528,23 +509,23 @@ export const MetadataSidebar = memo(
                     >
                       <Field
                         label="Название книги"
-                        value={publishInfo?.bookName}
+                        defaultValue={publishInfo?.bookName}
                         onChange={(val) =>
                           handleMetaUpdate("publishInfo", "bookName", val)
                         }
                       />
                       <Field
                         label="Издатель"
-                        value={publishInfo?.publisher}
+                        defaultValue={publishInfo?.publisher}
                         icon={Printer}
                         onChange={(val) =>
                           handleMetaUpdate("publishInfo", "publisher", val)
                         }
                       />
-                      <Field label="Город" value={publishInfo?.city} />
+                      <Field label="Город" defaultValue={publishInfo?.city} />
                       <Field
                         label="Год издания"
-                        value={publishInfo?.year}
+                        defaultValue={publishInfo?.year}
                         icon={Calendar}
                         onChange={(val) =>
                           handleMetaUpdate("publishInfo", "year", val)
@@ -552,7 +533,7 @@ export const MetadataSidebar = memo(
                       />
                       <Field
                         label="ISBN"
-                        value={publishInfo?.isbn}
+                        defaultValue={publishInfo?.isbn}
                         icon={ShieldCheck}
                         onChange={(val) =>
                           handleMetaUpdate("publishInfo", "isbn", val)
@@ -586,7 +567,7 @@ export const MetadataSidebar = memo(
                     >
                       <Field
                         label="ID Документа"
-                        value={docInfo?.id}
+                        defaultValue={docInfo?.id}
                         onChange={(val) =>
                           handleMetaUpdate("documentInfo", "id", val)
                         }
@@ -598,21 +579,21 @@ export const MetadataSidebar = memo(
                       />
                       <Field
                         label="Версия"
-                        value={docInfo?.version}
+                        defaultValue={docInfo?.version}
                         onChange={(val) =>
                           handleMetaUpdate("documentInfo", "version", val)
                         }
                       />
                       <Field
                         label="Программа"
-                        value={docInfo?.program}
+                        defaultValue={docInfo?.program}
                         onChange={(val) =>
                           handleMetaUpdate("documentInfo", "program", val)
                         }
                       />
                       <Field
                         label="Дата создания файла"
-                        value={formatDateForInput(meta.documentInfo?.date)}
+                        defaultValue={formatDateForInput(meta.documentInfo?.date)}
                         type="date"
                         icon={Calendar}
                         onChange={(val) =>
@@ -648,7 +629,7 @@ export const MetadataSidebar = memo(
                     >
                       <Field
                         label="Source URL"
-                        value={docInfo?.srcUrl}
+                        defaultValue={docInfo?.srcUrl}
                         icon={Link}
                         onChange={(val) =>
                           handleMetaUpdate("documentInfo", "srcUrl", val)
@@ -656,7 +637,7 @@ export const MetadataSidebar = memo(
                       />
                       <Field
                         label="Автор OCR"
-                        value={docInfo?.srcOcr}
+                        defaultValue={docInfo?.srcOcr}
                         icon={Link}
                         onChange={(val) =>
                           handleMetaUpdate("documentInfo", "srcOcr", val)

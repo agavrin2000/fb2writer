@@ -64,14 +64,12 @@ export const MetadataExtension = Extension.create({
             JSON.stringify(currentMeta) !== JSON.stringify(this.storage.meta)
           ) {
             // Синхронизируем storage в конце очереди задач (не блокируя транзакцию)
-            Promise.resolve().then(() => {
               console.trace("Update command called");
               console.log("📦 Metadata Update:", {
                 before: this.storage.meta,
                 after: currentMeta,
               });
               this.storage.meta = currentMeta;
-            });
           }
           return null;
         },
