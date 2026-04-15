@@ -225,9 +225,10 @@ public class MessageHub(PhotinoWindow window, FileService fileService, string? i
     /// <param name="payload">Полезная нагрузка сообщения в виде строки (может быть JSON).</param>
     public void Emit(string type, object? payload = null)
     {
-        var message = JsonSerializer.Serialize(
-            new EmitMessage(type, payload), EmitContext.CustomOptions
-        );
+        var messageData = new EmitMessage(type, payload);
+
+        // Используем перегрузку с TypeInfo
+        var message = JsonSerializer.Serialize(messageData, EmitContext.Default.EmitMessage);
         window.SendWebMessage(message);
     }
 }

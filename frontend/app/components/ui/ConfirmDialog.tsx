@@ -99,7 +99,11 @@ export interface ConfirmHandle {
  * };
  */
 
-export const ConfirmDialog = ({ ref, ..._ }) => {
+interface ConfirmDialogProps {
+  ref?: React.Ref<ConfirmHandle>;
+}
+
+export const ConfirmDialog = ({ ref }: ConfirmDialogProps) => {
   const [config, setConfig] = useState<DialogConfig | null>(null);
   const [isAnimate, setIsAnimate] = useState(false);
 
@@ -132,9 +136,8 @@ export const ConfirmDialog = ({ ref, ..._ }) => {
       }, 200);
     },
     [config],
-  ); // Добавляем config в зависимости, так как он используется внутри
+  );
 
-  // 2. Теперь useEffect будет работать корректно
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => {
       if (e.key === "Escape" && config) {

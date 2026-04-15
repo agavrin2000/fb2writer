@@ -1,4 +1,5 @@
 namespace FB2Writer;
+
 using System.Reflection;
 
 /// <summary>
@@ -14,7 +15,7 @@ public static class AppInfo
     /// Соответствует значению &lt;AssemblyName&gt; в CSPROJ-файле.
     /// Если имя не задано, возвращается значение по умолчанию "FB2 Writer".
     /// </summary>
-    public static string AssemblyName => _assembly.GetName().Name ?? "FB2 Writer";
+    public static string AssemblyName => _assembly.GetName().Name ?? "FB2Writer";
 
     /// <summary>
     /// Получает пользовательское (дружелюбное) имя приложения, предназначенное для отображения в интерфейсе.

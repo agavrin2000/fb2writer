@@ -295,7 +295,6 @@ public class Fb2Service
                     FilePath: fileName // Полный путь к файлу для сохранения
         );
         return exportData;
-        //return JsonSerializer.Serialize(exportData, EmitContext.CustomOptions);
     }
 
     /// <summary>

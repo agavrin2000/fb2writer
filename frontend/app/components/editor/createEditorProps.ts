@@ -21,7 +21,7 @@ import { JSONContent } from "@tiptap/core";
  * <Editor extensions={extensions} editorProps={editorProps} />
  */
 export const createEditorProps = (
-  footnotesRef: RefObject<Record<string, JSONContent[]>>,
+  footnotesRef: RefObject<Record<string, JSONContent>>,
   setActiveNoteRef: RefObject<(note: ActiveNote) => void>,
 ) => ({
   /**
@@ -74,13 +74,15 @@ export const createEditorProps = (
 
     return false; // Для обычных ссылок или текста позволяем стандартное поведение
   },
-    transformPastedHTML(html: string) {
-    return html
-      // 1. Удаляем все комментарии (Word их обожает)
-      .replace(/<!--[\s\S]*?-->/g, '')
-      // 2. Удаляем все теги, кроме p, br, b, i, strong, em
-      .replace(/<(?!(\/?(p|br|b|i|strong|em|ul|ol|li))\b)[^>]+>/gi, '')
-      // 3. Удаляем все атрибуты внутри оставшихся тегов (style, class, etc)
-      .replace(/<([a-z][a-z0-9]*)\b[^>]*>/gi, '<$1>');
+  transformPastedHTML(html: string) {
+    return (
+      html
+        // 1. Удаляем все комментарии (Word их обожает)
+        .replace(/<!--[\s\S]*?-->/g, "")
+        // 2. Удаляем все теги, кроме p, br, b, i, strong, em
+        .replace(/<(?!(\/?(p|br|b|i|strong|em|ul|ol|li))\b)[^>]+>/gi, "")
+        // 3. Удаляем все атрибуты внутри оставшихся тегов (style, class, etc)
+        .replace(/<([a-z][a-z0-9]*)\b[^>]*>/gi, "<$1>")
+    );
   },
 });
