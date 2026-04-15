@@ -1,7 +1,8 @@
 import { useState, useCallback, useEffect, RefObject, Dispatch, SetStateAction } from "react";
 import { Editor } from "@tiptap/react";
-import { ActiveNote, FootnotesMap, TiptapContent } from "@/types/types";
+import { ActiveNote, FootnotesMap } from "@/types/types";
 import { useToast } from "@/hooks/ToastContext";
+import { JSONContent } from "@tiptap/core";
 
 export interface Footnotes {
     activeNote: ActiveNote | null;
@@ -9,7 +10,7 @@ export interface Footnotes {
     setFootnotes: Dispatch<SetStateAction<FootnotesMap>>;
     addFootnote: () => void;
     footnotes: FootnotesMap;
-    updateNoteContent: (newContent: TiptapContent, newId?: string) => void;
+    updateNoteContent: (newContent: JSONContent, newId?: string) => void;
     closeNotePopup: () => void;
     deleteFootnote: (id: string) => void;
 };
@@ -59,7 +60,7 @@ export const useFootnotes = (
   }, [editor?.commands]);
 
   const updateNoteContent = useCallback(
-    (newContent: TiptapContent, newId?: string) => {
+    (newContent: JSONContent, newId?: string) => {
       if (!activeNote || !editor) return;
 
       const oldId = activeNote.id;
@@ -147,7 +148,7 @@ export const useFootnotes = (
     // Формируем шаблон с текущим ID
     // 1. Оборачиваем массив в структуру Tiptap документа
     const initialContent = {
-      type: "doc", // Это поле теперь удовлетворит типизацию TiptapContent
+      type: "doc", 
       content: [
         {
           type: "fb2Title",

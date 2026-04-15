@@ -1,9 +1,9 @@
 import { ChevronDown } from "lucide-react";
-import { memo, useId } from "react";
+import { memo, useEffect, useId, useImperativeHandle, useRef } from "react";
 
-interface FieldProps<T extends HTMLElement>  {
+interface FieldProps  {
   label: string;
-  value?: string;
+  defaultValue?: string;
   icon?: React.ElementType;
   type?: string;
   onChange?: (val: string) => void;
@@ -21,12 +21,12 @@ interface FieldProps<T extends HTMLElement>  {
     onClick: () => void;
     title?: string;
   };
-  ref?: React.Ref<T>;
+  ref?: React.Ref<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>;
 }
 
-export const FieldComponent = <T extends HTMLElement = HTMLInputElement> ({
+export const FieldComponent = ({
   label,
-  value,
+  defaultValue,
   type = "text",
   icon: Icon,
   onChange,
@@ -41,11 +41,25 @@ export const FieldComponent = <T extends HTMLElement = HTMLInputElement> ({
   rows = 3,
   action,
   ref
-}: FieldProps<T>) => {
+}:FieldProps) => {
   const generatedId = useId();
   const fieldId = `field-${generatedId}`;
   const errorId = `${fieldId}-error`;
   const hasAction = action && !options
+  type FormElement = HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
+
+  // Внутренний реф для управления DOM-узлом (синхронизация, фокус)
+  const internalRef = useRef<FormElement>(null);
+
+  // Передаем внутренний узел во внешний ref, предоставленный родителем
+  useImperativeHandle(ref, () => internalRef.current as FormElement, []);
+
+  // Синхронизация неконтролируемого значения при изменении извне (Undo/Redo)
+  useEffect(() => {
+    if (internalRef.current && internalRef.current.value !== (defaultValue ?? "")) {
+      internalRef.current.value = defaultValue ?? "";
+    }
+  }, [defaultValue]);
 
   // Показываем ошибку только если она есть и поле было "тронуто"
   const showError = !!(error && touched);
@@ -61,13 +75,13 @@ export const FieldComponent = <T extends HTMLElement = HTMLInputElement> ({
       ? "border-red-300 focus:border-red-500 focus:ring-red-100 bg-red-50/30"
       : "border-gray-100 focus:border-blue-400 focus:ring-blue-100"
     }
-  ${required && !value && isEditable ? "border-l-2 border-l-amber-400" : ""}
+  ${required && !defaultValue && isEditable ? "border-l-2 border-l-amber-400" : ""}
 `.replace(/\s+/g, ' ').trim();
 
   // Общие свойства
 const commonProps = {
   id: fieldId,
-  value: value || "",
+  defaultValue: defaultValue || "",
   required: required,
   tabIndex: isEditable ? undefined : -1,
   onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
@@ -114,8 +128,7 @@ const commonProps = {
           <div className="relative">
             <select
               {...commonProps}
-              ref={ref as React.Ref<HTMLSelectElement>}
-              disabled={!isEditable}
+              ref={internalRef as React.Ref<HTMLSelectElement>}
               className={`${baseInputStyles} pr-8 appearance-none cursor-pointer`}
             >
               <option value="" disabled>Выбрать...</option>
@@ -130,7 +143,7 @@ const commonProps = {
         ) : multiline ? (
           <textarea
             {...commonProps}
-            ref={ref as React.Ref<HTMLTextAreaElement>}
+              ref={internalRef as React.Ref<HTMLTextAreaElement>}
             readOnly={!isEditable}
             rows={rows}
             className={`${baseInputStyles} resize-none block`}
@@ -138,7 +151,7 @@ const commonProps = {
         ) : (
           <input
             {...commonProps}
-            ref={ref as React.Ref<HTMLInputElement>}
+            ref={internalRef as React.Ref<HTMLInputElement>}
             type={type}
             readOnly={!isEditable}
             className={baseInputStyles}
@@ -160,6 +173,4 @@ const commonProps = {
   );
 };
 
-export const Field = memo(FieldComponent) as <T extends HTMLElement = HTMLInputElement>(
-  props: FieldProps<T>
-) => React.ReactElement;
+export const Field = memo(FieldComponent);

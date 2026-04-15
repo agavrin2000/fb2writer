@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { Plus, X, Search } from 'lucide-react';
 import {
     useFloating,
@@ -22,14 +22,14 @@ interface GenreListProps {
 
 export const GenreList = ({ genres = [], onUpdate, availableGenres = [] }: GenreListProps) => {
     const [isAdding, setIsAdding] = useState(false);
-    const [searchTerm, setSearchTerm] = useState('');
+    const [searchFilter, setSearchFilter] = useState('');
     const [activeIndex, setActiveIndex] = useState(0); // Индекс активного элемента для стрелок
     const listRef = useRef<HTMLDivElement>(null);
 
     const { refs, floatingStyles, isPositioned } = useFloating({
-        open: isAdding && searchTerm.length > 0,
+        open: isAdding && searchFilter.length > 0,
+        onOpenChange: setIsAdding,
         placement: 'bottom-start',
-        strategy: 'fixed', // Важно: фиксированное позиционирование для порталов
         whileElementsMounted: autoUpdate,
         middleware: [
             offset(4),
@@ -41,30 +41,26 @@ export const GenreList = ({ genres = [], onUpdate, availableGenres = [] }: Genre
 
     // Расширенная фильтрация (по label и по id)
     const filteredOptions = useMemo(() => {
-        const lowerTerm = searchTerm.toLowerCase();
+        const lowerTerm = searchFilter.toLowerCase();
         return availableGenres.filter(g =>
             !genres.includes(g.id) &&
             (g.label.toLowerCase().includes(lowerTerm) || g.id.toLowerCase().includes(lowerTerm))
         ).slice(0, 10);
-    }, [genres, searchTerm, availableGenres]);
+    }, [genres, searchFilter, availableGenres]);
 
     // Сбрасываем индекс при изменении поиска
     //   useEffect(() => setActiveIndex(0), [searchTerm]);
 
-    // 1. Добавляем стейт для отслеживания предыдущего поискового запроса
-    const [prevSearchTerm, setPrevSearchTerm] = useState(searchTerm);
-
-    // 2. Сбрасываем индекс прямо во время рендера, если поиск изменился
-    if (searchTerm !== prevSearchTerm) {
-        setPrevSearchTerm(searchTerm);
-        setActiveIndex(0);
-    }
-
     const handleSelect = (genreId: string) => {
-        if (!genreId) return;
         onUpdate([...genres, genreId]);
-        setSearchTerm('');
+        setSearchFilter('');
         setIsAdding(false);
+        setActiveIndex(0);
+    };
+
+    const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        setSearchFilter(e.target.value);
+        setActiveIndex(0); // Сбрасываем индекс здесь, без лишних рендеров
     };
 
     const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -84,18 +80,6 @@ export const GenreList = ({ genres = [], onUpdate, availableGenres = [] }: Genre
         }
     };
 
-    useEffect(() => {
-        if (isAdding && listRef.current) {
-            const activeItem = listRef.current.children[activeIndex] as HTMLElement;
-            if (activeItem) {
-                activeItem.scrollIntoView({
-                    block: 'nearest', // Прокрутит только если элемент скрыт
-                    behavior: 'smooth' // Сделает это плавно
-                });
-            }
-        }
-    }, [activeIndex, isAdding]);
-
     return (
         <div className="flex flex-wrap gap-1.5 min-h-8 items-center">
             {/* Теги выбранных жанров */}
@@ -110,7 +94,10 @@ export const GenreList = ({ genres = [], onUpdate, availableGenres = [] }: Genre
                     <button
                         type="button"
                         aria-label={`Удалить ${getLabel(id)}`}
-                        onClick={() => onUpdate(genres.filter((_, i) => i !== idx))}
+                        onMouseDown={(e) => {
+                            e.preventDefault(); // Чтобы не терять фокус, если инпут открыт
+                            onUpdate(genres.filter((_, i) => i !== idx));
+                        }}
                         className="text-blue-300 hover:text-red-500 transition-colors"
                     >
                         <X size={10} strokeWidth={3} />
@@ -124,19 +111,23 @@ export const GenreList = ({ genres = [], onUpdate, availableGenres = [] }: Genre
                         refs.setReference(node);
                     }}>
                         <input
+                        
                             autoFocus
                             type="text"
                             placeholder="Название или код..."
                             className="text-[11px] pl-7 pr-2 py-1.5 border-2 border-blue-400 rounded-md outline-none w-56 shadow-sm"
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
+                            value={searchFilter}
+                            onChange={handleSearchChange}
                             onKeyDown={handleKeyDown}
-                            onBlur={() => setTimeout(() => setIsAdding(false), 200)}
+                               onBlur={() => {
+                                // Безопасное закрытие: ждем окончания клика по списку
+                                requestAnimationFrame(() => setIsAdding(false));
+                            }}
                         />
                         <Search size={12} className="absolute left-2.5 text-blue-500" />
                     </div>
 
-                    {searchTerm && (
+                    {searchFilter && (
                         <FloatingPortal>
                             <div
                                 ref={(node) => { refs.setFloating(node); }}
@@ -147,7 +138,7 @@ export const GenreList = ({ genres = [], onUpdate, availableGenres = [] }: Genre
                                 }}
                                 className="z-[9999] bg-white border border-gray-200 rounded-lg shadow-xl overflow-hidden min-w-[224px] animate-in fade-in duration-100"
                             >
-                                <div ref={listRef} className="max-h-52 overflow-y-auto scrollbar-hide">
+                                <div title="Поиск жанра" ref={listRef} className="max-h-52 overflow-y-auto scrollbar-hide">
                                     {filteredOptions.length > 0 ? (
                                         filteredOptions.map((g, index) => (
                                             <div

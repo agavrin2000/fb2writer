@@ -19,7 +19,6 @@ import {
   History,
   Link,
   ShieldCheck,
-  Info,
   TextQuote,
   Languages,
   Dices,
@@ -36,12 +35,12 @@ import {
   FB2_GENRES,
   LANGUAGES,
   Fb2Metadata,
-  TiptapContent,
 } from "@/types/types";
 import { debounce } from "@/utils/utils";
 import { Editor, useEditorState } from "@tiptap/react";
+import { JSONContent } from "@tiptap/core";
 
-const formatDateForInput = (dateStr: string) => {
+const formatDateForInput = (dateStr: string | undefined) => {
   if (!dateStr) return "";
   // Если дата уже YYYY-MM-DD, вернет её, иначе попробует преобразовать
   const date = new Date(dateStr);
@@ -84,7 +83,7 @@ export const MetadataSidebar = memo(
     const handleMetaUpdate = useCallback((
       section: keyof Fb2Metadata,
       field: string,
-      newValue: TiptapContent | string | number | boolean | null | unknown[],
+      newValue: JSONContent | string | number | boolean | null | unknown[],
       immediate = false // по умолчанию используем дебаунс
     ) => {
       if (!meta) return;
@@ -113,6 +112,12 @@ export const MetadataSidebar = memo(
     const getFieldError = (section: keyof Fb2Metadata, field: string, value: string | null | undefined) => {
       if (section === "srcTitleInfo" && field === "title" && !value) {
         return "Название обязательно для заполнения";
+      }
+      if (section === "documentInfo" && field === "version" && !value) {
+        return "Версия обязательна для заполнения";
+      }
+      if (section === "documentInfo" && field === "id" && !value) {
+        return "ID документа обязателен для заполнения";
       }
       return "";
     };
@@ -158,7 +163,7 @@ export const MetadataSidebar = memo(
         >
           {/* Шапка и Вкладки */}
           <div className="flex flex-col bg-white border-b min-w-[320px]">
-            <div className="p-4 flex justify-between items-center">
+            <div className="p-4 flex items-center gap-3">
               <button
                 type="button"
                 title="Скрыть метаданные"
@@ -170,7 +175,6 @@ export const MetadataSidebar = memo(
               <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
                 Описание FB2
               </span>
-              <Info size={16} className="text-gray-300" />
             </div>
 
             <div className="flex px-2 border-t">
@@ -226,7 +230,7 @@ export const MetadataSidebar = memo(
                     >
                       <Field
                         label="Название книги"
-                        value={titleInfo?.title}
+                        defaultValue={titleInfo?.title}
                         icon={BookOpen}
                         required={true}
                         error={getFieldError("srcTitleInfo", "title", titleInfo?.title)}
@@ -244,7 +248,7 @@ export const MetadataSidebar = memo(
 
                       <Field
                         label="Язык книги"
-                        value={titleInfo?.lang}
+                        defaultValue={titleInfo?.lang}
                         icon={Languages}
                         options={LANGUAGES}
                         required={true}
@@ -255,7 +259,7 @@ export const MetadataSidebar = memo(
                       />
                       <Field
                         label="Язык оригигинала"
-                        value={titleInfo?.srcLang}
+                        defaultValue={titleInfo?.srcLang}
                         icon={Languages}
                         options={LANGUAGES}
                         touched={touchedFields["titleInfo.srcLang"]}
@@ -264,7 +268,7 @@ export const MetadataSidebar = memo(
                       />
                       <Field
                         label="Ключевые слова"
-                        value={titleInfo?.keywords}
+                        defaultValue={titleInfo?.keywords}
                         icon={Hash}
                         multiline
                         rows={2}
@@ -290,7 +294,7 @@ export const MetadataSidebar = memo(
                     </Section>
 
                     <Section
-                      title="Авторы"
+                      title={`Авторы (${titleInfo?.authors?.length ?? 0})`}
                       icon={User}
                       className="mt-4"
                       defaultOpen={false}
@@ -305,13 +309,13 @@ export const MetadataSidebar = memo(
                     </Section>
 
                     <Section
-                      title="Переводчики"
+                      title={`Переводчики (${titleInfo?.translators?.length ?? 0})`}
                       icon={User}
                       className="mt-4"
                       defaultOpen={false}
                     >
                       <PersonList
-                        title="Автор"
+                        title="Переводчик"
                         items={titleInfo?.translators || []}
                         onUpdate={(newTranslators, immediate) =>
                           handleMetaUpdate(
@@ -324,7 +328,7 @@ export const MetadataSidebar = memo(
                     </Section>
 
                     <Section
-                      title="Серия"
+                      title={`Серии (${titleInfo?.sequence?.length ?? 0})`}
                       icon={Hash}
                       className="mt-4"
                       defaultOpen={false}
@@ -356,13 +360,13 @@ export const MetadataSidebar = memo(
                 {activeTab === "src-title" && (
                   <div className="animate-in fade-in slide-in-from-right-2 duration-300">
                     <Section
-                      title="Произведение (язык оригинала)"
+                      title="Оригинальное произведение"
                       icon={BookOpen}
                       defaultOpen={true}
                     >
                       <Field
                         label="Название книги"
-                        value={srctitleInfo?.title}
+                        defaultValue={srctitleInfo?.title}
                         icon={BookOpen}
                         onChange={(val) =>
                           handleMetaUpdate("srcTitleInfo", "title", val)
@@ -377,7 +381,7 @@ export const MetadataSidebar = memo(
                       />
                       <Field
                         label="Язык книги"
-                        value={srctitleInfo?.lang}
+                        defaultValue={srctitleInfo?.lang}
                         icon={Languages}
                         options={LANGUAGES}
                         onChange={(val) =>
@@ -386,7 +390,7 @@ export const MetadataSidebar = memo(
                       />
                       <Field
                         label="Язык оригигинала"
-                        value={srctitleInfo?.srcLang}
+                        defaultValue={srctitleInfo?.srcLang}
                         icon={Languages}
                         options={LANGUAGES}
                         onChange={(val) =>
@@ -395,7 +399,7 @@ export const MetadataSidebar = memo(
                       />
                       <Field
                         label="Ключевые слова"
-                        value={titleInfo?.keywords}
+                        defaultValue={titleInfo?.keywords}
                         icon={Hash}
                         multiline
                         rows={2}
@@ -420,7 +424,7 @@ export const MetadataSidebar = memo(
                     </Section>
 
                     <Section
-                      title="Авторы"
+                      title={`Авторы (${srctitleInfo?.authors?.length ?? 0})`}
                       icon={User}
                       className="mt-4"
                       defaultOpen={false}
@@ -439,13 +443,13 @@ export const MetadataSidebar = memo(
                     </Section>
 
                     <Section
-                      title="Переводчики"
+                      title={`Переводчики (${srctitleInfo?.translators?.length ?? 0})`}
                       icon={User}
                       className="mt-4"
                       defaultOpen={false}
                     >
                       <PersonList
-                        title="Автор"
+                        title="Переводчик"
                         items={srctitleInfo?.translators || []}
                         onUpdate={(newTranslators,immediate) =>
                           handleMetaUpdate(
@@ -459,7 +463,7 @@ export const MetadataSidebar = memo(
                     </Section>
 
                     <Section
-                      title="Серия"
+                      title={`Серии (${srctitleInfo?.sequence?.length ?? 0})`}
                       icon={Hash}
                       className="mt-4"
                       defaultOpen={false}
@@ -501,23 +505,23 @@ export const MetadataSidebar = memo(
                     >
                       <Field
                         label="Название книги"
-                        value={publishInfo?.bookName}
+                        defaultValue={publishInfo?.bookName}
                         onChange={(val) =>
                           handleMetaUpdate("publishInfo", "bookName", val)
                         }
                       />
                       <Field
                         label="Издатель"
-                        value={publishInfo?.publisher}
+                        defaultValue={publishInfo?.publisher}
                         icon={Printer}
                         onChange={(val) =>
                           handleMetaUpdate("publishInfo", "publisher", val)
                         }
                       />
-                      <Field label="Город" value={publishInfo?.city} />
+                      <Field label="Город" defaultValue={publishInfo?.city} />
                       <Field
                         label="Год издания"
-                        value={publishInfo?.year}
+                        defaultValue={publishInfo?.year}
                         icon={Calendar}
                         onChange={(val) =>
                           handleMetaUpdate("publishInfo", "year", val)
@@ -525,7 +529,7 @@ export const MetadataSidebar = memo(
                       />
                       <Field
                         label="ISBN"
-                        value={publishInfo?.isbn}
+                        defaultValue={publishInfo?.isbn}
                         icon={ShieldCheck}
                         onChange={(val) =>
                           handleMetaUpdate("publishInfo", "isbn", val)
@@ -534,7 +538,7 @@ export const MetadataSidebar = memo(
                     </Section>
 
                     <Section
-                      title="Серия"
+                      title={`Серии (${publishInfo?.sequence?.length ?? 0})`}
                       icon={Hash}
                       className="mt-4"
                       defaultOpen={false}
@@ -559,7 +563,11 @@ export const MetadataSidebar = memo(
                     >
                       <Field
                         label="ID Документа"
-                        value={docInfo?.id}
+                        defaultValue={docInfo?.id}
+                        required={true}
+                        error={getFieldError("documentInfo", "id", docInfo?.id)}
+                        touched={touchedFields["docInfo.id"]}
+                        onBlur={() => markAsTouched("documentInfo", "id")}
                         onChange={(val) =>
                           handleMetaUpdate("documentInfo", "id", val)
                         }
@@ -571,22 +579,28 @@ export const MetadataSidebar = memo(
                       />
                       <Field
                         label="Версия"
-                        value={docInfo?.version}
+                        defaultValue={docInfo?.version}
+                        required={true}
+                        error={getFieldError("documentInfo", "id", docInfo?.version)}
+                        touched={touchedFields["docInfo.version"]}
                         onChange={(val) =>
                           handleMetaUpdate("documentInfo", "version", val)
                         }
                       />
                       <Field
                         label="Программа"
-                        value={docInfo?.program}
+                        defaultValue={docInfo?.program}
                         onChange={(val) =>
                           handleMetaUpdate("documentInfo", "program", val)
                         }
                       />
                       <Field
                         label="Дата создания файла"
-                        value={formatDateForInput(meta.documentInfo?.date)}
+                        defaultValue={formatDateForInput(docInfo?.date)}
                         type="date"
+                        required={true}
+                        error={getFieldError("documentInfo", "id", docInfo?.date)}
+                        touched={touchedFields["docInfo.date"]}
                         icon={Calendar}
                         onChange={(val) =>
                           handleMetaUpdate("documentInfo", "date", val)
@@ -595,7 +609,7 @@ export const MetadataSidebar = memo(
                     </Section>
 
                     <Section
-                      title="Авторы документа"
+                      title={`Авторы документа (${docInfo?.authors?.length ?? 0})`}
                       icon={User}
                       className="mt-4"
                       defaultOpen={false}
@@ -622,7 +636,7 @@ export const MetadataSidebar = memo(
                     >
                       <Field
                         label="Source URL"
-                        value={docInfo?.srcUrl}
+                        defaultValue={docInfo?.srcUrl}
                         icon={Link}
                         onChange={(val) =>
                           handleMetaUpdate("documentInfo", "srcUrl", val)
@@ -630,7 +644,7 @@ export const MetadataSidebar = memo(
                       />
                       <Field
                         label="Автор OCR"
-                        value={docInfo?.srcOcr}
+                        defaultValue={docInfo?.srcOcr}
                         icon={Link}
                         onChange={(val) =>
                           handleMetaUpdate("documentInfo", "srcOcr", val)

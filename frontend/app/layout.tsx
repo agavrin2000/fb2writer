@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import "@/globals.css";
 import { ConfirmProvider } from "@/hooks/ConfirmContext";
 import { ToastProvider } from "@/hooks/ToastContext";
-import PhotinoInitializer from "@/components/PhotinoInitializer";
+import PhotinoInitializer from "@/api/PhotinoInitializer";
 
 /**
  * Метаданные страницы приложения.

@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import { memo, useRef } from 'react';
 import { User, Plus, X, Globe, Fingerprint } from 'lucide-react';
 import { Field } from './Field'; // Путь к твоему компоненту Field
 import { EditableList } from './EditableList';
@@ -11,7 +11,7 @@ interface PersonListProps {
     onUpdate: (newItems: Fb2Person[], immediate?: boolean) => void;
 }
 
-export const PersonList = ({ title, items = [], onUpdate }: PersonListProps) => {
+export const PersonList = memo(({ title, items = [], onUpdate }: PersonListProps) => {
     // Храним массив рефов для каждой персоны
     const inputRefs = useRef<Map<number, HTMLInputElement>>(new Map());
 
@@ -44,9 +44,9 @@ export const PersonList = ({ title, items = [], onUpdate }: PersonListProps) => 
         newItems[index] = { ...newItems[index], ...updatedFields };
         onUpdate(newItems);
     };
-    const getError = (field: string, value: string | undefined) => {
-        if (!value) {
-            return field === "nickname" ? "Никнейм или Название серии обязательно" : "Номер обязателен";
+    const getError = (field: string, value: string | undefined, required: boolean) => {
+        if (!value && required && (field === "nickname" || field === "firstName" || field === "lastName")) {
+            return "Никнейм или имя, фамилия обязательны";
         }
         return "";
     };
@@ -65,7 +65,11 @@ export const PersonList = ({ title, items = [], onUpdate }: PersonListProps) => 
                         <X size={12} strokeWidth={3} />
                     </button>
 
-                    <Field label="Имя" value={person.firstName} onChange={(val) => updatePerson(idx, { firstName: val })}
+                    <Field label="Имя" defaultValue={person.firstName}
+                        required={true}
+                        error={getError("firstName", person.firstName, !person.nickname || !person.lastName)}
+                        touched={true}
+                        onChange={(val) => updatePerson(idx, { firstName: val })}
                         ref={(el) => {
                             if (el) {
                                 inputRefs.current.set(idx, el as HTMLInputElement);
@@ -74,21 +78,24 @@ export const PersonList = ({ title, items = [], onUpdate }: PersonListProps) => 
                             }
                         }}
                     />
-                    <Field label="Отчество" value={person.middleName} onChange={(val) => updatePerson(idx, { middleName: val })} />
-                    <Field label="Фамилия" value={person.lastName} onChange={(val) => updatePerson(idx, { lastName: val })} />
+                    <Field label="Отчество" defaultValue={person.middleName} onChange={(val) => updatePerson(idx, { middleName: val })} />
+                    <Field label="Фамилия" defaultValue={person.lastName}
+                        required={true}
+                        error={getError("lastName", person.lastName, !person.nickname || !person.firstName)}
+                        touched={true}
+                        onChange={(val) => updatePerson(idx, { lastName: val })} />
                     <Field
                         label="Никнейм"
-                        value={person.nickname}
+                        defaultValue={person.nickname}
                         icon={User}
-                        required={!person.firstName || !person.lastName}
-                        error={getError("name", person.nickname)}
-                        touched={person.nickname !== ''}
-                        className="font-bold text-blue-600"
+                        required={true}
+                        error={getError("nickname", person.nickname, !person.firstName || !person.lastName)}
+                        touched={true}
                         onChange={(val) => updatePerson(idx, { nickname: val })}
                     />
                     <Field
                         label="ID"
-                        value={person.id}
+                        defaultValue={person.id}
                         icon={Fingerprint}
                         onChange={(val) => updatePerson(idx, { id: val })}
                     />
@@ -113,8 +120,10 @@ export const PersonList = ({ title, items = [], onUpdate }: PersonListProps) => 
                 className="w-full py-2 flex items-center justify-center gap-2 border-2 border-dashed border-gray-200 rounded-lg text-gray-400 hover:text-blue-500 hover:border-blue-200 hover:bg-blue-50 transition-all text-[10px] font-bold uppercase"
             >
                 <Plus size={14} />
-                Добавить {title.toLowerCase()}
+                Добавить {title.toLowerCase()}А
             </button>
         </div>
     );
-};
+});
+
+PersonList.displayName = "PersonList";

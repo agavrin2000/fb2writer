@@ -180,7 +180,7 @@ public class Fb2Service
         var notesBody = doc.Descendants(ns + "body")
             .FirstOrDefault(x => x.Attribute("name")?.Value.ToLower() == "notes");
 
-        var footnotesList = new Dictionary<string, List<TipTapNode>>();
+        var footnotesList = new Dictionary<string, TipTapDoc>();
 
         if (notesBody != null)
         {
@@ -192,7 +192,7 @@ public class Fb2Service
                 var notesNodes = new List<TipTapNode>();
                 ParseElement(section, notesNodes);
 
-                footnotesList[id] = notesNodes;
+                footnotesList[id] = new TipTapDoc(Type: "doc", Content: notesNodes);
             }
         }
 
@@ -314,8 +314,7 @@ public class Fb2Service
             // Вспомогательный метод для загрузки схемы из ресурса
             void AddSchema(string? ns, string fileName)
             {
-                using var stream = assembly.GetManifestResourceStream(resPrefix + fileName);
-                if (stream == null) throw new FileNotFoundException($"Ресурс {fileName} не найден.");
+                using var stream = assembly.GetManifestResourceStream(resPrefix + fileName) ?? throw new FileNotFoundException($"Ресурс {fileName} не найден.");
                 using var reader = XmlReader.Create(stream);
                 schemas.Add(ns, reader);
             }
@@ -416,6 +415,7 @@ public class Fb2Service
                     "cite" => "fb2Cite",
                     "poem" => "fb2Poem",
                     "stanza" => "fb2Stanza",
+                    "annotation" => "fb2Annotation",
                     _ => "fb2Title"
                 };
 

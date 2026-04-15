@@ -2,7 +2,7 @@
 
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, memo } from 'react';
 import { Bold, Italic, Quote, Strikethrough, Superscript as SuperscriptIcon, Subscript as SubscriptIcon, Hash, X, Trash2 } from 'lucide-react';
 import Superscript from '@tiptap/extension-superscript';
 import Subscript from '@tiptap/extension-subscript';
@@ -11,9 +11,8 @@ import { Fb2Cite } from './extensions/fb2cite';
 import React, { useCallback } from 'react';
 import { useConfirm } from "@/hooks/ConfirmContext";
 import { createPortal } from 'react-dom';
-import {TiptapContent}  from '@/types/types';
 import { JSONContent } from "@tiptap/core";
-
+import { EditorToolbarButton } from "@/components/ui/EditorToolbarButton"
 /**
  * Интерфейс свойств компонента всплывающего окна редактирования сноски.
  */
@@ -38,7 +37,7 @@ interface NotePopupProps {
    * @param json - Новое содержимое сноски в формате JSON.
    * @param newId - Новый ID сноски (если был изменён).
    */
-  onUpdate: (json: TiptapContent, newId?: string) => void;
+  onUpdate: (json: JSONContent, newId?: string) => void;
 
   /**
    * Функция закрытия всплывающего окна без сохранения.
@@ -77,7 +76,7 @@ interface NotePopupProps {
  *   onDelete={(id) => console.log("Удалено:", id)}
  * />
  */
-export const NotePopup: React.FC<NotePopupProps> = ({ note, content, existingIds, onUpdate, onClose, onDelete }) => {
+export const NotePopup = memo(({ note, content, existingIds, onUpdate, onClose, onDelete }:NotePopupProps) => {
   const confirm = useConfirm();
   const [editableId, setEditableId] = useState(note.id);
   const [isConfirming, setIsConfirming] = useState(false);
@@ -112,7 +111,7 @@ export const NotePopup: React.FC<NotePopupProps> = ({ note, content, existingIds
   useEffect(() => {
     const handleEvent = (e: Event) => {
       const target = e.target as Element;
-      
+
       if (isConfirming || target?.closest('.note-popup-container')) return;
       onClose();
     };
@@ -162,30 +161,13 @@ export const NotePopup: React.FC<NotePopupProps> = ({ note, content, existingIds
   const hasError = isEmpty || isDuplicate;
 
   /**
-   * Преобразует входящий контент в единый стандартный формат TipTap (doc).
-   */
-  const safeContent = useMemo(() => {
-    // Если контента нет вообще
-    if (!content) return { type: 'doc', content: [] };
-
-    // Если пришел массив (часто для сносок FB2), оборачиваем его в формат Tiptap
-    if (Array.isArray(content)) return { type: 'doc', content: content };
-
-    // Если это уже готовый объект документа
-    if (content.type === 'doc') return content;
-
-    // Резервный случай: если контент — это массив узлов внутри объекта
-    return { type: 'doc', content: content.content || [] };
-  }, [content]);
-
-  /**
    * Экземпляр редактора TipTap для внутреннего редактирования содержимого сноски.
    */
   const editor = useEditor({
     extensions: [StarterKit.configure({
       gapcursor: false,
     }), Superscript, Subscript, Fb2Title, Fb2Cite],
-    content: safeContent,
+    content: content ?? { type: 'doc', content: [] },
     immediatelyRender: false,
     editorProps: {
       attributes: {
@@ -203,14 +185,14 @@ export const NotePopup: React.FC<NotePopupProps> = ({ note, content, existingIds
 
   // Синхронизация контента при переключении между сносками
   useEffect(() => {
-    if (editor && !editor.isDestroyed && safeContent) {
+    if (editor && !editor.isDestroyed && content) {
       const currentJson = JSON.stringify(editor.getJSON());
-      const nextJson = JSON.stringify(safeContent);
+      const nextJson = JSON.stringify(content ?? { type: 'doc', content: [] });
       if (currentJson !== nextJson) {
-        editor.commands.setContent(safeContent, { emitUpdate: false });
+        editor.commands.setContent(content ?? { type: 'doc', content: [] }, { emitUpdate: false });
       }
     }
-  }, [note.id, editor, safeContent]);
+  }, [note.id, editor, content]);
 
   // Закрытие по клавише Escape
   useEffect(() => {
@@ -299,37 +281,37 @@ export const NotePopup: React.FC<NotePopupProps> = ({ note, content, existingIds
 
         {/* Тулбар */}
         <div className="flex flex-none items-center gap-1 px-2 py-1 bg-white border-b border-slate-100">
-          <ToolbarButton
+          <EditorToolbarButton
             onClick={() => editor.chain().focus().toggleBold().run()}
             active={editor.isActive('bold')}
             disabled={!editor.can().chain().toggleBold()} // ПРОВЕРКА
             icon={<Bold size={14} />}
           />
-          <ToolbarButton
+          <EditorToolbarButton
             onClick={() => editor.chain().focus().toggleItalic().run()}
             active={editor.isActive('italic')}
             disabled={!editor.can().chain().toggleItalic()} // ПРОВЕРКА
             icon={<Italic size={14} />}
           />
-          <ToolbarButton
+          <EditorToolbarButton
             onClick={() => editor.chain().focus().toggleStrike().run()}
             active={editor.isActive('strike')}
             disabled={!editor.can().chain().toggleStrike()}
             icon={<Strikethrough size={14} />}
           />
-          <ToolbarButton
+          <EditorToolbarButton
             onClick={() => editor.chain().focus().toggleSuperscript().run()}
             active={editor.isActive('superscript')}
             disabled={!editor.can().chain().toggleSuperscript()}
             icon={<SuperscriptIcon size={14} />}
           />
-          <ToolbarButton
+          <EditorToolbarButton
             onClick={() => editor.chain().focus().toggleSubscript().run()}
             active={editor.isActive('subscript')}
             disabled={!editor.can().chain().toggleSubscript()}
             icon={<SubscriptIcon size={14} />}
           />
-          <ToolbarButton
+          <EditorToolbarButton
             onClick={() => editor.chain().focus().toggleBlockquote().run()}
             active={editor.isActive("fb2Cite")}
             disabled={!editor.can().chain().toggleBlockquote()}
@@ -357,36 +339,6 @@ export const NotePopup: React.FC<NotePopupProps> = ({ note, content, existingIds
       </div>
     </>,
     document.body);
-};
+});
 
-interface ToolbarButtonProps {
-  onClick: () => void;
-  active?: boolean;
-  disabled?: boolean;
-  icon: React.ReactNode;
-}
-
-/**
- * Кнопка тулбара форматирования текста.
- * Отображает иконку и изменяет стиль в зависимости от состояния (активна/неактивна/недоступна).
- * 
- * @param onClick - Обработчик клика.
- * @param active - Флаг активности кнопки (например, выделен ли текст жирным).
- * @param disabled - Флаг недоступности (например, если команда не может быть применена).
- * @param icon - Иконка кнопки (React-элемент).
- */
-const ToolbarButton = ({ onClick, active, disabled, icon }: ToolbarButtonProps) => (
-  <button
-    type="button"
-    onClick={onClick}
-    disabled={disabled}
-    className={`p-1.5 rounded transition-colors ${active
-      ? 'bg-blue-100 text-blue-600'
-      : disabled
-        ? 'opacity-25 cursor-default grayscale text-gray-300' // Сделали чуть прозрачнее
-        : 'text-gray-600 hover:bg-gray-100 hover:text-gray-800'
-      }`}
-  >
-    {icon}
-  </button>
-);
+NotePopup.displayName = "NotePopup";

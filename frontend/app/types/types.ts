@@ -1,5 +1,6 @@
 import { JSONContent } from "@tiptap/core";
 
+// Информация о приложении приходящая с backend
 export interface AppInfo {
   name: string;
   version: string;
@@ -27,7 +28,7 @@ export interface Fb2TitleInfo {
   genres: string[];
   authors: Fb2Person[];
   title: string;
-  annotation?: TiptapContent; // TipTap JSON
+  annotation?: JSONContent; // TipTap JSON
   keywords?: string;
   date?: string;
   dateValue?: string;
@@ -49,7 +50,7 @@ export interface Fb2DocumentInfo {
   srcUrl?: string;
   srcOcr?: string;
   version: string;
-  history?: TiptapContent;
+  history?: JSONContent;
 }
 
 // Издательские данные
@@ -82,7 +83,7 @@ export interface Fb2Metadata {
 // Корневой объект для взаимодествия с бэкендом
 export interface Fb2Data {
   metadata: Fb2Metadata;
-  content: TiptapContent;
+  content: JSONContent;
   footnotes: FootnotesMap;
   filePath: string;
 }
@@ -112,14 +113,8 @@ export interface ActiveNote {
   pos?: number;
 }
 
-// Структура контента Tiptap
-export interface TiptapContent {
-  type: string;
-  content?: JSONContent[];
-}
-
 // Ссловарь сносок
-export type FootnotesMap = Record<string, JSONContent[]>;
+export type FootnotesMap = Record<string, JSONContent>;
 
 // Тип отображения изображения
 export type ImageDisplayType = "block" | "inline" | "section";

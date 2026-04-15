@@ -1,10 +1,11 @@
 FB2 Writer (Photino + Next.js)
+
 Современный редактор электронных книг формата FB2, построенный на связке нативного контейнера .NET (Photino) и веб-интерфейса на Next.js (TipTap).
 🏗 Архитектура
 Проект представляет собой Monorepo с разделением на фронтенд и бэкенд:
 
-* /frontend: Веб-приложение на Next.js 14, React 18 и Tailwind CSS. Использует редактор TipTap (на базе ProseMirror) для WYSIWYG-правки текста.
-* /backend: Нативное приложение на .NET 8/9 с использованием библиотеки Photino.NET. Служит хостом для фронтенда и обеспечивает доступ к файловой системе ОС.
+* /frontend: Веб-приложение на Next.js 16, React 19 и Tailwind CSS. Использует редактор TipTap (на базе ProseMirror) для WYSIWYG-правки текста.
+* /backend: Нативное приложение на .NET 10 с использованием библиотеки Photino.NET. Служит хостом для фронтенда и обеспечивает доступ к файловой системе ОС.
 
 🚀 Быстрый старт (Разработка)
 Чтобы использовать Hot Reload (мгновенное обновление интерфейса при правке кода React):
@@ -35,7 +36,7 @@ FB2 Writer (Photino + Next.js)
 🛠 Технологический стек
 
 * UI/Editor: TipTap (ProseMirror)
-* Frontend Framework: Next.js (App Router)
+* Frontend Framework: Next.js
 * Desktop Bridge: Photino.NET
 * Styling: Tailwind CSS
 * Language: TypeScript & C#
@@ -45,11 +46,24 @@ FB2 Writer (Photino + Next.js)
 ├── FB2Writer.sln          # Файл решения Visual Studio
 ├── backend/               # C# проект (Photino хост)
 │   ├── Program.cs         # Точка входа, настройка окна
+│   ├── AppInfo.cs         # Класс для доступа к метаданным приложения
+│   └── Schemas/           # XSD-схемы FB2-документа
 │   └── wwwroot/           # Скомпилированный фронтенд (автогенерация)
+│   └── Models/            # Типы
+│   └── Services/          #  Сервисы для обработки FB2-документов, работы с файлами и взаимодействия с frontend
 ├── frontend/              # Next.js проект
-│   ├── app/               # Страницы и Layout
-│   ├── components/        # React компоненты (Editor, Sidebar, etc.)
-│   └── editor/            # Логика TipTap и хуки
+│   └── app/               # Страницы и Layout
+│       ├── layout.tsx     # Корневой макет приложения
+│       ├── page.tsx       # Основной компонент страницы редактора
+│       ├── global.css     # Глобальные стили
+│       ├── api/           # API взаимодействия с backend
+│       ├── hooks/         # Хуки
+│       ├── types/         # Типы и модели данных
+│       ├── utils/         # Вспомогательные функции
+│       └── components/    # React компоненты (Editor, Sidebar, etc.)
+│           ├── editor/    # Логика редактора TipTap
+│           ├── layout/    # Компоненты окна приложения: панели, меню
+│           └── ui/        # Универсальные компоненты
 └── .gitignore             # Общие правила исключений для Git
 
 📝 Лицензия

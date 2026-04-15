@@ -1,32 +1,28 @@
-import { useEditor, EditorContent } from '@tiptap/react';
+import { useEditor, EditorContent, JSONContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import { Bold, Italic, Quote, Strikethrough, Superscript as SuperscriptIcon, Subscript as SubscriptIcon, } from 'lucide-react';
-import React from 'react';
+import { memo, useEffect } from 'react';
 import Superscript from '@tiptap/extension-superscript';
 import Subscript from '@tiptap/extension-subscript';
 import { Fb2Subtitle } from '../../editor/extensions/fb2subtitle';
-import { TiptapContent } from '@/types/types';
+import { EditorToolbarButton } from "@/components/ui/EditorToolbarButton"
 
 interface RichTextProps {
-    content: TiptapContent | null; // TipTap JSON
-    onChange: (json: TiptapContent) => void;
+    content: JSONContent | null; // TipTap JSON
+    onChange: (json: JSONContent) => void;
 }
 
-export const RichTextEditor = ({ content, onChange }: RichTextProps) => {
-        const safeContent = React.useMemo(() => {
-        if (!content) return { type: 'doc', content: [] };
-        if (Array.isArray(content)) return { type: 'doc', content: content };
-        return content;
-    }, [content]);
+export const RichTextEditor = memo(({ content, onChange }: RichTextProps) => {
+
     const editor = useEditor({
         extensions: [StarterKit,
-            Superscript, // Без .configure(), если используешь дефолтный импорт
+            Superscript,
             Subscript,
             Fb2Subtitle
         ],
-        content: safeContent,
+        content: content ?? { type: 'doc', content: [] },
         immediatelyRender: false,
-        
+
         onUpdate: ({ editor }) => onChange(editor.getJSON()),
         editorProps: {
             attributes: {
@@ -36,11 +32,11 @@ export const RichTextEditor = ({ content, onChange }: RichTextProps) => {
         },
     });
 
-    React.useEffect(() => {
+    useEffect(() => {
         if (editor && content && editor.isEmpty) {
-            editor.commands.setContent(safeContent);
+            editor.commands.setContent(content ?? { type: 'doc', content: [] });
         }
-    }, [content, editor,safeContent]);
+    }, [content, editor]);
 
     if (!editor) return null;
 
@@ -49,30 +45,41 @@ export const RichTextEditor = ({ content, onChange }: RichTextProps) => {
             <div className="border border-gray-100 rounded-lg bg-gray-50 overflow-hidden focus-within:border-blue-400 focus-within:ring-1 focus-within:ring-blue-100 transition-all">
                 {/* Панель инструментов */}
                 <div className="flex items-center gap-1 p-1 bg-white border-b border-gray-100">
-                    <ToolbarButton
+                    <EditorToolbarButton
                         onClick={() => editor.chain().focus().toggleBold().run()}
-                        active={editor.isActive('bold')} icon={<Bold size={14} />}
+                        active={editor.isActive('bold')}
+                        disabled={!editor.can().chain().toggleBold()}
+                        icon={<Bold size={14} />}
                     />
-                    <ToolbarButton
+                    <EditorToolbarButton
                         onClick={() => editor.chain().focus().toggleItalic().run()}
-                        active={editor.isActive('italic')} icon={<Italic size={14} />}
+                        active={editor.isActive('italic')}
+                        disabled={!editor.can().chain().toggleItalic()} // ПРОВЕРКА
+                        icon={<Italic size={14} />}
                     />
 
-                    <ToolbarButton
+                    <EditorToolbarButton
                         onClick={() => editor.chain().focus().toggleStrike().run()}
-                        active={editor.isActive('strike')} icon={<Strikethrough size={14} />}
+                        active={editor.isActive('strike')}
+                        disabled={!editor.can().chain().toggleStrike()}
+                        icon={<Strikethrough size={14} />}
                     />
-                    <ToolbarButton
+                    <EditorToolbarButton
                         onClick={() => editor.chain().focus().toggleSuperscript().run()}
-                        active={editor.isActive('superscript')} icon={<SuperscriptIcon size={14} />}
+                        active={editor.isActive('superscript')}
+                        disabled={!editor.can().chain().toggleSuperscript()}
+                        icon={<SuperscriptIcon size={14} />}
                     />
-                    <ToolbarButton
+                    <EditorToolbarButton
                         onClick={() => editor.chain().focus().toggleSubscript().run()}
-                        active={editor.isActive('subscript')} icon={<SubscriptIcon size={14} />}
+                        disabled={!editor.can().chain().toggleSubscript()}
+                        active={editor.isActive('subscript')}
+                        icon={<SubscriptIcon size={14} />}
                     />
 
-                    <ToolbarButton
+                    <EditorToolbarButton
                         onClick={() => editor.chain().focus().toggleBlockquote().run()}
+                        disabled={!editor.can().chain().toggleBlockquote()}
                         active={editor.isActive('blockquote')}
                         icon={<Quote size={14} />}
                     />
@@ -83,22 +90,8 @@ export const RichTextEditor = ({ content, onChange }: RichTextProps) => {
             </div>
         </div>
     );
-};
+});
 
-interface ToolbarButtonProps {
-    onClick: () => void;
-    active?: boolean;
-    icon: React.ReactNode;
-}
+RichTextEditor.displayName = "RichTextEditor";
 
-// 2. Применяем его к компоненту
-const ToolbarButton = ({ onClick, active, icon }: ToolbarButtonProps) => (
- 
-    <button
-        type="button"
-        onClick={onClick}
-        className={`p-1.5 rounded transition-colors ${active ? 'bg-blue-100 text-blue-600' : 'text-gray-400 hover:bg-gray-100'}`}
-    >
-        {icon}
-    </button>
-);
+

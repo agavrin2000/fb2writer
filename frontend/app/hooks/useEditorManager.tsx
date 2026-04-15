@@ -56,7 +56,7 @@ export function useEditorManager(): EditorManager {
    * Ссылка на текущий объект сносков.
    * Используется для прямого доступа к данным сносок из внешних колбэков.
    */
-  const footnotesRef = useRef<Record<string, JSONContent[]>>({});
+  const footnotesRef = useRef<Record<string, JSONContent>>({});
 
   /**
    * Ссылка на функцию установки активной сноски.

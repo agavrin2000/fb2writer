@@ -13,7 +13,7 @@ namespace FB2Writer.Models;
 public record Fb2BookExport(
     [property: JsonPropertyName("metadata")] Fb2Metadata Metadata,
     [property: JsonPropertyName("content")] TipTapDoc Content,
-    [property: JsonPropertyName("footnotes")] Dictionary<string, List<TipTapNode>>? Footnotes,
+    [property: JsonPropertyName("footnotes")] Dictionary<string, TipTapDoc>? Footnotes,
     [property: JsonPropertyName("filePath")] string FilePath);
 
 /// <summary>

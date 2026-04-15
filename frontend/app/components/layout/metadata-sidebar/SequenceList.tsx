@@ -79,18 +79,18 @@ export const SequenceList = ({ items = [], onUpdate }: SequenceListProps) => {
                             }
                         }}
                         label="Название серии"
-                        value={seq.name}
+                        defaultValue={seq.name}
                         required={true}
                         error={getError("name", seq.name)}
-                        touched={seq.name !== ''}
+                        touched={true}
                         onChange={(val) => updateSequence(idx, { name: val })}
                     />
                     <Field
                         label="Номер"
-                        value={seq.number?.toString()}
+                        defaultValue={seq.number?.toString()}
                         required={true}
                         error={getError("number", seq.number?.toString())}
-                        touched={seq.number !== undefined && seq.number !== ''}
+                        touched={true}
                         onChange={(val) => updateSequence(idx, { number: val })}
                     />
                 </div>
