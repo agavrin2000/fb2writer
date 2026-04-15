@@ -1,13 +1,13 @@
 import { ChevronDown } from "lucide-react";
-import { useEffect, useRef } from "react";
+import { memo, useId } from "react";
 
-interface FieldProps {
+interface FieldProps<T extends HTMLElement>  {
   label: string;
-  defaultValue?: string;
+  value?: string;
   icon?: React.ElementType;
   type?: string;
   onChange?: (val: string) => void;
-  onBlur?: (val: string) => void; // 
+  onBlur?: (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => void;
   isEditable?: boolean;
   className?: string;
   options?: { value: string; label: string }[];
@@ -21,11 +21,12 @@ interface FieldProps {
     onClick: () => void;
     title?: string;
   };
+  ref?: React.Ref<T>;
 }
 
-export const Field = ({
+export const FieldComponent = <T extends HTMLElement = HTMLInputElement> ({
   label,
-  defaultValue,
+  value,
   type = "text",
   icon: Icon,
   onChange,
@@ -39,50 +40,42 @@ export const Field = ({
   touched,
   rows = 3,
   action,
-}: FieldProps) => {
-  const fieldId = `field-${label.replace(/\s+/g, "-").toLowerCase()}`;
-  // Универсальный реф для всех типов элементов
-  // 1. Создаем универсальный тип для рефа
-  type FormElement = HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
-
-  // ... внутри компонента ...
-
-  // 2. Указываем тип в useRef
-  const inputRef = useRef<FormElement>(null);
-
-  // 3. Используем типизированный Callback Ref без any
-  const setRef = (el: FormElement | null) => {
-    // Используем type assertion к базовому RefObject, если линтер все еще ругается,
-    // но обычно в React 19 достаточно прямого присвоения, если типы в useRef верны.
-    (inputRef as React.MutableRefObject<FormElement | null>).current = el;
-  };
-
-
-useEffect(() => {
-  if (inputRef.current) {
-    // Если значение в инпуте отличается от того, что пришло сверху (Undo/Redo)
-    // и при этом инпут сейчас НЕ в фокусе (чтобы не перебивать ввод пользователя)
-    // или если это целенаправленный откат версии
-    if (inputRef.current.value !== defaultValue) {
-      inputRef.current.value = defaultValue || "";
-    }
-  }
-}, [defaultValue]); 
+  ref
+}: FieldProps<T>) => {
+  const generatedId = useId();
+  const fieldId = `field-${generatedId}`;
+  const errorId = `${fieldId}-error`;
+  const hasAction = action && !options
 
   // Показываем ошибку только если она есть и поле было "тронуто"
   const showError = !!(error && touched);
-  // Добавляем отступ справа, если есть кнопка (pr-8), чтобы текст не заезжал под неё
-  const baseInputStyles = `w-full text-[12px] py-1.5 
-    ${Icon ? "pl-8" : "px-2"} 
-    ${action ? "pr-8" : "pr-2"} bg-gray-50 border border-gray-100 rounded focus:bg-white focus:ring-1 focus:ring-blue-100 focus:border-blue-400 outline-none transition-all text-gray-700 
-    ${showError
-      ? "border-red-300 focus:border-red-500 focus:ring-1 focus:ring-red-100 bg-red-50/30"
-      : "border-gray-100 focus:bg-white focus:ring-1 focus:ring-blue-100 focus:border-blue-400"
-    } 
-    ${required && !defaultValue ? "border-l-2 border-l-amber-400" : ""}`;
 
   // Базовые стили для input, select и textarea
-  //  const baseInputStyles = `w-full text-[12px] py-1.5 ${Icon ? "pl-8" : "px-2"} pr-2 bg-gray-50 border border-gray-100 rounded focus:bg-white focus:ring-1 focus:ring-blue-100 focus:border-blue-400 outline-none transition-all text-gray-700`;
+  const baseInputStyles = `
+  w-full text-[12px] py-1.5 transition-all outline-none rounded border
+  ${Icon ? "pl-8" : "px-2"} 
+  ${hasAction ? "pr-8" : "pr-2"} 
+  text-gray-700
+  ${!isEditable ? "bg-gray-100 cursor-not-allowed opacity-75" : "bg-gray-50 focus:bg-white focus:ring-1"}
+  ${showError
+      ? "border-red-300 focus:border-red-500 focus:ring-red-100 bg-red-50/30"
+      : "border-gray-100 focus:border-blue-400 focus:ring-blue-100"
+    }
+  ${required && !value && isEditable ? "border-l-2 border-l-amber-400" : ""}
+`.replace(/\s+/g, ' ').trim();
+
+  // Общие свойства
+const commonProps = {
+  id: fieldId,
+  value: value || "",
+  required: required,
+  tabIndex: isEditable ? undefined : -1,
+  onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
+    onChange?.(e.target.value),
+  onBlur: onBlur,
+  "aria-invalid": showError,
+  "aria-describedby": showError ? errorId : undefined,
+};
 
   return (
     <div className={`mb-3 last:mb-0 ${className}`}>
@@ -106,72 +99,59 @@ useEffect(() => {
           />
         )}
         {/* Вставляем кнопку действия, если она передана */}
-        {action && !options && !multiline && (
+        {hasAction && (
           <button
             type="button"
             onClick={action.onClick}
             title={action.title}
-            className="absolute right-1.5 top-1/2 -translate-y-1/2 p-1 text-gray-300 hover:text-blue-500 hover:bg-blue-50 rounded transition-all z-20"
+            disabled={!isEditable}
+            className="absolute right-1.5 top-1/2 -translate-y-1/2 p-1 text-gray-300 hover:text-blue-500 hover:bg-blue-50 disabled:pointer-events-none rounded transition-all z-20"
           >
             <action.icon size={14} />
           </button>
         )}
         {options ? (
-          <select
-            id={fieldId}
-            ref={setRef}
-            defaultValue={defaultValue || ""}
-            disabled={!isEditable}
-            required={required}
-            onChange={(e) => onChange?.(e.target.value)}
-            onBlur={(e) => onBlur?.(e.target.value)}
-            className={`${baseInputStyles} pr-8 appearance-none cursor-pointer`}
-          >
-            <option value="" disabled>
-              Выбрать...
-            </option>
-            {options.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
+          <div className="relative">
+            <select
+              {...commonProps}
+              ref={ref as React.Ref<HTMLSelectElement>}
+              disabled={!isEditable}
+              className={`${baseInputStyles} pr-8 appearance-none cursor-pointer`}
+            >
+              <option value="" disabled>Выбрать...</option>
+              {options.map((opt) => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
+            </select>
+            <div className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
+              <ChevronDown size={12} />
+            </div>
+          </div>
         ) : multiline ? (
           <textarea
-            id={fieldId}
-            ref={setRef}
-            defaultValue={defaultValue || ""}
-            rows={rows}
-            required={required}
+            {...commonProps}
+            ref={ref as React.Ref<HTMLTextAreaElement>}
             readOnly={!isEditable}
-            onChange={(e) => onChange?.(e.target.value)}
-            onBlur={(e) => onBlur?.(e.target.value)}
-            className={`${baseInputStyles} resize-none`}
+            rows={rows}
+            className={`${baseInputStyles} resize-none block`}
           />
         ) : (
           <input
-            id={fieldId}
-            ref={setRef}
+            {...commonProps}
+            ref={ref as React.Ref<HTMLInputElement>}
             type={type}
-            defaultValue={defaultValue || ""}
             readOnly={!isEditable}
-            required={required}
-            onChange={(e) => onChange?.(e.target.value)}
-            onBlur={(e) => onBlur?.(e.target.value)}
             className={baseInputStyles}
           />
         )}
-
-        {/* Иконка селекта */}
-        {options && (
-          <div className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
-            <ChevronDown size={12} />
-          </div>
-        )}
       </div>
 
-      {/* Вывод ошибки */}
-      <div className={`overflow-hidden transition-all duration-200 ${showError ? "max-h-10 mt-1" : "max-h-0"}`}>
+      {/* Ошибка с aria-live для скринридеров */}
+      <div
+        id={errorId}
+        aria-live="polite"
+        className={`overflow-hidden transition-all duration-200 ${showError ? "max-h-20 mt-1" : "max-h-0"}`}
+      >
         <p className="text-[10px] text-red-500 ml-0.5 font-medium leading-tight">
           {error}
         </p>
@@ -179,3 +159,7 @@ useEffect(() => {
     </div>
   );
 };
+
+export const Field = memo(FieldComponent) as <T extends HTMLElement = HTMLInputElement>(
+  props: FieldProps<T>
+) => React.ReactElement;

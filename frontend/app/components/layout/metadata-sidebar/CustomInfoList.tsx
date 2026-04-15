@@ -1,4 +1,3 @@
-import React from "react";
 import { Plus, X, Type, AlignLeft } from "lucide-react";
 
 
@@ -9,7 +8,7 @@ interface CustomItem {
 
 interface CustomInfoProps {
   items: CustomItem[];
-  onUpdate: (newItems: CustomItem[]) => void;
+    onUpdate: (newItems: CustomItem[], immediate?: boolean) => void;
 }
 
 export const CustomInfoList = ({
@@ -17,12 +16,12 @@ export const CustomInfoList = ({
   onUpdate,
 }: CustomInfoProps) => {
   const addItem = () => {
-    onUpdate([...items, { infoType: "", value: "" }]);
+    onUpdate([...items, { infoType: "", value: "" }], true);
   };
 
   const removeItem = (index: number) => {
     if (window.confirm("Удалить этот параметр?")) {
-      onUpdate(items.filter((_, i) => i !== index));
+      onUpdate(items.filter((_, i) => i !== index), true);
     }
   };
 
@@ -44,7 +43,8 @@ export const CustomInfoList = ({
             type="button"
             title="Удалить"
             onClick={() => removeItem(idx)}
-            className="absolute -right-2 -top-2 p-1.5 bg-white border border-red-100 text-red-400 rounded-full shadow-sm hover:text-red-600 opacity-0 group-hover:opacity-100 transition-all z-10"
+            className="absolute -right-2 -top-2 p-1.5 bg-white border border-red-100 text-red-400 
+            rounded-full shadow-sm hover:text-red-600 opacity-0 group-hover:opacity-100 transition-all z-10 group-focus-within:opacity-100 focus:opacity-100 focus:ring-2"
           >
             <X size={10} strokeWidth={3} />
           </button>

@@ -1,6 +1,6 @@
-import { useMemo } from 'react';
 import { Plus, X } from 'lucide-react';
 import { Field } from './Field';
+import { useRef } from 'react';
 
 interface Sequence {
     name?: string;
@@ -9,78 +9,88 @@ interface Sequence {
 
 interface SequenceListProps {
     items: Sequence[];
-    onUpdate: (newItems: Sequence[]) => void;
+    onUpdate: (newItems: Sequence[], immediate?: boolean) => void;
+    defaultOpen?: boolean;
 }
 
 export const SequenceList = ({ items = [], onUpdate }: SequenceListProps) => {
 
-    // Генерируем стабильные ключи на основе контента, чтобы инпуты 
-    // не перерисовывались при наборе текста, но обновлялись при Undo.
-    const itemsWithKeys = useMemo(() =>
-        items.map((item, idx) => ({
-            ...item,
-            _key: `sequence-block-${idx}` 
-        })),
-        [items]);
+    // Храним массив рефов для каждого названия серии
+    const inputRefs = useRef<Map<number, HTMLInputElement>>(new Map());
 
     const addSequence = () => {
-        onUpdate([...items, { name: '', number: '' }]);
+        const newItems = [...items, { name: '', number: '' }];
+        onUpdate(newItems, true);
+        // Устанавливаем фокус после того, как React отрендерит новый элемент
+        setTimeout(() => {
+            const lastIndex = newItems.length - 1;
+            inputRefs.current.get(lastIndex)?.focus();
+        }, 0);
     };
 
     const removeSequence = (index: number) => {
-        // Мгновенное удаление без блокирующего confirm для стабильности фокуса
-        onUpdate(items.filter((_, i) => i !== index));
+        const newItems = items.filter((_, i) => i !== index);
+        onUpdate(newItems, true);
+
+        // UX: возвращаем фокус на предыдущий элемент, чтобы не терять позицию
+        requestAnimationFrame(() => {
+            const nextTarget = index > 0 ? index - 1 : 0;
+            if (newItems.length > 0) {
+                inputRefs.current.get(nextTarget)?.focus();
+            }
+        });
     };
 
     const updateSequence = (index: number, updatedFields: Partial<Sequence>) => {
         const newItems = [...items];
         newItems[index] = { ...newItems[index], ...updatedFields };
-        onUpdate(newItems);
+        onUpdate(newItems, false); // Передаем false, так как это ввод текста
     };
 
-        const getError = (field: string, value: string | undefined) => {
+    const getError = (field: string, value: string | undefined) => {
         if (!value) {
             return field === "name" ? "Название серии обязательно" : "Номер обязателен";
         }
         return "";
-        };
+    };
     return (
         <div className="space-y-4">
-            {itemsWithKeys.map((seq, idx) => (
-                <div
-                    key={seq._key}
-                    className="relative group p-3 bg-gray-50/50 border border-gray-100 rounded-lg space-y-2 transition-all hover:border-blue-100"
-                >
+            {items.map((seq, idx) => (
+                <div key={idx} className="relative group p-3 bg-gray-50/50 border border-gray-100 rounded-lg space-y-2 transition-all hover:border-blue-200 focus-within:border-blue-200">
+                    {/* Удаление */}
                     <button
                         title="Удалить"
                         type="button"
-                        // onMouseDown срабатывает до потери фокуса инпутом
-                        onMouseDown={(e) => {
-                            e.preventDefault();
-                            removeSequence(idx);
-                        }}
-                        className="absolute -right-2 -top-2 p-1 bg-white border border-red-100 text-red-400 rounded-full shadow-sm hover:text-red-600 opacity-0 group-hover:opacity-100 transition-all z-10"
-                    >
+                        onClick={() => { inputRefs.current.delete(idx); removeSequence(idx); }}
+                        className="absolute -right-2 -top-2 p-1 bg-white border border-red-100 text-red-400 rounded-full shadow-sm 
+                                   hover:text-red-600 hover:border-red-200
+                                   opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus:opacity-100 
+                                   focus:ring-2 focus:ring-red-100 outline-none
+                                   transition-all z-10"                    >
                         <X size={10} strokeWidth={3} />
                     </button>
 
                     <Field
-                        // Передаем уникальный ключ в Field, чтобы он сбросился при Undo
-                        key={`${seq._key}-name`}
+                        ref={(el) => {
+                            if (el) {
+                                inputRefs.current.set(idx, el as HTMLInputElement);
+                            } else {
+                                inputRefs.current.delete(idx);
+                            }
+                        }}
                         label="Название серии"
+                        value={seq.name}
                         required={true}
                         error={getError("name", seq.name)}
-                        touched={true}
-                        defaultValue={seq.name}
+                        touched={seq.name !== ''}
                         onChange={(val) => updateSequence(idx, { name: val })}
                     />
                     <Field
-                        key={`${seq._key}-num`}
                         label="Номер"
+                        value={seq.number?.toString()}
                         required={true}
-                        error={getError("num", seq.number?.toString())}
-                        touched={true}
-                        defaultValue={seq.number?.toString()}
+                        error={getError("number", seq.number?.toString())}
+                        touched={seq.number !== undefined && seq.number !== ''}
                         onChange={(val) => updateSequence(idx, { number: val })}
                     />
                 </div>

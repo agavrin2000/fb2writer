@@ -22,12 +22,12 @@ interface GenreListProps {
 
 export const GenreList = ({ genres = [], onUpdate, availableGenres = [] }: GenreListProps) => {
     const [isAdding, setIsAdding] = useState(false);
-    const [searchFilter, setSearchFilter] = useState('');
+    const [searchTerm, setSearchTerm] = useState('');
     const [activeIndex, setActiveIndex] = useState(0); // Индекс активного элемента для стрелок
     const listRef = useRef<HTMLDivElement>(null);
 
     const { refs, floatingStyles, isPositioned } = useFloating({
-        open: isAdding && searchFilter.length > 0,
+        open: isAdding && searchTerm.length > 0,
         placement: 'bottom-start',
         strategy: 'fixed', // Важно: фиксированное позиционирование для порталов
         whileElementsMounted: autoUpdate,
@@ -41,26 +41,29 @@ export const GenreList = ({ genres = [], onUpdate, availableGenres = [] }: Genre
 
     // Расширенная фильтрация (по label и по id)
     const filteredOptions = useMemo(() => {
-        const lowerTerm = searchFilter.toLowerCase();
+        const lowerTerm = searchTerm.toLowerCase();
         return availableGenres.filter(g =>
             !genres.includes(g.id) &&
             (g.label.toLowerCase().includes(lowerTerm) || g.id.toLowerCase().includes(lowerTerm))
         ).slice(0, 10);
-    }, [genres, searchFilter, availableGenres]);
+    }, [genres, searchTerm, availableGenres]);
 
     // Сбрасываем индекс при изменении поиска
     //   useEffect(() => setActiveIndex(0), [searchTerm]);
 
     // 1. Добавляем стейт для отслеживания предыдущего поискового запроса
-    const [prevFilter, setPrevFilter] = useState(searchFilter);
-    if (searchFilter !== prevFilter) {
-        setPrevFilter(searchFilter);
+    const [prevSearchTerm, setPrevSearchTerm] = useState(searchTerm);
+
+    // 2. Сбрасываем индекс прямо во время рендера, если поиск изменился
+    if (searchTerm !== prevSearchTerm) {
+        setPrevSearchTerm(searchTerm);
         setActiveIndex(0);
     }
+
     const handleSelect = (genreId: string) => {
         if (!genreId) return;
         onUpdate([...genres, genreId]);
-        setSearchFilter('');
+        setSearchTerm('');
         setIsAdding(false);
     };
 
@@ -107,10 +110,7 @@ export const GenreList = ({ genres = [], onUpdate, availableGenres = [] }: Genre
                     <button
                         type="button"
                         aria-label={`Удалить ${getLabel(id)}`}
-                            onMouseDown={(e) => {
-                            e.preventDefault(); // Чтобы не терять фокус, если инпут открыт
-                            onUpdate(genres.filter((_, i) => i !== idx));
-                        }}
+                        onClick={() => onUpdate(genres.filter((_, i) => i !== idx))}
                         className="text-blue-300 hover:text-red-500 transition-colors"
                     >
                         <X size={10} strokeWidth={3} />
@@ -128,15 +128,15 @@ export const GenreList = ({ genres = [], onUpdate, availableGenres = [] }: Genre
                             type="text"
                             placeholder="Название или код..."
                             className="text-[11px] pl-7 pr-2 py-1.5 border-2 border-blue-400 rounded-md outline-none w-56 shadow-sm"
-                            defaultValue=""
-                            onChange={(e) => setSearchFilter(e.target.value)}
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
                             onKeyDown={handleKeyDown}
                             onBlur={() => setTimeout(() => setIsAdding(false), 200)}
                         />
                         <Search size={12} className="absolute left-2.5 text-blue-500" />
                     </div>
 
-                    {searchFilter && (
+                    {searchTerm && (
                         <FloatingPortal>
                             <div
                                 ref={(node) => { refs.setFloating(node); }}
