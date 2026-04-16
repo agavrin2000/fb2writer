@@ -228,7 +228,7 @@ public class MessageHub(PhotinoWindow window, FileService fileService, string? i
         var messageData = new EmitMessage(type, payload);
 
         // Используем перегрузку с TypeInfo
-        var message = JsonSerializer.Serialize(messageData, EmitContext.Default.EmitMessage);
+        var message = JsonSerializer.Serialize(messageData, EmitContext.Custom.EmitMessage);
         window.SendWebMessage(message);
     }
 }

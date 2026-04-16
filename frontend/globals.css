@@ -1,0 +1,748 @@
+@import "tailwindcss";
+
+@theme {
+  /* --- Цвета приложения (UI) --- */
+  --color-ui-bg: #ffffff;
+  --color-ui-bg-hover: #f3f4f6;
+  --color-ui-bg-hover: #334155;
+  --color-ui-border: #e5e7eb;
+  --color-ui-text: #374151;
+  --color-ui-text-muted: #6b7280;
+  --color-ui-accent: #6366f1;
+  /* Indigo-500 */
+  --color-ui-accent-foreground: #ffffff;
+
+  /* --- Цвета редактора (Paper) --- */
+  --color-paper-bg: #fdfdfd;
+  --color-paper-border: #d1d5db;
+  --color-paper-text: #2c3e50;
+  --color-paper-selection: #cbd5e1;
+
+  /* --- Тени --- */
+  --shadow-dropdown: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+
+  /* Бумажный лист */
+  --text-selection: #cbd5e1;
+
+  /* Цвета и размеры для скроллбара */
+  --scroll-thumb-idle: rgba(0, 0, 0, 0.01);
+  --scroll-thumb-hover-area: rgba(148, 163, 184, 0.3);
+  --scroll-thumb-hover-direct: rgba(100, 116, 139, 0.7);
+  --scroll-track-hover: rgba(0, 0, 0, 0.03);
+  --scroll-width: 8px;
+}
+
+.dark {
+  /* UI */
+  --color-ui-bg: #1e293b;
+  /* Slate-800 */
+  --color-ui-bg-hover: #334155;
+  /* Slate-700 */
+  --color-ui-border: #334155;
+  /* Slate-700 */
+  --color-ui-text: #f1f5f9;
+  /* Slate-100 */
+  --color-ui-text-muted: #94a3b8;
+  /* Slate-400 */
+  --color-ui-accent: #818cf8;
+  /* Indigo-400 */
+
+  /* Paper */
+  --color-paper-bg: #0f172a;
+  /* Slate-900 */
+  --color-paper-border: #1e293b;
+  /* Slate-800 */
+  --color-paper-text: #e2e8f0;
+  /* Slate-200 */
+  --color-paper-selection: #334155;
+
+  --text-selection: #1e3a8a;
+  /* blue-900 */
+  /* Тени в темной теме должны быть гуще */
+  --shadow-dropdown: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
+  --scroll-thumb-idle: rgba(255, 255, 255, 0.01);
+  --scroll-thumb-hover-area: rgba(255, 255, 255, 0.15);
+  /* Светло-серый полупрозрачный */
+  --scroll-thumb-hover-direct: rgba(255, 255, 255, 0.4);
+  /* Более яркий при наведении */
+  --scroll-track-hover: rgba(255, 255, 255, 0.02);
+  /* Принудительная инверсия для системных элементов браузера */
+  color-scheme: dark;
+}
+
+/* Плагины в v4 подключаются тоже в CSS */
+@plugin "tailwindcss-animate";
+
+:root {
+  --foreground-rgb: 0, 0, 0;
+  --background-start-rgb: 214, 219, 220;
+  --background-end-rgb: 255, 255, 255;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --foreground-rgb: 255, 255, 255;
+    --background-start-rgb: 0, 0, 0;
+    --background-end-rgb: 0, 0, 0;
+  }
+}
+
+body {
+  /* Спокойный светло-серый или бежевый "рабочий стол" */
+  background-color: var(--color-ui-bg);
+  color: var(--color-paper-text);
+  transition: background-color 0.3s, color 0.3s;
+  min-height: 100vh;
+  margin: 0;
+  padding: 0;
+}
+
+/* Контейнер-обертка для имитации бумажного листа */
+.editor-paper-sheet {
+  width: 90%;
+  min-width: 80%;
+  max-width: 800px;
+  margin: 40px auto 80px;
+  /* Отступы снаружи (сверху/снизу) */
+  position: relative;
+
+  /* 2. ВИЗУАЛ (рамки, тени, скругления) */
+  border: 1px solid var(--color-paper-border);
+  border-radius: 0.125rem;
+  /* rounded-sm */
+  box-shadow: var(--shadow-paper);
+  /* Используем переменную для тени */
+
+  /* 3. ЦВЕТ (динамический) */
+  background-color: var(--color-paper-bg);
+  transition: background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+
+  /* 4. ВНУТРЕННИЕ ОТСТУПЫ И КУРСОР */
+  cursor: text;
+}
+
+
+/* СКРОЛЛБАР */
+.custom-scrollbar {
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+}
+
+@supports (overflow-y: overlay) {
+  .custom-scrollbar {
+    overflow-y: overlay;
+    /* Скроллбар будет рисоваться ПОВЕРХ контента, не сдвигая его */
+  }
+}
+
+/* Ширина скроллбара */
+.custom-scrollbar::-webkit-scrollbar {
+  width: var(--scroll-width);
+}
+
+/* 2. Ползунок (состояние покоя) */
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background-color: var(--scroll-thumb-idle);
+  /* Полная прозрачность через RGBA */
+  border-radius: 20px;
+  min-height: 150px;
+  /* Делаем его длинным, чтобы легко было попасть */
+  border: 2px solid transparent;
+  /* Создаем отступ, чтобы он был изящным */
+  background-clip: padding-box;
+  /* Чтобы border не съедал цвет */
+  transition: background-color 0.2s ease;
+  /* Плавное появление */
+}
+
+/* Наведение на ползунок (проявление)Показываем ползунок, когда мышь ВНУТРИ всего контейнера */
+/* Это заставит его проявиться, как только вы начнете двигать мышь по редактору */
+.custom-scrollbar:hover::-webkit-scrollbar-thumb {
+  background-color: var(--scroll-thumb-hover-area);
+}
+
+/* Прямое наведение на ползунок */
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: var(--scroll-thumb-hover-direct) !important;
+}
+
+/* Подсветка дорожки скроллбара */
+.custom-scrollbar::-webkit-scrollbar-track:hover {
+  background-color: var(--scroll-track-hover);
+}
+
+/* Отключаем скролл для всего окна браузера (Photino) */
+html,
+body,
+#__next {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+/* НАСТРОЙКА TipTap */
+
+/* Настройка шрифтов внутри TipTap */
+.tiptap {
+  font-family: "Georgia", serif;
+  font-size: 19px;
+  line-height: 1.8;
+  min-height: 100%;
+  color: var(--color-text-main);
+  outline: none !important;
+}
+
+/* Основной текст параграфов */
+.tiptap p {
+  margin-bottom: 0.5em;
+  /* В книгах чаще отступ только строкой */
+  text-indent: 1.5em;
+  text-align: justify;
+  hyphens: auto;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
+/* Подсветка выделения */
+.tiptap ::selection {
+  background-color: var(--text-selection);
+}
+
+
+.fb2-body-section {
+  display: block;
+}
+
+/* 1. Базовый вид всех секций */
+section.fb2-section {
+  display: block;
+  position: relative;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  margin: 20px 0;
+  padding: 30px;
+  background-color: transparent;
+  /* Белый фон перекрывает фон родителя */
+  transition:
+    border-color 0.2s,
+    box-shadow 0.2s;
+  /* Сильно ускоряет рендер длинных списков */
+  content-visibility: auto;
+  contain-intrinsic-size: 1px 2000px;
+  /* ЭТО ЗАМЕНИТ ВАШ ТРЯСУЩИЙСЯ JS РАСЧЕТ */
+}
+
+.section-node-wrapper {
+  /* Резервируем место сверху (вместо -80px в JS) */
+  scroll-margin-top: 80px !important;
+}
+
+/* 3. Иерархия (лесенка) */
+/* Вложенная обертка внутри другой обертки получает отступ */
+.section-node-wrapper .section-node-wrapper {
+  margin-left: 25px;
+  overflow: visible;
+}
+
+/* Базовое состояние ручки */
+.section-handle {
+  /* 1. Позиционирование */
+  position: sticky;
+  top: 20px;
+  float: right;
+  margin-right: -25px;
+  /* Вынос вправо за пределы рамки */
+  z-index: 50;
+
+  /* 2. Размеры и центрирование */
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  /* 3. Оформление */
+  cursor: pointer;
+  border-radius: 6px;
+  background-color: #ffffff;
+  color: #94a3b8;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+
+  /* 4. Плавность */
+  transition: all 0.2s ease-in-out;
+  /* 4. Запрет выделения текста внутри ручки */
+  -webkit-user-select: none;
+  /* Safari 3+, Safari on iOS */
+  -moz-user-select: none;
+  /* Firefox */
+  -ms-user-select: none;
+  /* IE 10+ */
+  user-select: none;
+  /* Chrome, Edge, Opera */
+
+  /* Убираем эффект подсвечивания тапа на iOS (серый квадрат при клике) */
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Состояние при наведении */
+.section-handle:hover {
+  background-color: #f8fafc !important;
+  border-color: #3b82f6 !important;
+  color: #3b82f6 !important;
+}
+
+/* 2. ПОДСВЕТКА ТОЛЬКО ПРЯМОЙ РУЧКИ */
+/* Заменяем .is-selected на системный класс ProseMirror */
+.section-node-wrapper.ProseMirror-selectednode>.section-handle {
+  background-color: #3b82f6 !important;
+  color: #ffffff !important;
+  border-color: #2563eb !important;
+}
+
+/* 3. ТО ЖЕ САМОЕ ДЛЯ РАМКИ СЕКЦИИ */
+.section-node-wrapper.ProseMirror-selectednode>section.fb2-section {
+  border-color: #3b82f6 !important;
+  background-color: rgba(59, 130, 246, 0.02);
+}
+
+/* 4. СБРОС ДЛЯ ВЛОЖЕННЫХ */
+.section-node-wrapper.ProseMirror-selectednode .section-node-wrapper:not(.ProseMirror-selectednode)>.section-handle {
+  background-color: #ffffff !important;
+  color: #94a3b8 !important;
+  border-color: #e2e8f0 !important;
+}
+
+/* ПОЭМА */
+.fb2-poem {
+  @apply block relative border-2 border-dashed border-[#e0e0e0] rounded bg-white pt-[30px] pl-[30px] pr-[30px] pb-[10px] transition-all duration-200 ease-in-out;
+  transition-property: border-color, box-shadow;
+}
+
+/*
+.fb2-poem {
+  @apply block relative 
+         bg-white rounded-xl 
+         border-2 border-dashed border-slate-200 
+         p-8 md:p-10
+         shadow-sm
+         transition-all duration-300 ease-in-out;
+}*/
+
+.fb2-poem:hover::before {
+  content: "Поэма";
+  pointer-events: none;
+  @apply absolute -top-6 right-3 bg-indigo-400 text-white text-[10px] px-2 py-0.5 rounded font-sans not-italic tracking-wider z-10;
+}
+
+/* Если мы навели на строфу внутри - прячем этикетку поэмы */
+.fb2-poem:has(.fb2-stanza:hover)::before {
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+/* Базовое состояние ручки */
+.poem-handle {
+  /* 1. Позиционирование */
+  position: sticky;
+  top: 20px;
+  float: right;
+  margin-right: -30px;
+  /* Вынос вправо за пределы рамки */
+  z-index: 50;
+
+  /* 2. Размеры и центрирование */
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  /* 3. Оформление */
+  cursor: pointer;
+  border-radius: 6px;
+  background-color: #ffffff;
+  color: #94a3b8;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+
+  /* 4. Плавность */
+  transition: all 0.2s ease-in-out;
+  /* 4. Запрет выделения текста внутри ручки */
+  -webkit-user-select: none;
+  /* Safari 3+, Safari on iOS */
+  -moz-user-select: none;
+  /* Firefox */
+  -ms-user-select: none;
+  /* IE 10+ */
+  user-select: none;
+  /* Chrome, Edge, Opera */
+
+  /* Убираем эффект подсвечивания тапа на iOS (серый квадрат при клике) */
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Состояние при наведении */
+.poem-handle:hover {
+  background-color: #f8fafc !important;
+  border-color: #3b82f6 !important;
+  color: #3b82f6 !important;
+}
+
+/* 2. ПОДСВЕТКА ТОЛЬКО ПРЯМОЙ РУЧКИ */
+/* Заменяем .is-selected на системный класс ProseMirror */
+.poem-node-wrapper.ProseMirror-selectednode>.poem-handle {
+  background-color: #3b82f6 !important;
+  color: #ffffff !important;
+  border-color: #2563eb !important;
+}
+
+/* 3. ТО ЖЕ САМОЕ ДЛЯ РАМКИ СЕКЦИИ */
+.poem-node-wrapper.ProseMirror-selectednode>poem.fb2-poem {
+  border-color: #3b82f6 !important;
+  background-color: rgba(59, 130, 246, 0.02);
+}
+
+
+/* ОБЩИЙ КЛАСС ДЛЯ ВСЕХ ЭЛЕМЕНТОВ С ЭТИКЕТКАМИ */
+.fb2-labeled-node {
+  @apply relative transition-all duration-200 rounded;
+  --label-offset: -1.75rem;
+  outline: 2px solid transparent;
+  outline-offset: 4px;
+}
+
+.fb2-labeled-node:hover {
+  outline-color: #6366f1;
+  /* indigo-500 */
+}
+
+/* Сама метка (универсальная) */
+.fb2-labeled-node::before {
+  /* Берем текст из атрибута data-label */
+  content: attr(data-label);
+  pointer-events: none;
+  top: var(--label-offset);
+  opacity: 0;
+  @apply absolute right-0 bg-indigo-400 text-white text-[10px] px-2 py-1 rounded font-sans font-normal not-italic z-20 whitespace-nowrap transition-opacity duration-150 tracking-normal indent-0 shadow-sm;
+}
+
+.fb2-labeled-node:hover::before {
+  opacity: 1;
+}
+
+/* ЗАГОЛОВОК */
+
+/* Базовое состояние (невидимое) */
+.fb2-title {
+  @extend .fb2-labeled-node;
+  @apply text-2xl tracking-[0.2em];
+}
+
+/* Выравнивание по центру для всех параграфов */
+.fb2-title,
+.fb2-title * {
+  text-align: center !important;
+}
+
+/* ЭПИГРАФ */
+
+/* Базовое состояние (невидимое) */
+.fb2-epigraph {
+  @apply ml-auto mb-6 max-w-[60%] border-l-2 pl-4 py-1 transition-all;
+  color: #4b5563 !important;
+  /* gray-600 */
+  border-color: #e0e7ff !important;
+  /* indigo-100 */
+}
+
+.dark .fb2-epigraph {
+  color: #9ca3af !important;
+  /* Указываем все параметры границы сразу */
+  border-left: 3px solid #4338ca !important;
+  /* indigo-700 для лучшей видимости */
+}
+
+/* ПОДЗАГОЛОВОК */
+.fb2-subtitle {
+  @extend .fb2-labeled-node;
+  --label-offset: -2rem;
+  text-align: center !important;
+}
+
+/* ЦИТАТА */
+.fb2-cite {
+  display: block;
+  /* Используем rem для стабильности отступа */
+  margin: 1.5rem 0 1.5rem 2.5rem;
+  padding: 0.2rem 0 0.2rem 1.2rem;
+  border-left: 3px solid #e5e7eb;
+  /* Чуть заметнее */
+
+  /* Текст: уходим от чисто черного к темно-серому */
+  color: #4b5563;
+  font-size: 0.85em;
+  line-height: 1.6;
+}
+
+
+/* ТЕКСТ АВТОРА */
+.fb2-text-author {
+  text-align: right !important;
+  @apply block mt-3 font-bold text-sm uppercase tracking-wider;
+}
+
+/* СТРОФА */
+.fb2-stanza {
+  position: relative;
+  transition: all 0.2s ease-in-out;
+  border-radius: 4px;
+  margin: 1rem 0;
+  /* Увеличил отступ между строфами */
+  padding: 8px 0;
+  /* Чтобы рамка строфы была заметнее */
+}
+
+/* Рамка СТРОФЫ — пунктирная и ВНУТРИ */
+.fb2-stanza:hover {
+  /* Используем box-shadow вместо outline, чтобы не конфликтовать с внешней рамкой */
+  /* Либо классический outline, но с отрицательным смещением */
+  outline: 1px solid #818cf8;
+  outline-offset: 2px;
+}
+
+.fb2-stanza:hover::before {
+  content: "Строфа";
+  @apply absolute -top-7 right-0 bg-indigo-400 text-white text-[10px] px-2 py-1 rounded font-sans not-italic z-20;
+}
+
+/* Фикс наложения: при наведении на строфу делаем рамку поэмы полупрозрачной */
+.fb2-poem:has(.fb2-stanza:hover) {
+  outline-color: rgba(99, 102, 241, 0.3);
+}
+
+.fb2-poem:has(.fb2-stanza:hover)::before {
+  opacity: 0.4;
+}
+
+.fb2-v {
+  white-space: pre-wrap;
+  display: block;
+  text-indent: 0 !important;
+  /* У стихов не должно быть красной строки из общих стилей <p> */
+  text-align: left !important;
+}
+
+/* РЕДАКТОР СНОСОК, АННОТАЦИЙ И ИСТОРИИ */
+.note-popup-editor.tiptap {
+  line-height: 1.4;
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  /* Отличаем от книжного шрифта */
+  font-size: small;
+}
+
+.note-popup-editor.tiptap p {
+  margin-bottom: 0.5rem;
+}
+
+.note-popup-editor .fb2-labeled-node {
+  /* Убираем outline полностью, чтобы он не мерцал при наведении и уходе */
+  outline: none !important;
+  /* Убираем смещение, если оно было */
+  outline-offset: 0 !important;
+}
+
+/* Полностью отключаем псевдоэлемент этикетки */
+.note-popup-editor .fb2-labeled-node::before {
+  content: none !important;
+  display: none !important;
+}
+
+/* ИЗОБРАЖЕНИЕ */
+.tiptap img {
+  @apply max-w-full h-auto transition-all duration-200 shadow-md;
+  display: inline-block;
+  vertical-align: baseline;
+}
+
+/* Состояние выделения (выбор кликом в TipTap) */
+.tiptap img.ProseMirror-selectednode {
+  /* Используем outline и кольцо свечения */
+  outline: 3px solid var(--color-blue-500, #3b82f6);
+  outline-offset: 2px;
+  /* box-shadow через переменную для чистоты */
+  box-shadow: 0 0 0 6px color-mix(in srgb, var(--color-blue-500, #3b82f6) 15%, transparent);
+  @apply rounded-sm;
+}
+
+/* Эффект при наведении (только если картинка не выделена в данный момент) */
+.tiptap img:not(.ProseMirror-selectednode):hover {
+  @apply cursor-pointer brightness-85;
+}
+
+.tiptap img.fb2-block-image {
+  @apply block my-6 mx-auto;
+}
+
+/* ПЛЕЙСХОЛДЕР */
+.fb2-placeholder-wrapper {
+  height: 0;
+  /* Не занимает места в структуре */
+  overflow: visible;
+  position: relative;
+}
+
+.fb2-placeholder-editable {
+  position: absolute;
+  top: -10px;
+  left: 0;
+  width: 100%;
+  height: 20px;
+  outline: none;
+  cursor: text;
+  /* Каретка будет мигать здесь */
+  caret-color: #3b82f6;
+}
+
+/* ВЫБОР ДАТЫ */
+.fb2-date-container {
+  display: flex;
+  /* Меняем на блочный flex для выравнивания */
+  justify-content: flex-end;
+  /* Прижимаем всё содержимое к правому краю */
+  align-items: center;
+  gap: 8px;
+  background: transparent;
+  /* Убираем фон контейнера */
+  padding: 4px 0;
+  /* Немного отступа сверху/снизу */
+}
+
+.fb2-date-text {
+  min-width: 1ch;
+  outline: none;
+  font-style: italic;
+  /* Обычно даты в FB2 пишутся курсивом */
+}
+
+/* Плашка с технической датой */
+.fb2-date-badge {
+  background: transparent;
+  /* Убираем фон плашки */
+  color: #94a3b8;
+  /* Делаем цвет даты более приглушенным */
+  padding: 0 4px;
+  font-size: 0.85em;
+  user-select: none;
+  white-space: nowrap;
+  font-family: monospace;
+  /* Моноширинный шрифт для YYYY-MM-DD */
+}
+
+.fb2-date-controls {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  opacity: 0.6;
+  /* Кнопка будет полупрозрачной, пока не навели */
+  transition: opacity 0.2s;
+}
+
+.fb2-date-controls:hover {
+  opacity: 1;
+  /* Проявляется при наведении */
+}
+
+.fb2-date-controls button {
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  padding: 0;
+  display: flex;
+  font-size: 1.1em;
+}
+
+.fb2-date-controls input[type="date"]::-webkit-calendar-picker-indicator {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+
+/* ССЫЛКИ */
+.fb2-link {
+  @apply text-blue-600 decoration-blue-300 transition-colors underline underline-offset-4;
+  display: inline;
+  user-select: none;
+  cursor: pointer;
+}
+
+.fb2-link:hover {
+  @apply text-blue-800 decoration-blue-500 decoration-2;
+}
+
+@layer components {
+
+  /* Базовая кнопка */
+  .toolbar-btn {
+    @apply p-1.5 px-3 rounded text-xs font-bold transition-all flex items-center justify-center border border-transparent whitespace-nowrap;
+    @apply disabled:cursor-not-allowed disabled:pointer-events-none;
+    /* Наследуем disabled цвета из переменных для темной темы */
+  /* Стили для светлой темы (по умолчанию) */
+  @apply disabled:bg-gray-100 disabled:text-[var(--color-ui-text-muted)] disabled:border-gray-200 disabled:opacity-100;
+
+  /* Стили для темной темы (через класс dark или медиа-запрос) */
+  .dark & {
+    @apply disabled:bg-[var(--color-ui-bg-hover)] disabled:text-[var(--color-ui-text-muted)] disabled:opacity-50;
+    @apply disabled:border-transparent;
+  }
+  }
+
+  .toolbar-btn-default {
+    background-color: var(--color-ui-bg);
+    border-color: var(--color-ui-border);
+    color: var(--color-ui-text);
+    @apply shadow-sm hover:bg-[var(--color-ui-bg-hover)] active:opacity-80;
+  }
+
+  .toolbar-btn-active {
+    /* Акцентный цвет (индиго) обычно хорошо смотрится в обеих темах */
+    background-color: var(--color-ui-accent);
+    color: var(--color-ui-accent-foreground);
+    @apply shadow-inner border-indigo-700/50;
+  }
+
+  /* Меню заголовка */
+  .header-menu-btn {
+    color: var(--color-ui-text);
+    @apply px-3 py-1 text-sm rounded transition-all duration-200 hover:bg-[var(--color-ui-bg-hover)];
+  }
+
+  .header-menu-btn.is-active {
+    background-color: var(--color-ui-accent);
+    color: var(--color-ui-accent-foreground);
+    @apply font-medium;
+  }
+
+  /* Выпадающий список */
+  .header-dropdown {
+    background-color: var(--color-ui-bg);
+    border-color: var(--color-ui-border);
+    box-shadow: var(--shadow-dropdown);
+    @apply absolute top-full left-0 w-64 py-1 z-50 border;
+  }
+
+  /* Пункт меню */
+  .header-item {
+    color: var(--color-ui-text);
+    @apply w-full text-left px-4 py-1.5 flex justify-between items-center text-sm transition-colors cursor-default;
+    /* Инвертируем hover: в темной теме индиго может быть слишком ярким, 
+       можно использовать ui-bg-hover или оставить акцент */
+    @apply hover:bg-[var(--color-ui-accent)] hover:text-[var(--color-ui-accent-foreground)];
+    @apply disabled:opacity-30 disabled:pointer-events-none;
+  }
+}

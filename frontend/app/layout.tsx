@@ -3,8 +3,8 @@ import type { Metadata } from "next";
 import "@/globals.css";
 import { ConfirmProvider } from "@/hooks/ConfirmContext";
 import { ToastProvider } from "@/hooks/ToastContext";
-import PhotinoInitializer from "@/api/PhotinoInitializer";
-
+import PhotinoInitializer from "@/services/PhotinoInitializer";
+import { ThemeProvider } from 'next-themes'
 /**
  * Метаданные страницы приложения.
  * Определяют заголовок и описание для корневого макета.
@@ -39,12 +39,15 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="ru">
+    <html lang="ru" suppressHydrationWarning>
       <body className="antialiased">
-        <ToastProvider>
-          <PhotinoInitializer />
-          <ConfirmProvider>{children}</ConfirmProvider>
-        </ToastProvider>
+        <ThemeProvider attribute="class" defaultTheme="system" 
+          enableSystem>
+          <ToastProvider>
+            <PhotinoInitializer />
+            <ConfirmProvider>{children}</ConfirmProvider>
+          </ToastProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

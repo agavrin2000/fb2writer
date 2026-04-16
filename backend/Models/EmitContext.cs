@@ -61,6 +61,7 @@ public record AppDetails(
 [JsonSerializable(typeof(Dictionary<string, string>))] // Для атрибутов (attrs)
 internal partial class EmitContext : JsonSerializerContext
 {
+     public static readonly EmitContext Custom = new (CustomOptions);
     private static JsonSerializerOptions? _customOptions;
 
     /// <summary>

@@ -93,7 +93,7 @@ export default function Page() {
   }, [isMetadataSidebarOpen, editor]);
 
   return (
-    <div className="flex flex-col h-screen overflow-hidden bg-white">
+    <div className="flex flex-col h-screen overflow-hidden">
       {/* Верхняя строка меню */}
       <Header
         editor={editor}
@@ -114,7 +114,7 @@ export default function Page() {
         />
 
         {/* Центральная область — редактор */}
-        <main className="flex-1 flex flex-col min-w-0 bg-gray-100">
+        <main className="flex-1 flex flex-col min-w-0">
           <Toolbar
             editor={editor}
             onSelectImage={actions.selectImage}

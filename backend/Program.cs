@@ -12,7 +12,7 @@ class Program
     /// </summary>
     private static PhotinoWindow _window = null!;
 
-    #if DEBUG
+#if DEBUG
     public static bool IsDebugMode = true;
 #else
     public static bool IsDebugMode = false;
@@ -21,13 +21,11 @@ class Program
     [STAThread]
     static void Main(string[] args)
     {
-        AssetHandler.IndexEmbeddedResources(AppInfo.AssemblyName);
+        var iconPath = AssetHandler.ExtractIconResource("fb2writer.ico");
+        string tempUserDataPath = Path.Combine(Path.GetTempPath(), $"{AppInfo.AssemblyName}_Cache");
 
         string virtualDomain = "https://fb2.local";
         string appUrl = IsDebugMode ? "http://localhost:3000" : $"{virtualDomain}/index.html";
-        string tempUserDataPath = Path.Combine(Path.GetTempPath(), $"{AppInfo.AssemblyName}_Cache");
-
-        var iconPath = AssetHandler.ExtractIconResource("fb2writer.ico");
 
         // Creating a new PhotinoWindow instance with the fluent API
         _window = new PhotinoWindow()
@@ -41,9 +39,14 @@ class Program
             .SetDevToolsEnabled(true)
             .SetContextMenuEnabled(true)
             .SetBrowserControlInitParameters("--allow-file-access-from-files --allow-scheme-access --disable-http-cache")
-            .SetTemporaryFilesPath(tempUserDataPath)
-            .RegisterCustomSchemeHandler("https", (sender, scheme, url, out ct) =>
-                AssetHandler.GetResourceStream(url, "https://fb2.local", out ct));
+            .SetTemporaryFilesPath(tempUserDataPath);
+
+        if (!IsDebugMode)
+        {
+            AssetHandler.IndexEmbeddedResources(AppInfo.AssemblyName);
+            _window.RegisterCustomSchemeHandler("https", (sender, scheme, url, out ct) =>
+                AssetHandler.GetResourceStream(url, virtualDomain, out ct));
+        }
 
         // Проверяем, передан ли путь к файлу (обычно это первый аргумент после имени exe)
         string? initialFile = args.Length > 0 && File.Exists(args[0]) ? args[0] : null;
@@ -56,7 +59,7 @@ class Program
         _window.RegisterWindowClosingHandler((sender, args) =>
          {
              // Если поднята рука "можно закрывать" — возвращаем false (не отменять закрытие)
-            if (messageHub.canClose) return false;
+             if (messageHub.canClose) return false;
              // Внимание: В Photino.NET логика инвертирована относительно WPF:
              // возвращаемое значение типа bool указывает, нужно ли ОТМЕНИТЬ закрытие.
              messageHub.Emit("show-exit-confirmation", "");

@@ -120,7 +120,7 @@ public static class AssetHandler
         using Stream? stream = assembly.GetManifestResourceStream(fullResourceName);
         if (stream == null) return resourceName;
 
-        using FileStream fileStream = new FileStream(tempPath, FileMode.Create, FileAccess.Write);
+        using FileStream fileStream = new(tempPath, FileMode.Create, FileAccess.Write);
         stream.CopyTo(fileStream);
 
         return tempPath;
