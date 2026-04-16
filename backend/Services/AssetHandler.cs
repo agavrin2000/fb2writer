@@ -15,66 +15,61 @@ public static class AssetHandler
     /// </summary>
     private static readonly Dictionary<string, string> _resourceMap = new();
 
-    /// <summary>
-    /// Индексирует встроенные ресурсы из сборки, соответствующие статическим файлам в папке wwwroot.
-    /// Создаёт карту путей (в формате URL) к именам ресурсов в манифесте, позволяя быстро получать доступ к файлам по их виртуальному пути.
-    /// Например, преобразует имя ресурса "FB2Writer.Resources.wwwroot.static.js.main.js" в путь "static/js/main.js".
-    /// Выполняется один раз при инициализации хоста.
-    /// </summary>
     public static void IndexEmbeddedResources(string assemblyName)
     {
-        var assembly = Assembly.GetExecutingAssembly();
+        var assembly = typeof(AssetHandler).Assembly;
+        // Префикс, который Web SDK добавляет к файлам в папке Resources/wwwroot
         string prefix = $"{assemblyName}.Resources.wwwroot.";
 
         foreach (var res in assembly.GetManifestResourceNames())
         {
-            if (!res.StartsWith(prefix)) continue;
-
-            string path = res.Substring(prefix.Length);
-            int lastDot = path.LastIndexOf('.');
-            if (lastDot > 0)
+            if (res.StartsWith(prefix))
             {
-                string name = path.Substring(0, lastDot).Replace('.', '/');
-                string ext = path.Substring(lastDot);
-                _resourceMap[name + ext] = res;
-            }
-            else
-            {
-                _resourceMap[path] = res;
+                // Сохраняем как есть: "Resources.wwwroot.static.js.main.js"
+                // Или обрезаем только имя сборки для удобства поиска
+                _resourceMap[res] = res;
             }
         }
     }
 
-    /// <summary>
-    /// Возвращает поток данных для запрошенного ресурса по указанному URL.
-    /// Используется веб-сервером для отдачи статических файлов из встроенных ресурсов.
-    /// В случае отсутствия точного совпадения и отсутствия расширения у URL, возвращается index.html (SPA fallback).
-    /// </summary>
-    /// <param name="url">Полный URL запрашиваемого ресурса.</param>
-    /// <param name="virtualDomain">Виртуальный домен (например, "http://localhost:8080"), который будет отброшен при поиске ресурса.</param>
-    /// <param name="contentType">Тип содержимого (MIME type), определённый по расширению файла.</param>
-    /// <returns>Поток данных ресурса или <see langword="null"/>, если ресурс не найден и нет fallback.</returns>
     public static Stream? GetResourceStream(string url, string virtualDomain, out string contentType)
     {
         contentType = GetMimeType(url);
+
+        // 1. Извлекаем чистый путь: "static/js/main.js"
         string relativePath = url.Replace(virtualDomain, "").TrimStart('/');
         if (string.IsNullOrEmpty(relativePath) || relativePath == "index.html")
             relativePath = "index.html";
 
-        if (_resourceMap.TryGetValue(relativePath, out var resourceName))
+        // 2. Преобразуем путь запроса в формат ресурса: 
+        // "static/js/main.js" -> "static.js.main.js"
+        // Важно: точки в именах файлов (типа .min.js) остаются точками, 
+        // а слэши папок становятся точками. Результат идентичен!
+        string resourceKeyPart = relativePath.Replace('/', '.');
+
+        // Формируем полный ключ, как он лежит в манифесте
+        // Здесь assemblyName должен быть тем же, что и в IndexEmbeddedResources
+        string fullResourceKey = $"FB2Writer.Resources.wwwroot.{resourceKeyPart}";
+
+        if (_resourceMap.TryGetValue(fullResourceKey, out var resourceName))
         {
-            return Assembly.GetExecutingAssembly().GetManifestResourceStream(resourceName);
+            return typeof(AssetHandler).Assembly.GetManifestResourceStream(resourceName);
         }
 
-        // Fallback для SPA (React routing)
-        if (!Path.HasExtension(url) && _resourceMap.TryGetValue("index.html", out var indexRes))
+        // 3. Fallback для SPA
+        if (!Path.HasExtension(url))
         {
-            contentType = "text/html";
-            return Assembly.GetExecutingAssembly().GetManifestResourceStream(indexRes);
+            string indexKey = "FB2Writer.Resources.wwwroot.index.html";
+            if (_resourceMap.TryGetValue(indexKey, out var indexRes))
+            {
+                contentType = "text/html";
+                return typeof(AssetHandler).Assembly.GetManifestResourceStream(indexRes);
+            }
         }
 
         return null;
     }
+
 
     /// <summary>
     /// Возвращает MIME-тип содержимого на основе расширения файла в URL.

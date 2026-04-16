@@ -91,7 +91,9 @@ body {
   /* Спокойный светло-серый или бежевый "рабочий стол" */
   background-color: var(--color-ui-bg);
   color: var(--color-paper-text);
-  transition: background-color 0.3s, color 0.3s;
+  transition:
+    background-color 0.3s,
+    color 0.3s;
   min-height: 100vh;
   margin: 0;
   padding: 0;
@@ -115,12 +117,14 @@ body {
 
   /* 3. ЦВЕТ (динамический) */
   background-color: var(--color-paper-bg);
-  transition: background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+  transition:
+    background-color 0.3s ease,
+    border-color 0.3s ease,
+    box-shadow 0.3s ease;
 
   /* 4. ВНУТРЕННИЕ ОТСТУПЫ И КУРСОР */
   cursor: text;
 }
-
 
 /* СКРОЛЛБАР */
 .custom-scrollbar {
@@ -209,7 +213,6 @@ body,
   background-color: var(--text-selection);
 }
 
-
 .fb2-body-section {
   display: block;
 }
@@ -295,20 +298,22 @@ section.fb2-section {
 
 /* 2. ПОДСВЕТКА ТОЛЬКО ПРЯМОЙ РУЧКИ */
 /* Заменяем .is-selected на системный класс ProseMirror */
-.section-node-wrapper.ProseMirror-selectednode>.section-handle {
+.section-node-wrapper.ProseMirror-selectednode > .section-handle {
   background-color: #3b82f6 !important;
   color: #ffffff !important;
   border-color: #2563eb !important;
 }
 
 /* 3. ТО ЖЕ САМОЕ ДЛЯ РАМКИ СЕКЦИИ */
-.section-node-wrapper.ProseMirror-selectednode>section.fb2-section {
+.section-node-wrapper.ProseMirror-selectednode > section.fb2-section {
   border-color: #3b82f6 !important;
   background-color: rgba(59, 130, 246, 0.02);
 }
 
 /* 4. СБРОС ДЛЯ ВЛОЖЕННЫХ */
-.section-node-wrapper.ProseMirror-selectednode .section-node-wrapper:not(.ProseMirror-selectednode)>.section-handle {
+.section-node-wrapper.ProseMirror-selectednode
+  .section-node-wrapper:not(.ProseMirror-selectednode)
+  > .section-handle {
   background-color: #ffffff !important;
   color: #94a3b8 !important;
   border-color: #e2e8f0 !important;
@@ -392,18 +397,17 @@ section.fb2-section {
 
 /* 2. ПОДСВЕТКА ТОЛЬКО ПРЯМОЙ РУЧКИ */
 /* Заменяем .is-selected на системный класс ProseMirror */
-.poem-node-wrapper.ProseMirror-selectednode>.poem-handle {
+.poem-node-wrapper.ProseMirror-selectednode > .poem-handle {
   background-color: #3b82f6 !important;
   color: #ffffff !important;
   border-color: #2563eb !important;
 }
 
 /* 3. ТО ЖЕ САМОЕ ДЛЯ РАМКИ СЕКЦИИ */
-.poem-node-wrapper.ProseMirror-selectednode>poem.fb2-poem {
+.poem-node-wrapper.ProseMirror-selectednode > poem.fb2-poem {
   border-color: #3b82f6 !important;
   background-color: rgba(59, 130, 246, 0.02);
 }
-
 
 /* ОБЩИЙ КЛАСС ДЛЯ ВСЕХ ЭЛЕМЕНТОВ С ЭТИКЕТКАМИ */
 .fb2-labeled-node {
@@ -485,7 +489,6 @@ section.fb2-section {
   font-size: 0.85em;
   line-height: 1.6;
 }
-
 
 /* ТЕКСТ АВТОРА */
 .fb2-text-author {
@@ -572,7 +575,8 @@ section.fb2-section {
   outline: 3px solid var(--color-blue-500, #3b82f6);
   outline-offset: 2px;
   /* box-shadow через переменную для чистоты */
-  box-shadow: 0 0 0 6px color-mix(in srgb, var(--color-blue-500, #3b82f6) 15%, transparent);
+  box-shadow: 0 0 0 6px
+    color-mix(in srgb, var(--color-blue-500, #3b82f6) 15%, transparent);
   @apply rounded-sm;
 }
 
@@ -684,48 +688,105 @@ section.fb2-section {
 .fb2-link:hover {
   @apply text-blue-800 decoration-blue-500 decoration-2;
 }
+/*палитры Slate Professional*/
+@layer base {
+  :root {
+    --color-ui-bg: #ffffff;
+    --color-ui-bg-hover: #f1f5f9; /* slate-100 */
+    --color-ui-border: #e2e8f0; /* slate-200 */
+    --color-ui-border-hover: #cbd5e1; /* slate-300 */
+    --color-ui-text: #0f172a; /* slate-900 */
+    --color-ui-text-muted: #64748b; /* slate-500 */
+    --color-ui-accent: #4f46e5; /* indigo-600 */
+    --color-ui-accent-foreground: #ffffff;
+    --shadow-dropdown:
+      0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  }
+
+  .dark {
+    --color-ui-bg: #0f172a; /* slate-900 */
+    --color-ui-bg-hover: #1e293b; /* slate-800 */
+    --color-ui-border: #334155; /* slate-700 */
+    --color-ui-border-hover: #475569; /* slate-600 */
+    --color-ui-text: #f8fafc; /* slate-50 */
+    --color-ui-text-muted: #94a3b8; /* slate-400 */
+    --color-ui-accent: #6366f1; /* indigo-500 */
+    --color-ui-accent-foreground: #ffffff;
+    --shadow-dropdown:
+      0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  }
+}
 
 @layer components {
-
   /* Базовая кнопка */
   .toolbar-btn {
-    @apply p-1.5 px-3 rounded text-xs font-bold transition-all flex items-center justify-center border border-transparent whitespace-nowrap;
+    @apply p-1.5 px-3 rounded text-xs font-semibold transition-all flex items-center justify-center border whitespace-nowrap;
     @apply disabled:cursor-not-allowed disabled:pointer-events-none;
-    /* Наследуем disabled цвета из переменных для темной темы */
-  /* Стили для светлой темы (по умолчанию) */
-  @apply disabled:bg-gray-100 disabled:text-[var(--color-ui-text-muted)] disabled:border-gray-200 disabled:opacity-100;
 
-  /* Стили для темной темы (через класс dark или медиа-запрос) */
-  .dark & {
-    @apply disabled:bg-[var(--color-ui-bg-hover)] disabled:text-[var(--color-ui-text-muted)] disabled:opacity-50;
-    @apply disabled:border-transparent;
-  }
+    /* Состояние Disabled */
+    @apply disabled:bg-slate-50 disabled:text-slate-400 disabled:border-slate-100;
+
+    .dark & {
+      @apply disabled:bg-slate-900/50 disabled:text-slate-600 disabled:border-slate-800;
+    }
   }
 
+  /* Дефолтная кнопка (Вторичная) */
   .toolbar-btn-default {
     background-color: var(--color-ui-bg);
     border-color: var(--color-ui-border);
     color: var(--color-ui-text);
-    @apply shadow-sm hover:bg-[var(--color-ui-bg-hover)] active:opacity-80;
+    @apply shadow-sm;
+
+    &:hover {
+      background-color: var(--color-ui-bg-hover);
+      border-color: var(--color-ui-border-hover);
+    }
+
+    &:active {
+      @apply scale-95 opacity-80;
+    }
   }
 
+  /* Активная/Выбранная кнопка */
   .toolbar-btn-active {
-    /* Акцентный цвет (индиго) обычно хорошо смотрится в обеих темах */
     background-color: var(--color-ui-accent);
+    border-color: var(--color-ui-accent);
     color: var(--color-ui-accent-foreground);
-    @apply shadow-inner border-indigo-700/50;
+    @apply shadow-inner;
+
+    &:hover {
+      @apply brightness-110 shadow-md;
+      border-color: var(--color-ui-accent);
+    }
+
+    &:active {
+      @apply scale-95;
+    }
+  }
+
+  /* Кнопка "Призрак" (Ghost) - если нужна для тулбара */
+  .toolbar-btn-ghost {
+    @apply border-transparent bg-transparent;
+    color: var(--color-ui-text-muted);
+
+    &:hover {
+      background-color: var(--color-ui-bg-hover);
+      color: var(--color-ui-text);
+    }
   }
 
   /* Меню заголовка */
   .header-menu-btn {
-    color: var(--color-ui-text);
-    @apply px-3 py-1 text-sm rounded transition-all duration-200 hover:bg-[var(--color-ui-bg-hover)];
+    color: var(--color-ui-text-muted); /* По умолчанию чуть приглушенно */
+    @apply px-3 py-1.5 text-sm font-medium rounded-md transition-all duration-200;
+    @apply hover:bg-[var(--color-ui-bg-hover)] hover:text-[var(--color-ui-text)];
   }
 
   .header-menu-btn.is-active {
-    background-color: var(--color-ui-accent);
-    color: var(--color-ui-accent-foreground);
-    @apply font-medium;
+    background-color: var(--color-ui-bg-hover);
+    color: var(--color-ui-accent); /* Текст становится акцентным */
+    @apply shadow-sm;
   }
 
   /* Выпадающий список */
@@ -733,16 +794,45 @@ section.fb2-section {
     background-color: var(--color-ui-bg);
     border-color: var(--color-ui-border);
     box-shadow: var(--shadow-dropdown);
-    @apply absolute top-full left-0 w-64 py-1 z-50 border;
+    @apply absolute top-full left-0 w-64 py-1.5 z-50 border rounded-lg mt-1;
+    /* Мягкое появление */
+    @apply animate-in fade-in zoom-in-95 duration-100;
   }
 
   /* Пункт меню */
   .header-item {
     color: var(--color-ui-text);
-    @apply w-full text-left px-4 py-1.5 flex justify-between items-center text-sm transition-colors cursor-default;
-    /* Инвертируем hover: в темной теме индиго может быть слишком ярким, 
-       можно использовать ui-bg-hover или оставить акцент */
-    @apply hover:bg-[var(--color-ui-accent)] hover:text-[var(--color-ui-accent-foreground)];
-    @apply disabled:opacity-30 disabled:pointer-events-none;
+    @apply w-full text-left px-3 py-2 mx-1 flex justify-between items-center text-sm transition-colors cursor-pointer rounded-md;
+    @apply hover:bg-[var(--color-ui-bg-hover)];
+    @apply disabled:opacity-40 disabled:pointer-events-none;
+
+    /* Иконки или хоткей внутри пункта */
+    & span {
+      @apply text-[10px] uppercase tracking-widest opacity-50 font-bold;
+    }
+
+    /* Если очень хочется акцентный hover для выделения действия */
+    &.item-danger {
+      @apply text-red-600;
+      &:hover {
+        @apply bg-red-50 text-red-700;
+        .dark & {
+          @apply bg-red-950/30 text-red-400;
+        }
+      }
+    }
+  }
+
+  /* Разделитель внутри выпадающего списка */
+  .header-divider {
+    height: 1px;
+    background-color: var(--color-ui-border);
+    @apply my-1.5 opacity-60;
+  }
+
+  /* Необязательно: Заголовок группы (если меню очень большое) */
+  .header-group-label {
+    color: var(--color-ui-text-muted);
+    @apply px-4 py-1.5 text-[10px] font-bold uppercase tracking-wider select-none;
   }
 }

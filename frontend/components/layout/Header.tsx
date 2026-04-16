@@ -6,7 +6,16 @@
 "use client";
 import { useEffect, useState, useRef, useCallback, memo } from "react";
 import { Editor } from "@tiptap/react";
-import { Info, LogOut, Save, FolderOpen, Undo, Redo, FileCode, FilePlus } from "lucide-react";
+import {
+  Info,
+  LogOut,
+  Save,
+  FolderOpen,
+  Undo,
+  Redo,
+  FileCode,
+  FilePlus,
+} from "lucide-react";
 import { photino } from "@/services/photino";
 import { AboutModal } from "./AboutModal";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
@@ -72,13 +81,7 @@ interface HeaderProps {
  * />
  */
 export const Header = memo(
-  ({
-    editor,
-    onSave,
-    onOpen,
-    onNew,
-    fileName,
-  }: HeaderProps) => {
+  ({ editor, onSave, onOpen, onNew, fileName }: HeaderProps) => {
     const [activeMenu, setActiveMenu] = useState<string | null>(null);
     const [isAboutOpen, setIsAboutOpen] = useState(false);
 
@@ -166,10 +169,12 @@ export const Header = memo(
                     </span>
                     <span className="text-[10px] opacity-50">Ctrl+Shift+S</span>
                   </button>
-                  <div className="border-t my-1"></div>
+                  <div className="header-divider"></div>
                   <button
                     type="button"
-                    onClick={() => handleAction(() => photino.send("show-exit-confirmation"))}
+                    onClick={() =>
+                      handleAction(() => photino.send("show-exit-confirmation"))
+                    }
                     className="header-item text-red-600"
                   >
                     <span className="flex items-center gap-2">
@@ -196,9 +201,7 @@ export const Header = memo(
                   <button
                     type="button"
                     disabled={!editor?.can().undo()}
-                    onClick={() =>
-                      handleAction(() => editor?.commands.undo())
-                    }
+                    onClick={() => handleAction(() => editor?.commands.undo())}
                     className="header-item"
                   >
                     <span className="flex items-center gap-2">
@@ -209,7 +212,9 @@ export const Header = memo(
                   <button
                     type="button"
                     disabled={!editor?.can().redo()}
-                    onClick={() => handleAction(() => editor?.chain().focus().redo().run())}
+                    onClick={() =>
+                      handleAction(() => editor?.chain().focus().redo().run())
+                    }
                     className="header-item"
                   >
                     <span className="flex items-center gap-2">
@@ -253,10 +258,10 @@ export const Header = memo(
             FB2 Writer
           </div>
           <ThemeToggle />
-        </header >
+        </header>
 
         {/* Модальное окно "О программе" */}
-        < AboutModal
+        <AboutModal
           isOpen={isAboutOpen}
           onClose={() => setIsAboutOpen(false)}
         />
