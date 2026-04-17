@@ -37,30 +37,30 @@ class PhotinoBridge extends EventEmitter {
     this.setupReceiver();
   }
 
-  private setupReceiver() {
-    const chromeWebview = window.chrome?.webview;
+private setupReceiver() {
+  const chromeWebview = window.chrome?.webview;
 
-    // Вариант А: Современный WebView2 (Windows)
-    if (chromeWebview) {
-      chromeWebview.addEventListener("message", (event: { data: unknown }) => {
-        this.handleMessage(event.data as string | PhotinoEvent);
-      });
-    }
+  // 1. Проверяем WebView2 (Windows)
+  if (chromeWebview) {
+    chromeWebview.addEventListener("message", (event: { data: unknown }) => {
+      this.handleMessage(event.data as string | PhotinoEvent);
+    });
+    console.log("✅ Подключен через WebView2");
+    return; // Выходим, чтобы не вешать вторую подписку
+  }
 
-    // Вариант Б: Фоллбек для Photino на Linux/macOS или старых версий
-    // Важно: проверяем наличие метода, но не используем 'else',
-    // так как в некоторых сборках работают оба механизма,
-    // а handleMessage внутри сам разберется с дубликатами, если они возникнут.
-    if (this.bridge && typeof this.bridge.receiveMessage === "function") {
-      try {
-        this.bridge.receiveMessage((data: PhotinoEvent | string) =>
-          this.handleMessage(data),
-        );
-      } catch (e) {
-        console.error("🚨 Ошибка подписки receiveMessage:", e);
-      }
+  // 2. Фоллбек для Linux/macOS
+  if (this.bridge && typeof this.bridge.receiveMessage === "function") {
+    try {
+      this.bridge.receiveMessage((data: PhotinoEvent | string) =>
+        this.handleMessage(data),
+      );
+      console.log("✅ Подключен через Photino receiveMessage");
+    } catch (e) {
+      console.error("🚨 Ошибка подписки receiveMessage:", e);
     }
   }
+}
 
   private handleMessage(data: PhotinoEvent | string): void {
     if (data === null || data === undefined) return;

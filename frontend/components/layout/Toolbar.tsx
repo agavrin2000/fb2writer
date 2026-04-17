@@ -163,7 +163,7 @@ export const Toolbar: React.FC<ToolbarProps> = memo(
     return (
       <div className="border-b shadow-sm sticky top-0 z-20 flex flex-col items-center">
         {/* ПЕРВЫЙ РЯД: Базовое форматирование и ссылки */}
-        <div className="w-full flex justify-center items-center gap-1 p-1 border-b border-gray-50">
+        <div className="w-full flex justify-center items-center gap-1 p-1 ">
           <button
             type="button"
             title="Bold"
@@ -270,7 +270,7 @@ export const Toolbar: React.FC<ToolbarProps> = memo(
         </div>
 
         {/* ВТОРОЙ РЯД: Структурные элементы FB2 (Секции, Эпиграфы, Поэмы) */}
-        <div className="w-full flex justify-center items-center gap-1 p-1 border-b border-gray-50">
+        <div className="w-full flex justify-center items-center gap-1 p-1">
           {/* Группа: Заголовок и Подзаголовок */}
           <button
             type="button"

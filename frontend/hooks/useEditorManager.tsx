@@ -202,12 +202,14 @@ export function useEditorManager(): EditorManager {
   const onImageSelected = useCallback(
     (payload: string | object | null) => {
       try {
+
         const imageData =
           typeof payload === "string" ? JSON.parse(payload) : payload;
         if (!imageData?.data) return; // Защита от пустых данных
 
         setIsLoading(false);
         setLoaderConfig(null);
+
         if (!fb2.editor) return;
 
         // Создаем цепочку

@@ -86,87 +86,79 @@ export const ImageDropdown: React.FC<{
   }, []);
 
   // Общий стиль для пунктов меню
-  const itemClass = "w-full flex items-center gap-3 px-3 py-2 hover:bg-indigo-50 text-left transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:pointer-events-none";
+  const itemClass = "w-full flex items-center gap-3 px-4 py-2 text-left transition-colors hover:bg-ui-bg-hover disabled:opacity-40 disabled:cursor-not-allowed";
 
   return (
-    <div className="relative" ref={dropdownRef}>
-      <button
-        type="button"
-        onClick={() => setIsOpen(!isOpen)}
-        className="p-1.5 px-2 rounded text-gray-600 hover:bg-gray-100 border border-transparent hover:border-gray-200 flex items-center gap-1"
-        title="Вставить изображение"
-      >
-        <ImageIcon size={20} />
-        <ChevronDown
-          size={14}
-          className={`transition-transform ${isOpen ? "rotate-180" : ""}`}
-        />
-      </button>
+  <div className="relative" ref={dropdownRef}>
+    <button
+      type="button"
+      onClick={() => setIsOpen(!isOpen)}
+      className="p-1.5 px-2 rounded text-ui-text-muted hover:bg-ui-bg-hover border border-transparent hover:border-ui-border flex items-center gap-1 transition-all"
+      title="Вставить изображение"
+    >
+      <ImageIcon size={20} />
+      <ChevronDown
+        size={14}
+        className={`transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}
+      />
+    </button>
 
-      {isOpen && (
-        <div className="absolute top-full left-0 mt-1 w-56 bg-white border rounded-md shadow-lg z-30 py-1 overflow-hidden">
-          <button
-            key="block"
-            type="button"
-            disabled={!canBlockImage}
-            onClick={() => {
-              onSelect("block");
-              setIsOpen(false);
-            }}
-            className={itemClass}
-          >
-            <ImageIcon size={18} className="text-indigo-600" />
-            <div className="flex flex-col">
-              <span className="text-xs font-semibold text-gray-700">
-                Блочное
-              </span>
-              <span className="text-[10px] text-gray-400">Между абзацами</span>
-            </div>
-          </button>
+    {isOpen && (
+      <div className="absolute top-full left-0 mt-1 w-64 bg-ui-bg border border-ui-border rounded-xl shadow-xl z-30 py-1.5 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+        <button
+          key="block"
+          type="button"
+          disabled={!canBlockImage}
+          onClick={() => {
+            onSelect("block");
+            setIsOpen(false);
+          }}
+          className={itemClass}
+        >
+          <ImageIcon size={18} className="text-ui-accent" />
+          <div className="flex flex-col">
+            <span className="text-xs font-semibold text-ui-text">Блочное</span>
+            <span className="text-[10px] text-ui-text-muted leading-tight">Между абзацами</span>
+          </div>
+        </button>
 
-          <button
-            key="inline"
-            type="button"
-            disabled={!canInlineImage}
-            onClick={() => {
-              onSelect("inline");
-              setIsOpen(false);
-            }}
-            onMouseDown={(e) => e.preventDefault()}
-            className={itemClass}
-          >
-            <ImageDown size={18} className="text-indigo-600" />
-            <div className="flex flex-col">
-              <span className="text-xs font-semibold text-gray-700">
-                В тексте
-              </span>
-              <span className="text-[10px] text-gray-400">Внутри строки</span>
-            </div>
-          </button>
+        <button
+          key="inline"
+          type="button"
+          disabled={!canInlineImage}
+          onClick={() => {
+            onSelect("inline");
+            setIsOpen(false);
+          }}
+          onMouseDown={(e) => e.preventDefault()}
+          className={itemClass}
+        >
+          <ImageDown size={18} className="text-ui-accent" />
+          <div className="flex flex-col">
+            <span className="text-xs font-semibold text-ui-text">В тексте</span>
+            <span className="text-[10px] text-ui-text-muted leading-tight">Внутри строки</span>
+          </div>
+        </button>
 
-          <button
-            key="section"
-            type="button"
-            disabled={!canSectionImage}
-            onClick={() => {
-              onSelect("section");
-              setIsOpen(false);
-            }}
-            onMouseDown={(e) => e.preventDefault()}
-            className={itemClass}
-          >
-            <PanelTop size={18} className="text-indigo-600" />
-            <div className="flex flex-col">
-              <span className="text-xs font-semibold text-gray-700">
-                В заголовок секции
-              </span>
-              <span className="text-[10px] text-gray-400">
-                Виньетка раздела
-              </span>
-            </div>
-          </button>
-        </div>
-      )}
-    </div>
-  );
+        <button
+          key="section"
+          type="button"
+          disabled={!canSectionImage}
+          onClick={() => {
+            onSelect("section");
+            setIsOpen(false);
+          }}
+          onMouseDown={(e) => e.preventDefault()}
+          className={itemClass}
+        >
+          <PanelTop size={18} className="text-ui-accent" />
+          <div className="flex flex-col">
+            <span className="text-xs font-semibold text-ui-text">В заголовок секции</span>
+            <span className="text-[10px] text-ui-text-muted leading-tight">Виньетка раздела</span>
+          </div>
+        </button>
+      </div>
+    )}
+  </div>
+);
 };

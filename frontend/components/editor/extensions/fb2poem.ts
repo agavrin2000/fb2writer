@@ -1,4 +1,4 @@
-import { Node } from "@tiptap/core";
+import { mergeAttributes, Node } from "@tiptap/core";
 import { CommandProps } from "@tiptap/core";
 import { findParentNodeByType } from "../../../utils/utils";
 
@@ -29,7 +29,10 @@ export const Fb2Poem = Node.create({
       const dom = document.createElement("div");
       dom.className = "poem-node-wrapper";
       const content = document.createElement("poem");
-      content.className = "fb2-poem";
+      content.className = "fb2-poem fb2-labeled-node";
+
+      // 2. Устанавливаем атрибут вручную
+      content.setAttribute("data-label", "Поэма");
 
       // Ручная установка ID строго на внутренний тег
       if (node.attrs.sectionId) {

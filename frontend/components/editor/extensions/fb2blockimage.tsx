@@ -53,11 +53,20 @@ export const Fb2BlockImage = Image.extend({
             // 1. Проверяем: выделена ли сама секция?
             if (selection instanceof NodeSelection && selection.node.type.name === "fb2Section") return false;
 
-            const { pos: parentPos} = findParentNodeByType(
-              selection,
-              ["fb2Section"],
-            );
-            if (parentPos !== -1) return false;
+            const { $from } = selection;
+
+            if ($from.depth < 1) return false;
+
+            // 2. Берем родителя того узла, в котором стоим ($from.depth - 1)
+            // Например: Doc > fb2Section (depth 1) > paragraph (depth 2)
+            // Если курсор в paragraph, то родитель родителя — это fb2Section.
+            const grandParent = $from.node($from.depth - 1);
+            const parent = $from.node($from.depth);
+
+            // 3. Проверка типа
+            if (grandParent.type.name !== "fb2Section" || parent.type.name !== "paragraph") {
+              return false;
+            }
 
             if (dispatch && attributes) {
               return chain()

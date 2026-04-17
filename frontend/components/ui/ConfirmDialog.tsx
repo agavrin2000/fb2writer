@@ -155,7 +155,7 @@ export const ConfirmDialog = ({ ref }: ConfirmDialogProps) => {
 
 return (
   <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
-    {/* Overlay — затемнение фона */}
+    {/* Overlay */}
     <div
       className={`absolute inset-0 bg-slate-900/40 dark:bg-black/60 backdrop-blur-sm transition-opacity duration-300 ${
         isAnimate ? "opacity-100" : "opacity-0"
@@ -166,7 +166,7 @@ return (
     {/* Модальное окно */}
     <div
       className={`relative w-full max-w-sm rounded-2xl shadow-2xl border transition-all duration-300 transform 
-        bg-[var(--color-ui-bg)] border-[var(--color-ui-border)] ${
+        bg-ui-bg border-ui-border ${
         isAnimate
           ? "scale-100 opacity-100 translate-y-0"
           : "scale-95 opacity-0 translate-y-4"
@@ -175,37 +175,37 @@ return (
       <div className="p-6">
         <h3
           className={`text-lg font-bold mb-2 ${
-            isDanger ? "text-red-500" : "text-[var(--color-ui-text)]"
+            isDanger ? "text-red-500" : "text-ui-text"
           }`}
         >
           {config.title}
         </h3>
-        <p className="text-[var(--color-ui-text-muted)] text-sm leading-relaxed">
+        <p className="text-ui-text-muted text-sm leading-relaxed">
           {config.message}
         </p>
       </div>
 
       {/* Футер диалога */}
-      <div className="flex border-t p-3 gap-3 bg-[var(--color-ui-bg-hover)] border-[var(--color-ui-border)]">
+      <div className="flex border-t p-3 gap-2 bg-ui-bg-hover/50 border-ui-border rounded-b-2xl">
         <button
           type="button"
           onClick={() => close(false)}
           className="flex-1 px-4 py-2.5 text-sm font-semibold rounded-xl transition-all
-            border text-white
-            hover:bg-black/5 dark:hover:bg-white/10 active:scale-[0.98]"
+            border border-ui-border text-ui-text-muted
+            hover:bg-ui-bg-hover hover:text-ui-text active:scale-[0.98]"
         >
           Отмена
         </button>
         <button
           type="button"
           onClick={() => close(true)}
-          className={`flex-1 px-4 py-2.5 text-sm font-bold text-white rounded-xl shadow-md transition-all active:scale-95 ${
+          className={`flex-1 px-4 py-2.5 text-sm font-bold text-white rounded-xl shadow-lg transition-all active:scale-95 ${
             isDanger
-              ? "bg-red-500 hover:bg-red-600 shadow-red-900/20"
-              : "bg-indigo-600 hover:bg-indigo-700 shadow-indigo-900/20"
+              ? "bg-red-500 hover:bg-red-600 shadow-red-500/20"
+              : "bg-ui-accent hover:opacity-90 shadow-ui-accent/20"
           }`}
         >
-          OK
+          Подтвердить
         </button>
       </div>
     </div>
