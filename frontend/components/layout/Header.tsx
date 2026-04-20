@@ -16,9 +16,8 @@ import {
   FileCode,
   FilePlus,
 } from "lucide-react";
-import { photino } from "@/services/photino";
 import { AboutModal } from "./AboutModal";
-import { ThemeToggle } from "@/components/ui/ThemeToggle";
+import ThemeToggle from "@/components/ui/ThemeToggle";
 
 /**
  * Интерфейс свойств компонента шапки приложения.
@@ -44,6 +43,11 @@ interface HeaderProps {
    * Обработчик создания нового документа.
    */
   onNew: () => void;
+
+  /**
+   * Обработчик выхода из приложения.
+   */
+  onExit: () => void;
 
   /**
    * Имя текущего файла (отображается в интерфейсе, например, "document.fb2").
@@ -81,7 +85,7 @@ interface HeaderProps {
  * />
  */
 export const Header = memo(
-  ({ editor, onSave, onOpen, onNew, fileName }: HeaderProps) => {
+  ({ editor, onSave, onOpen, onNew, onExit, fileName }: HeaderProps) => {
     const [activeMenu, setActiveMenu] = useState<string | null>(null);
     const [isAboutOpen, setIsAboutOpen] = useState(false);
 
@@ -113,19 +117,18 @@ export const Header = memo(
 
     return (
       <>
-        <header className="h-9 border-b flex items-center px-2 z-50 shadow-sm select-none">
+        <header className="h-9 border-b border-[var(--color-ui-border)] bg-[var(--color-paper-bg)] flex items-center px-2 z-50 shadow-sm select-none">
           <div className="flex items-center gap-1" ref={menuRef}>
             {/* РАЗДЕЛ: ФАЙЛ */}
             <div className="relative">
               <button
                 type="button"
-                onClick={() =>
-                  setActiveMenu(activeMenu === "file" ? null : "file")
-                }
-                className={`header-menu-btn ${activeMenu === "file" ? "header-menu-btn-active" : ""}`}
+                onClick={() => setActiveMenu(activeMenu === "file" ? null : "file")}
+                className={`header-menu-btn ${activeMenu === "file" ? "is-active" : ""}`}
               >
                 Файл
               </button>
+
               {activeMenu === "file" && (
                 <div className="header-dropdown">
                   <button
@@ -133,53 +136,62 @@ export const Header = memo(
                     onClick={() => handleAction(onNew)}
                     className="header-item"
                   >
-                    <span className="flex items-center gap-2">
-                      <FilePlus size={14} /> Новый
-                    </span>
-                    <span className="text-[10px] opacity-50">Ctrl+N</span>
+                    <div className="flex items-center gap-2">
+                      <FilePlus size={14} />
+                      <span>Новый</span>
+                    </div>
+                    <span>Ctrl+N</span>
                   </button>
+
                   <button
                     type="button"
                     onClick={() => handleAction(onOpen)}
                     className="header-item"
                   >
-                    <span className="flex items-center gap-2">
-                      <FolderOpen size={14} /> Открыть...
-                    </span>
-                    <span className="text-[10px] opacity-50">Ctrl+O</span>
+                    <div className="flex items-center gap-2">
+                      <FolderOpen size={14} />
+                      <span>Открыть...</span>
+                    </div>
+                    <span>Ctrl+O</span>
                   </button>
+
                   <button
                     type="button"
                     disabled={!fileName}
                     onClick={() => handleAction(() => onSave(false))}
                     className="header-item"
                   >
-                    <span className="flex items-center gap-2">
-                      <Save size={14} /> Сохранить
-                    </span>
-                    <span className="text-[10px] opacity-50">Ctrl+S</span>
+                    <div className="flex items-center gap-2">
+                      <Save size={14} />
+                      <span>Сохранить</span>
+                    </div>
+                    <span>Ctrl+S</span>
                   </button>
+
                   <button
                     type="button"
                     onClick={() => handleAction(() => onSave(true))}
                     className="header-item"
                   >
-                    <span className="flex items-center gap-2">
-                      <FileCode size={14} /> Сохранить как...
-                    </span>
-                    <span className="text-[10px] opacity-50">Ctrl+Shift+S</span>
+                    <div className="flex items-center gap-2">
+                      <FileCode size={14} />
+                      <span>Сохранить как...</span>
+                    </div>
+                    <span>Ctrl+Shift+S</span>
                   </button>
+
                   <div className="header-divider"></div>
+
                   <button
                     type="button"
-                    onClick={() =>
-                      handleAction(() => photino.send("show-exit-confirmation"))
-                    }
-                    className="header-item text-red-600"
+                    onClick={() => handleAction(() => onExit())}
+                    /* Используем специальный класс для деструктивных действий */
+                    className="header-item item-danger"
                   >
-                    <span className="flex items-center gap-2">
-                      <LogOut size={14} /> Выход
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <LogOut size={14} />
+                      <span>Выход</span>
+                    </div>
                   </button>
                 </div>
               )}

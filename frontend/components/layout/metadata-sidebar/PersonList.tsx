@@ -53,18 +53,24 @@ export const PersonList = memo(({ title, items = [], onUpdate }: PersonListProps
 
     return (
         <div className="space-y-4">
-
             {items.map((person, idx) => (
-                <div key={idx} className="relative group p-3 bg-white border border-gray-200 rounded-lg shadow-sm space-y-1 transition-all hover:border-blue-200 focus-within:ring-blue-200">
+                <div
+                    key={idx}
+                    /* Карточка персоны: используем paper-bg для выделения на фоне ui-bg */
+                    className="relative group p-3 bg-[var(--color-paper-bg)] border border-[var(--color-ui-border)] rounded-lg shadow-[var(--shadow-dropdown)] space-y-1 transition-all hover:border-[var(--color-ui-accent)]/50 focus-within:ring-1 ring-[var(--color-ui-accent)]/30"
+                >
+                    {/* Кнопка удаления */}
                     <button
                         type="button"
                         title="Удалить"
                         onClick={() => removePerson(idx)}
-                        className="absolute -right-2 -top-2 p-1.5 bg-white border border-red-200 text-red-500 rounded-full shadow-md hover:bg-red-50 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus:opacity-100 transition-all z-20 outline-none"
+                        /* В темной теме кнопка удаления будет на темном фоне paper-bg */
+                        className="absolute -right-2 -top-2 p-1.5 bg-[var(--color-paper-bg)] border border-red-500/20 text-red-500 rounded-full shadow-[var(--shadow-dropdown)] hover:bg-red-500/10 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus:opacity-100 transition-all z-20 outline-none"
                     >
                         <X size={12} strokeWidth={3} />
                     </button>
 
+                    {/* Поля ввода (уже адаптированные ранее) */}
                     <Field label="Имя" defaultValue={person.firstName}
                         required={true}
                         error={getError("firstName", person.firstName, !person.nickname || !person.lastName)}
@@ -72,7 +78,7 @@ export const PersonList = memo(({ title, items = [], onUpdate }: PersonListProps
                         onChange={(val) => updatePerson(idx, { firstName: val })}
                         ref={(el) => {
                             if (el) {
-                                inputRefs.current.set(idx, el as HTMLInputElement);
+                                inputRefs.current.set(idx, el);
                             } else {
                                 inputRefs.current.delete(idx);
                             }
@@ -99,6 +105,8 @@ export const PersonList = memo(({ title, items = [], onUpdate }: PersonListProps
                         icon={Fingerprint}
                         onChange={(val) => updatePerson(idx, { id: val })}
                     />
+
+                    {/* Вложенные списки также подхватят тему автоматически */}
                     <EditableList
                         label="Email"
                         items={person.emails || []}
@@ -114,16 +122,18 @@ export const PersonList = memo(({ title, items = [], onUpdate }: PersonListProps
                 </div>
             ))}
 
+            {/* Кнопка добавления новой персоны */}
             <button
                 type="button"
                 onClick={addPerson}
-                className="w-full py-2 flex items-center justify-center gap-2 border-2 border-dashed border-gray-200 rounded-lg text-gray-400 hover:text-blue-500 hover:border-blue-200 hover:bg-blue-50 transition-all text-[10px] font-bold uppercase"
+                className="w-full py-2 flex items-center justify-center gap-2 border-2 border-dashed border-[var(--color-ui-border)] rounded-lg text-[var(--color-ui-text-muted)] hover:text-[var(--color-ui-accent)] hover:border-[var(--color-ui-accent)] hover:bg-[var(--color-ui-bg-hover)] transition-all text-[10px] font-bold uppercase"
             >
                 <Plus size={14} />
-                Добавить {title.toLowerCase()}А
+                Добавить {title.toLowerCase()}а
             </button>
         </div>
     );
+
 });
 
 PersonList.displayName = "PersonList";

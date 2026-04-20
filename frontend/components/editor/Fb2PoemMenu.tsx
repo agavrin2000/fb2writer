@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from "react";
+import { cn } from "@/utils/cn";
+import { useState, useEffect, useRef } from "react";
 import { Editor } from "@tiptap/react";
 import { NodeSelection } from "@tiptap/pm/state";
 import {
@@ -13,7 +14,8 @@ import {
     Heading1, TextQuote,
     Feather,
     CalendarDays,
-    Signature
+    Signature,
+    Anchor
 } from "lucide-react";
 import { Fb2ActionIcon } from '../ui/Fb2ActionIcon'
 
@@ -23,6 +25,7 @@ interface Props {
 
 export const Fb2PoemMenu = ({ editor }: Props) => {
     const [isOpen, setIsOpen] = useState(false);
+    const isTyping = useRef(false);
 
     const { refs, floatingStyles, update } = useFloating({
         open: isOpen,
@@ -30,6 +33,24 @@ export const Fb2PoemMenu = ({ editor }: Props) => {
         middleware: [offset({ mainAxis: 10, crossAxis: 0 }), flip(), shift()],
         whileElementsMounted: autoUpdate,
     });
+    const selection = editor?.state.selection;
+    const isSection =
+        selection instanceof NodeSelection &&
+        selection.node.type.name === "fb2Section";
+    const currentElementId = isSection
+        ? selection.node.attrs.elementId || ""
+        : "";
+
+    const [localId, setLocalId] = useState(currentElementId);
+
+    // Синхронизация локального ID с состоянием редактора
+    useEffect(() => {
+        if (!isTyping.current && localId !== currentElementId) {
+            queueMicrotask(() => {
+                setLocalId(currentElementId);
+            });
+        }
+    }, [currentElementId, localId]);
 
     useEffect(() => {
         if (!editor) return;
@@ -76,19 +97,62 @@ export const Fb2PoemMenu = ({ editor }: Props) => {
 
     // Проверяем наличие элементов внутри выделенной секции
     const canRemoveTitle = editor.can().removeFb2Title();
-    //const canRemoveTextAuthor = editor.can().removeFb2TextAuthor();
     const canRemoveDate = editor.can().removeFb2Date();
 
     return (
         <FloatingPortal>
             <div
-                ref={(node) => { refs.setFloating(node);}}
+                ref={(node) => { refs.setFloating(node); }}
                 style={floatingStyles}
-                className="z-[9999] flex flex-col bg-white border border-gray-200 rounded-lg shadow-xl p-1 gap-1 animate-in fade-in slide-in-from-left-2 duration-150"
+                className="z-[9999] flex flex-col border border-[var(--color-ui-border)] bg-[var(--color-ui-bg)] rounded-lg shadow-[var(--shadow-dropdown)] p-1 gap-1 animate-in fade-in slide-in-from-left-2 duration-150"
             >
+                {/* Поле ввода Element ID */}
+                <div className="flex flex-col border-b border-[var(--color-ui-border)] pb-1 mb-1 gap-1 group relative">
+                    <div className="flex items-center justify-center p-2 text-[var(--color-ui-text)]">
+                        <Anchor size={16} />
+                    </div>
+
+                    {/* Всплывающий инпут */}
+                    <input
+                        type="text"
+                        value={localId}
+                        onPointerDown={(e) => {
+                            e.stopPropagation();
+                            isTyping.current = true;
+                        }}
+                        onFocus={() => {
+                            isTyping.current = true;
+                        }}
+                        onBlur={() => {
+                            isTyping.current = false;
+                        }}
+                        onChange={(e) => {
+                            const val = e.target.value;
+                            setLocalId(val);
+                            editor.commands.updateAttributes("fb2Section", {
+                                elementId: val,
+                            });
+                        }}
+                        onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                                isTyping.current = false;
+                                editor.commands.focus();
+                            }
+                            e.stopPropagation();
+                        }}
+                        onMouseDown={(e) => e.stopPropagation()}
+                        placeholder="ID секции..."
+                        className="absolute left-full ml-2 top-0 bg-[var(--color-paper-bg)] border border-[var(--color-ui-border)] text-[var(--color-ui-text)] rounded-md shadow-[var(--shadow-dropdown)] p-1 text-[10px] w-24 outline-none focus:border-[var(--color-ui-accent)]"
+                    />
+                </div>
+
+
                 {/* Удаление поэмы */}
                 <div className="flex flex-col border-b pb-1 mb-1 gap-1">
-                    <button type="button" onClick={() => editor.commands.deleteSelection()} title="Удалить всю поэму" className={twBtn}><Fb2ActionIcon icon={Feather} mode="remove" /></button>
+                    <button type="button" onClick={() => editor.commands.deleteSelection()} title="Удалить всю поэму"
+                        className={cn("toolbar-btn", "toolbar-btn-default")}
+                    >
+                        <Fb2ActionIcon icon={Feather} mode="remove" /></button>
                 </div>
 
                 {/* Заголовок */}
@@ -104,7 +168,7 @@ export const Fb2PoemMenu = ({ editor }: Props) => {
                             chain.insertFb2Title().run();
                         }
                     }}
-                    className={twBtn}
+                    className={cn("toolbar-btn", "toolbar-btn-default")}
                     title={canRemoveTitle ? "Удалить заголовок" : "Добавить заголовок"}
                 >
                     <Fb2ActionIcon icon={Heading1} mode={canRemoveTitle ? "remove" : "add"} />
@@ -113,7 +177,7 @@ export const Fb2PoemMenu = ({ editor }: Props) => {
                 {/* Эпиграф */}
                 <button type="button"
                     onClick={() => editor.chain().focus().insertFb2Epigraph().run()}
-                    className={twBtn}
+                    className={cn("toolbar-btn", "toolbar-btn-default")}
                     title="Добавить эпиграф"
                 >
                     <Fb2ActionIcon icon={TextQuote} mode="add" />
@@ -122,7 +186,7 @@ export const Fb2PoemMenu = ({ editor }: Props) => {
                 {/* Подпись автора */}
                 <button type="button"
                     onClick={() => editor.chain().focus().insertFb2TextAuthor().run()}
-                    className={twBtn}
+                    className={cn("toolbar-btn", "toolbar-btn-default")}
                     title="Добавить подпись автора"
                 >
                     <Fb2ActionIcon icon={Signature} mode="add" />
@@ -141,7 +205,7 @@ export const Fb2PoemMenu = ({ editor }: Props) => {
                             chain.insertFb2Date().run();
                         }
                     }}
-                    className={twBtn}
+                    className={cn("toolbar-btn", "toolbar-btn-default")}
                     title={canRemoveDate ? "Удалить дату написания" : "Добавить дату написания"}
                 >
                     <Fb2ActionIcon icon={CalendarDays} mode={canRemoveDate ? "remove" : "add"} />
@@ -150,6 +214,3 @@ export const Fb2PoemMenu = ({ editor }: Props) => {
         </FloatingPortal>
     );
 };
-
-// Tailwind-стиль для кнопок (вынесен для чистоты)
-const twBtn = "p-2 flex items-center justify-center rounded-md hover:bg-gray-100 transition-colors text-gray-600";

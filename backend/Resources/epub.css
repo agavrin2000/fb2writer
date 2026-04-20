@@ -1,0 +1,32 @@
+p{margin-bottom: 1pt;margin-top: 1pt;margin-left: -1pt;margin-right: -1pt;font-size:100%;}
+p.text-name{text-indent:0;font-size:130%;font-weight:bolder;}
+p.text-author{text-indent:0;font-style:italic;font-weight:bold;text-align:right;}
+/*p:first-child:first-letter {
+  color: #903;
+  float: left;
+  font-family: Georgia;
+  font-size: 75px;
+  line-height: 60px;
+  padding-top: 4px;
+  padding-right: 8px;
+  padding-left: 3px;
+}
+*//*p:first-child:first-letter {
+  color: #903; 
+  font-family: Georgia;
+  initial-letter: 2;
+}
+*/
+div.text-author{text-indent:0;font-size:130%;font-weight:bold;}
+div.image{text-indent:0;text-align:center;}
+div.book{text-indent: 35px;page-break-before: always;}
+div.title{font-size: 130%;text-align:center;font-weight:bold;page-break-before:always;}
+div.epigraph{font-style:italic;margin-left:20%;width:80%}
+div.supertitle{text-align:center;}
+div.subtitle{font-style:italic;font-weight: bold;text-align:center;}
+div.cite{font-style:italic;font-size:95%;}
+div.poem{text-indent:0;font-style:italic;text-align:center;}
+ul{text-align:left;}
+sup{font-size: 60%;color:#555555;}
+span.dc{float:left;font-size:400%;margin-bottom:-0.1em;margin-right:0.1em;}
+span.dc2{text-shadow:1px 1px #505050;}

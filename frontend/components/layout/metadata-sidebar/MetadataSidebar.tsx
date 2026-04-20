@@ -146,7 +146,7 @@ export const MetadataSidebar = memo(
           <button
             type="button"
             onClick={onToggle}
-            className="fixed right-0 top-1/2 -translate-y-1/2 z-50 bg-white border border-gray-200 border-r-0 p-2 rounded-l-xl shadow-lg hover:bg-blue-50 text-blue-600 transition-all animate-in slide-in-from-right duration-200"
+            className="fixed right-0 top-1/2 -translate-y-1/2 z-50 bg-[var(--color-paper-bg)] border border-[var(--color-ui-border)] border-r-0 p-2 rounded-l-xl shadow-[var(--shadow-dropdown)] hover:bg-[var(--color-ui-bg-hover)] text-[var(--color-ui-accent)] transition-all animate-in slide-in-from-right duration-200"
             title="Открыть метаданные"
           >
             <ChevronLeft size={20} strokeWidth={3} />
@@ -156,27 +156,27 @@ export const MetadataSidebar = memo(
         {/* Основной контейнер сайдбара */}
         <aside
           className={`
-                relative flex flex-col border-l bg-gray-50 shadow-xl z-40 transition-all duration-300
-                ${isOpen ? "w-80 opacity-100" : "w-0 opacity-0 overflow-hidden"}
-            `}
+            relative flex flex-col border-l border-[var(--color-ui-border)] bg-[var(--color-ui-bg)] shadow-[var(--shadow-dropdown)] z-40 transition-all duration-300
+            ${isOpen ? "w-80 opacity-100" : "w-0 opacity-0 overflow-hidden"}
+        `}
         >
           {/* Шапка и Вкладки */}
-          <div className="flex flex-col bg-white border-b min-w-[320px]">
+          <div className="flex flex-col bg-[var(--color-paper-bg)] border-b border-[var(--color-ui-border)] min-w-[320px]">
             <div className="p-4 flex items-center gap-3">
               <button
                 type="button"
                 title="Скрыть метаданные"
                 onClick={onToggle}
-                className="p-1 rounded hover:bg-gray-100 text-gray-400 transition-colors"
+                className="p-1 rounded hover:bg-[var(--color-ui-bg-hover)] text-[var(--color-ui-text-muted)] transition-colors"
               >
                 <ChevronRight size={18} />
               </button>
-              <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+              <span className="text-[10px] font-bold text-[var(--color-ui-text-muted)] uppercase tracking-widest">
                 Описание FB2
               </span>
             </div>
 
-            <div className="flex px-2 border-t">
+            <div className="flex px-2 border-t border-[var(--color-ui-border)]/50">
               <TabButton
                 active={activeTab === "title"}
                 onClick={() => setActiveTab("title")}
@@ -213,8 +213,8 @@ export const MetadataSidebar = memo(
           {/* Контентная область */}
           <div className="grow overflow-y-auto p-4 custom-scrollbar min-w-[320px]">
             {!meta ? (
-              <div className="flex flex-col items-center justify-center h-40 text-gray-400 gap-2">
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
+              <div className="flex flex-col items-center justify-center h-40 text-[var(--color-ui-text-muted)] gap-2">
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-[var(--color-ui-accent)]"></div>
                 <span className="text-[11px] italic">Ожидание данных...</span>
               </div>
             ) : (
@@ -435,7 +435,7 @@ export const MetadataSidebar = memo(
                           handleMetaUpdate(
                             "srcTitleInfo",
                             "authors",
-                            newAuthors,immediate ?? false
+                            newAuthors, immediate ?? false
                           )
                         }
                       />
@@ -450,7 +450,7 @@ export const MetadataSidebar = memo(
                       <PersonList
                         title="Переводчик"
                         items={srctitleInfo?.translators || []}
-                        onUpdate={(newTranslators,immediate) =>
+                        onUpdate={(newTranslators, immediate) =>
                           handleMetaUpdate(
                             "srcTitleInfo",
                             "translators",
@@ -469,7 +469,7 @@ export const MetadataSidebar = memo(
                     >
                       <SequenceList
                         items={srctitleInfo?.sequence || []}
-                        onUpdate={(newSeqs,immediate) =>
+                        onUpdate={(newSeqs, immediate) =>
                           handleMetaUpdate("srcTitleInfo", "sequence", newSeqs, immediate ?? false)
                         }
                       />
@@ -544,7 +544,7 @@ export const MetadataSidebar = memo(
                     >
                       <SequenceList
                         items={publishInfo?.sequence || []}
-                        onUpdate={(newSeqs,immediate) =>
+                        onUpdate={(newSeqs, immediate) =>
                           handleMetaUpdate("publishInfo", "sequence", newSeqs, immediate ?? false)
                         }
                       />
@@ -688,7 +688,7 @@ export const MetadataSidebar = memo(
                       />
                     </Section>
 
-                    <div className="mt-4 p-3 bg-blue-50 border border-blue-100 rounded-lg text-[10px] text-blue-600 italic">
+                    <div className="mt-4 p-3 bg-[var(--color-ui-accent)]/10 border border-[var(--color-ui-accent)]/20 rounded-lg text-[10px] text-[var(--color-ui-accent)] italic">
                       Здесь хранятся нестандартные теги, такие как ISBN,
                       идентификаторы магазинов или технические пометки.
                     </div>

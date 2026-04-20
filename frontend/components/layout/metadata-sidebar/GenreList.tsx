@@ -86,19 +86,18 @@ export const GenreList = ({ genres = [], onUpdate, availableGenres = [] }: Genre
             {genres.map((id, idx) => (
                 <div
                     key={id}
-                    // Добавляем title на весь контейнер тега, чтобы название всплывало везде
                     title={getLabel(id)}
-                    className="flex items-center gap-1.5 px-2 py-1 bg-blue-50 border border-blue-100 rounded text-[10px] font-mono text-blue-700 font-medium group transition-all cursor-help"
+                    className="flex items-center gap-1.5 px-2 py-1 bg-[var(--color-ui-accent)]/10 border border-[var(--color-ui-accent)]/20 rounded text-[10px] font-mono text-[var(--color-ui-accent)] font-medium group transition-all cursor-help"
                 >
                     <span>{id}</span>
                     <button
                         type="button"
                         aria-label={`Удалить ${getLabel(id)}`}
                         onMouseDown={(e) => {
-                            e.preventDefault(); // Чтобы не терять фокус, если инпут открыт
+                            e.preventDefault();
                             onUpdate(genres.filter((_, i) => i !== idx));
                         }}
-                        className="text-blue-300 hover:text-red-500 transition-colors"
+                        className="text-[var(--color-ui-accent)]/50 hover:text-red-500 transition-colors"
                     >
                         <X size={10} strokeWidth={3} />
                     </button>
@@ -107,24 +106,21 @@ export const GenreList = ({ genres = [], onUpdate, availableGenres = [] }: Genre
 
             {isAdding ? (
                 <div className="relative inline-block">
-                    <div className="relative flex items-center" ref={(node) => {
-                        refs.setReference(node);
-                    }}>
+                    <div className="relative flex items-center" ref={(node) => { refs.setReference(node); }}>
                         <input
-                        
                             autoFocus
                             type="text"
                             placeholder="Название или код..."
-                            className="text-[11px] pl-7 pr-2 py-1.5 border-2 border-blue-400 rounded-md outline-none w-56 shadow-sm"
+                            /* Инпут в стиле темы */
+                            className="text-[11px] pl-7 pr-2 py-1.5 bg-[var(--color-ui-bg)] border-2 border-[var(--color-ui-accent)] text-[var(--color-ui-text)] rounded-md outline-none w-56 shadow-[var(--shadow-dropdown)] transition-colors placeholder:text-[var(--color-ui-text-muted)]/50"
                             value={searchFilter}
                             onChange={handleSearchChange}
                             onKeyDown={handleKeyDown}
-                               onBlur={() => {
-                                // Безопасное закрытие: ждем окончания клика по списку
+                            onBlur={() => {
                                 requestAnimationFrame(() => setIsAdding(false));
                             }}
                         />
-                        <Search size={12} className="absolute left-2.5 text-blue-500" />
+                        <Search size={12} className="absolute left-2.5 text-[var(--color-ui-accent)]" />
                     </div>
 
                     {searchFilter && (
@@ -133,34 +129,31 @@ export const GenreList = ({ genres = [], onUpdate, availableGenres = [] }: Genre
                                 ref={(node) => { refs.setFloating(node); }}
                                 style={{
                                     ...floatingStyles,
-                                    // Если позиция 0,0 — принудительно скрываем, чтобы не было вспышки в углу
                                     display: isPositioned ? 'block' : 'none',
                                 }}
-                                className="z-[9999] bg-white border border-gray-200 rounded-lg shadow-xl overflow-hidden min-w-[224px] animate-in fade-in duration-100"
+                                /* Выпадающий список в стиле Paper */
+                                className="z-[9999] bg-[var(--color-paper-bg)] border border-[var(--color-ui-border)] rounded-lg shadow-[var(--shadow-dropdown)] overflow-hidden min-w-[224px] animate-in fade-in duration-100"
                             >
                                 <div title="Поиск жанра" ref={listRef} className="max-h-52 overflow-y-auto scrollbar-hide">
-                                    {filteredOptions.length > 0 ? (
-                                        filteredOptions.map((g, index) => (
-                                            <div
-                                                key={g.id}
-                                                onMouseDown={(e) => { e.preventDefault(); handleSelect(g.id); }}
-                                                onMouseEnter={() => setActiveIndex(index)}
-                                                className={`group flex flex-col px-3 py-2 cursor-pointer border-b border-gray-50 last:border-0 transition-colors ${index === activeIndex ? 'bg-blue-600' : 'hover:bg-blue-50'
-                                                    }`}
-                                            >
-                                                <span className={`text-[11px] font-semibold ${index === activeIndex ? 'text-white' : 'text-gray-700'
-                                                    }`}>
-                                                    {g.label}
-                                                </span>
-                                                <span className={`text-[9px] font-mono leading-none ${index === activeIndex ? 'text-blue-100' : 'text-gray-400'
-                                                    }`}>
-                                                    {g.id}
-                                                </span>
-                                            </div>
-                                        ))
-                                    ) : (
-                                        <div className="px-3 py-4 text-center text-[11px] text-gray-400">Не найдено</div>
-                                    )}
+                                    {filteredOptions.map((g, index) => (
+                                        <div
+                                            key={g.id}
+                                            onMouseDown={(e) => { e.preventDefault(); handleSelect(g.id); }}
+                                            onMouseEnter={() => setActiveIndex(index)}
+                                            /* Активный элемент подсвечивается акцентом темы */
+                                            className={`group flex flex-col px-3 py-2 cursor-pointer border-b border-[var(--color-ui-border)]/30 last:border-0 transition-colors ${index === activeIndex
+                                                    ? 'bg-[var(--color-ui-accent)] text-[var(--color-ui-accent-foreground)]'
+                                                    : 'hover:bg-[var(--color-ui-bg-hover)]'
+                                                }`}
+                                        >
+                                            <span className={`text-[11px] font-semibold ${index === activeIndex ? 'text-[var(--color-ui-accent-foreground)]' : 'text-[var(--color-ui-text)]'}`}>
+                                                {g.label}
+                                            </span>
+                                            <span className={`text-[9px] font-mono leading-none ${index === activeIndex ? 'opacity-80' : 'text-[var(--color-ui-text-muted)]'}`}>
+                                                {g.id}
+                                            </span>
+                                        </div>
+                                    ))}
                                 </div>
                             </div>
                         </FloatingPortal>
@@ -171,7 +164,7 @@ export const GenreList = ({ genres = [], onUpdate, availableGenres = [] }: Genre
                     type="button"
                     aria-label="Добавить жанр"
                     onClick={() => setIsAdding(true)}
-                    className="flex items-center gap-1 px-2 py-1 border border-dashed border-gray-300 rounded text-[11px] text-gray-400 hover:border-blue-400 hover:text-blue-500"
+                    className="flex items-center gap-1 px-2 py-1 border border-dashed border-[var(--color-ui-border)] rounded text-[11px] text-[var(--color-ui-text-muted)] hover:border-[var(--color-ui-accent)] hover:text-[var(--color-ui-accent)] transition-all"
                 >
                     <Plus size={10} />
                     <span>Добавить</span>
@@ -179,4 +172,5 @@ export const GenreList = ({ genres = [], onUpdate, availableGenres = [] }: Genre
             )}
         </div>
     );
+
 };

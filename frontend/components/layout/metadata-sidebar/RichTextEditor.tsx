@@ -40,56 +40,57 @@ export const RichTextEditor = memo(({ content, onChange }: RichTextProps) => {
 
     if (!editor) return null;
 
-    return (
-        <div className="mb-4">
-            <div className="border border-gray-100 rounded-lg bg-gray-50 overflow-hidden focus-within:border-blue-400 focus-within:ring-1 focus-within:ring-blue-100 transition-all">
-                {/* Панель инструментов */}
-                <div className="flex items-center gap-1 p-1 bg-white border-b border-gray-100">
-                    <EditorToolbarButton
-                        onClick={() => editor.chain().focus().toggleBold().run()}
-                        active={editor.isActive('bold')}
-                        disabled={!editor.can().chain().toggleBold()}
-                        icon={<Bold size={14} />}
-                    />
-                    <EditorToolbarButton
-                        onClick={() => editor.chain().focus().toggleItalic().run()}
-                        active={editor.isActive('italic')}
-                        disabled={!editor.can().chain().toggleItalic()} // ПРОВЕРКА
-                        icon={<Italic size={14} />}
-                    />
+  return (
+    <div className="mb-4">
+        <div className="border border-[var(--color-ui-border)] rounded-lg bg-[var(--color-ui-bg)] overflow-hidden focus-within:border-[var(--color-ui-accent)] focus-within:ring-1 focus-within:ring-[var(--color-ui-accent)]/20 transition-all">
+            {/* Панель инструментов */}
+            <div className="flex items-center gap-1 p-1 bg-[var(--color-paper-bg)] border-b border-[var(--color-ui-border)]/50">
+                <EditorToolbarButton
+                    onClick={() => editor.chain().focus().toggleBold().run()}
+                    active={editor.isActive('bold')}
+                    disabled={!editor.can().chain().toggleBold()}
+                    icon={<Bold size={14} />}
+                />
+                <EditorToolbarButton
+                    onClick={() => editor.chain().focus().toggleItalic().run()}
+                    active={editor.isActive('italic')}
+                    disabled={!editor.can().chain().toggleItalic()}
+                    icon={<Italic size={14} />}
+                />
+                <EditorToolbarButton
+                    onClick={() => editor.chain().focus().toggleStrike().run()}
+                    active={editor.isActive('strike')}
+                    disabled={!editor.can().chain().toggleStrike()}
+                    icon={<Strikethrough size={14} />}
+                />
+                <EditorToolbarButton
+                    onClick={() => editor.chain().focus().toggleSuperscript().run()}
+                    active={editor.isActive('superscript')}
+                    disabled={!editor.can().chain().toggleSuperscript()}
+                    icon={<SuperscriptIcon size={14} />}
+                />
+                <EditorToolbarButton
+                    onClick={() => editor.chain().focus().toggleSubscript().run()}
+                    disabled={!editor.can().chain().toggleSubscript()}
+                    active={editor.isActive('subscript')}
+                    icon={<SubscriptIcon size={14} />}
+                />
+                <EditorToolbarButton
+                    onClick={() => editor.chain().focus().toggleBlockquote().run()}
+                    disabled={!editor.can().chain().toggleBlockquote()}
+                    active={editor.isActive('blockquote')}
+                    icon={<Quote size={14} />}
+                />
+            </div>
 
-                    <EditorToolbarButton
-                        onClick={() => editor.chain().focus().toggleStrike().run()}
-                        active={editor.isActive('strike')}
-                        disabled={!editor.can().chain().toggleStrike()}
-                        icon={<Strikethrough size={14} />}
-                    />
-                    <EditorToolbarButton
-                        onClick={() => editor.chain().focus().toggleSuperscript().run()}
-                        active={editor.isActive('superscript')}
-                        disabled={!editor.can().chain().toggleSuperscript()}
-                        icon={<SuperscriptIcon size={14} />}
-                    />
-                    <EditorToolbarButton
-                        onClick={() => editor.chain().focus().toggleSubscript().run()}
-                        disabled={!editor.can().chain().toggleSubscript()}
-                        active={editor.isActive('subscript')}
-                        icon={<SubscriptIcon size={14} />}
-                    />
-
-                    <EditorToolbarButton
-                        onClick={() => editor.chain().focus().toggleBlockquote().run()}
-                        disabled={!editor.can().chain().toggleBlockquote()}
-                        active={editor.isActive('blockquote')}
-                        icon={<Quote size={14} />}
-                    />
-                </div>
-
-                {/* Область редактирования */}
+            {/* Область редактирования (Tiptap) */}
+            <div className="text-[var(--color-paper-text)]">
                 <EditorContent editor={editor} />
             </div>
         </div>
-    );
+    </div>
+);
+
 });
 
 RichTextEditor.displayName = "RichTextEditor";

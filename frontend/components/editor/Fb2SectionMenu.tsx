@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useRef } from "react";
+import { cn } from "@/utils/cn";
+import { useState, useEffect, useRef } from "react";
 import { Editor } from "@tiptap/react";
 import { NodeSelection } from "@tiptap/pm/state";
 import {
@@ -22,15 +23,49 @@ import {
 } from "lucide-react";
 import { Fb2ActionIcon } from "../ui/Fb2ActionIcon";
 
+/**
+ * Интерфейс свойств компонента контекстного меню секции FB2.
+ */
 interface Props {
+  /**
+   * Экземпляр редактора TipTap. Может быть `null`, если редактор ещё не инициализирован.
+   */
   editor: Editor | null;
-  onSelectImage: (type: "block" | "inline" | "section") => void; // Добавляем проп для картинок
+
+  /**
+   * Обработчик выбора типа вставляемого изображения.
+   * Вызывается при клике на кнопку добавления картинки к секции.
+   * @param type - Тип изображения: `"section"` — изображение заголовка секции (виньетка).
+   */
+  onSelectImage: (type: "block" | "inline" | "section") => void;
 }
 
+/**
+ * Компонент всплывающего контекстного меню для управления элементом `fb2Section`.
+ * Отображается рядом с секцией при её выделении через специальный маркер (`.section-handle`).
+ * Позволяет:
+ * - Просматривать и редактировать `elementId` секции.
+ * - Управлять вложенностью: добавлять подразделы или разделы ниже.
+ * - Добавлять/удалять внутренние элементы: заголовок, эпиграф, аннотацию.
+ * - Вставлять виньетку (изображение секции).
+ *
+ * Особенности:
+ * - Использует `@floating-ui/react` для позиционирования меню относительно маркера секции.
+ * - Автоматически открывается при выделении секции и закрывается при клике вне его.
+ * - Поддерживает анимацию появления через `FloatingPortal`.
+ * - Реагирует на прокрутку страницы благодаря `autoUpdate`.
+ *
+ * @component
+ * @param props - Входные параметры компонента {@link Props}.
+ *
+ * @example
+ * <Fb2SectionMenu editor={editor} onSelectImage={handleSelectImage} />
+ */
 export const Fb2SectionMenu = ({ editor, onSelectImage }: Props) => {
   const [isOpen, setIsOpen] = useState(false);
   const isTyping = useRef(false);
-  // Плавающий элемент
+
+  // Настройка позиционирования всплывающего меню
   const { refs, floatingStyles, update } = useFloating({
     open: isOpen,
     onOpenChange: setIsOpen,
@@ -39,7 +74,6 @@ export const Fb2SectionMenu = ({ editor, onSelectImage }: Props) => {
     whileElementsMounted: autoUpdate,
   });
 
-  // Состояние для отслеживания текущего выделени
   const selection = editor?.state.selection;
   const isSection =
     selection instanceof NodeSelection &&
@@ -51,15 +85,16 @@ export const Fb2SectionMenu = ({ editor, onSelectImage }: Props) => {
 
   const [localId, setLocalId] = useState(currentElementId);
 
-useEffect(() => {
-  if (!isTyping.current && localId !== currentElementId) {
-    // Оборачиваем в микрозадачу, чтобы убрать ошибку каскадного рендера
-    queueMicrotask(() => {
-      setLocalId(currentElementId);
-    });
-  }
-}, [currentElementId, localId]);
+  // Синхронизация локального ID с состоянием редактора
+  useEffect(() => {
+    if (!isTyping.current && localId !== currentElementId) {
+      queueMicrotask(() => {
+        setLocalId(currentElementId);
+      });
+    }
+  }, [currentElementId, localId]);
 
+  // Обновление видимости и позиции меню при изменении выделения
   useEffect(() => {
     if (!editor) return;
 
@@ -86,7 +121,6 @@ useEffect(() => {
     };
 
     const handleClickOutside = (event: MouseEvent) => {
-      // Используем актуальное состояние через проверку refs
       if (!refs.floating.current) return;
 
       const target = event.target as HTMLElement;
@@ -112,12 +146,15 @@ useEffect(() => {
 
   if (!isOpen || !editor) return null;
 
-  // Проверяем наличие элементов внутри выделенной секции
+  // Проверка возможности удаления внутренних элементов
   const canRemoveTitle = editor.can().removeFb2Title();
   const canRemoveAnnotation = editor.can().removeFb2Annotation();
   const canRemoveSection = editor.can().removeFb2Section();
 
-  // Добавление новой секции
+  /**
+   * Вставляет новую секцию в указанную позицию относительно текущей.
+   * @param position - Позиция вставки: `"after"` — после, `"start"` — в начало, `"end"` — в конец.
+   */
   const addFb2Section = (position: "after" | "start" | "end") => {
     const { selection } = editor.state;
     if (!(selection instanceof NodeSelection)) return;
@@ -158,25 +195,29 @@ useEffect(() => {
       <div
         ref={(node) => { refs.setFloating(node); }}
         style={floatingStyles}
-        className="z-[9999] flex flex-col bg-white border border-gray-200 rounded-lg shadow-xl p-1 gap-1 animate-in fade-in slide-in-from-left-2 duration-150"
+        /* Заменил bg на ui-bg, добавил переменную тени и стандартную границу */
+        className="z-[9999] flex flex-col border border-[var(--color-ui-border)] bg-[var(--color-ui-bg)] rounded-lg shadow-[var(--shadow-dropdown)] p-1 gap-1 animate-in fade-in slide-in-from-left-2 duration-150"
         onMouseDown={(e) => e.stopPropagation()}
       >
         {/* Индикатор уровня вложенности */}
         <div
-          className="flex items-center justify-center gap-1 py-1.5 border-b mb-1 bg-gray-50 rounded-t-md"
+          className="flex items-center justify-center gap-1 py-1.5 mb-1 rounded-t-md"
           title={`Уровень вложенности: ${currentLevel}`}
         >
-          <Layers size={12} className="text-gray-400" />
-          <span className="text-[11px] font-black text-indigo-600 leading-none">
+          {/* Цвет иконки и текста теперь из темы (muted) */}
+          <Layers size={12} className="text-[var(--color-ui-text-muted)]" />
+          <span className="text-[11px] text-[var(--color-ui-text)] leading-none font-medium">
             {currentLevel}
           </span>
         </div>
+
         {/* Поле ввода Element ID */}
-        <div className="flex flex-col border-b pb-1 mb-1 gap-1 group relative">
-          <div className="flex items-center justify-center p-2 text-gray-400">
+        <div className="flex flex-col border-b border-[var(--color-ui-border)] pb-1 mb-1 gap-1 group relative">
+          <div className="flex items-center justify-center p-2 text-[var(--color-ui-text)]">
             <Anchor size={16} />
           </div>
-          {/* Всплывающий инпут при наведении или фокусе на иконку ID */}
+
+          {/* Всплывающий инпут */}
           <input
             type="text"
             value={localId}
@@ -193,8 +234,6 @@ useEffect(() => {
             onChange={(e) => {
               const val = e.target.value;
               setLocalId(val);
-              // Обновляем атрибуты в редакторе в реальном времени,
-              // но благодаря isTyping.current это не закроет меню
               editor.commands.updateAttributes("fb2Section", {
                 elementId: val,
               });
@@ -208,7 +247,7 @@ useEffect(() => {
             }}
             onMouseDown={(e) => e.stopPropagation()}
             placeholder="ID секции..."
-            className="absolute left-full ml-2 top-0 bg-white border border-gray-200 rounded-md shadow-lg p-1 text-[10px] w-24 outline-none focus:border-indigo-400"
+            className="absolute left-full ml-2 top-0 bg-[var(--color-paper-bg)] border border-[var(--color-ui-border)] text-[var(--color-ui-text)] rounded-md shadow-[var(--shadow-dropdown)] p-1 text-[10px] w-24 outline-none focus:border-[var(--color-ui-accent)]"
           />
         </div>
 
@@ -217,7 +256,7 @@ useEffect(() => {
           <button
             type="button"
             onClick={() => addFb2Section("after")}
-            className={twBtn}
+            className={cn("toolbar-btn", "toolbar-btn-default")}
             title="Добавить раздел ниже"
           >
             <Fb2ActionIcon icon={Rows2} mode="add" />
@@ -225,7 +264,7 @@ useEffect(() => {
           <button
             type="button"
             onClick={() => addFb2Section("start")}
-            className={twBtn}
+            className={cn("toolbar-btn", "toolbar-btn-default")}
             title="Подраздел в начало"
           >
             <ListStart size={16} />
@@ -233,23 +272,22 @@ useEffect(() => {
           <button
             type="button"
             onClick={() => addFb2Section("end")}
-            className={twBtn}
+            className={cn("toolbar-btn", "toolbar-btn-default")}
             title="Подраздел в конец"
           >
             <ListEnd size={16} />
           </button>
 
           {/* Удаление раздела */}
-          {canRemoveSection && (
-            <button
-              type="button"
-              onClick={() => editor.chain().focus().removeFb2Section().run()}
-              className={twBtn}
-              title="Удалить всю секцию"
-            >
-              <Fb2ActionIcon icon={Rows2} mode="remove" />
-            </button>
-          )}
+          <button
+            type="button"
+            disabled={!canRemoveSection}
+            onClick={() => editor.chain().focus().removeFb2Section().run()}
+            className={cn("toolbar-btn", "toolbar-btn-default")}
+            title="Удалить всю секцию"
+          >
+            <Fb2ActionIcon icon={Rows2} mode="remove" />
+          </button>
         </div>
 
         {/* Группа: Внутренние элементы (Title / Epigraph) */}
@@ -261,7 +299,7 @@ useEffect(() => {
                 ? editor.chain().focus().removeFb2Title().run()
                 : editor.chain().focus().insertFb2Title().run()
             }
-            className={twBtn}
+            className={cn("toolbar-btn", "toolbar-btn-default")}
             title={canRemoveTitle ? "Удалить заголовок" : "Добавить заголовок"}
           >
             <Fb2ActionIcon
@@ -273,7 +311,7 @@ useEffect(() => {
           <button
             type="button"
             onClick={() => editor.chain().focus().insertFb2Epigraph().run()}
-            className={twBtn}
+            className={cn("toolbar-btn", "toolbar-btn-default")}
             title="Добавить эпиграф"
           >
             <Fb2ActionIcon icon={TextQuote} mode="add" />
@@ -282,7 +320,7 @@ useEffect(() => {
           <button
             type="button"
             onClick={() => onSelectImage("section")}
-            className={twBtn}
+            className={cn("toolbar-btn", "toolbar-btn-default")}
             title="Картинка секции"
           >
             <BookImage size={16} />
@@ -295,7 +333,7 @@ useEffect(() => {
                 ? editor.chain().focus().removeFb2Annotation().run()
                 : editor.chain().focus().insertFb2Annotation().run()
             }
-            className={twBtn}
+            className={cn("toolbar-btn", "toolbar-btn-default")}
             title={
               canRemoveAnnotation ? "Удалить аннотацию" : "Добавить аннотацию"
             }
@@ -310,7 +348,3 @@ useEffect(() => {
     </FloatingPortal>
   );
 };
-
-// Tailwind-стиль для кнопок (вынесен для чистоты)
-const twBtn =
-  "p-2 flex items-center justify-center rounded-md hover:bg-gray-100 transition-colors text-gray-600";

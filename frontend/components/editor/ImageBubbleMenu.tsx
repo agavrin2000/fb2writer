@@ -149,7 +149,7 @@ export const ImageBubbleMenu: React.FC<ImageBubbleMenuProps> = ({ editor }) => {
           <button
             type="button"
             onClick={handleDownload}
-            className="p-1.5 hover:bg-slate-100 text-slate-600 border-r border-gray-100 transition-colors"
+            className="p-1.5 hover:bg-slate-100 text-slate-600 border-r border-gray-100"
             title="Скачать"
           >
             <Download size={15} />
@@ -158,7 +158,7 @@ export const ImageBubbleMenu: React.FC<ImageBubbleMenuProps> = ({ editor }) => {
             type="button"
             title="Удалить изображение"
             onClick={() => editor.chain().focus().deleteSelection().run()}
-            className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 text-[10px] font-black uppercase tracking-wider transition-colors"
+            className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 text-[10px] font-black uppercase tracking-wider"
           >
             <X size={14} />
           </button>

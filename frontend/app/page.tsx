@@ -100,6 +100,7 @@ export default function Page() {
         onSave={actions.save}
         onNew={actions.newFile}
         onOpen={actions.open}
+        onExit={actions.exitApp}
         fileName={displayFileName}
       />
 

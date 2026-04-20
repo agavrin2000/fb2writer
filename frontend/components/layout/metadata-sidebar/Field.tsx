@@ -69,13 +69,28 @@ export const FieldComponent = ({
   w-full text-[12px] py-1.5 transition-all outline-none rounded border
   ${Icon ? "pl-8" : "px-2"} 
   ${hasAction ? "pr-8" : "pr-2"} 
-  text-gray-700
-  ${!isEditable ? "bg-gray-100 cursor-not-allowed opacity-75" : "bg-gray-50 focus:bg-white focus:ring-1"}
-  ${showError
-      ? "border-red-300 focus:border-red-500 focus:ring-red-100 bg-red-50/30"
-      : "border-gray-100 focus:border-blue-400 focus:ring-blue-100"
+  
+  /* Цвета текста и границ из темы */
+  text-[var(--color-ui-text)]
+  border-[var(--color-ui-border)]
+  
+  /* Состояния редактирования */
+  ${!isEditable
+      ? "bg-[var(--color-ui-bg-hover)] cursor-not-allowed opacity-60"
+      : "bg-[var(--color-ui-bg)] focus:bg-[var(--color-paper-bg)] focus:ring-1 focus:ring-[var(--color-ui-accent)]/30"
     }
-  ${required && !defaultValue && isEditable ? "border-l-2 border-l-amber-400" : ""}
+  
+  /* Состояния ошибки и валидации */
+  ${showError
+      ? "border-red-500/50 focus:border-red-500 focus:ring-red-500/20 bg-red-500/5"
+      : "focus:border-[var(--color-ui-accent)]"
+    }
+  
+  /* Индикатор обязательного поля через border-l */
+  ${required && !defaultValue && isEditable
+      ? "border-l-2 border-l-amber-500"
+      : ""
+    }
 `.replace(/\s+/g, ' ').trim();
 
   // Общие свойства
@@ -95,48 +110,54 @@ export const FieldComponent = ({
     <div className={`mb-3 last:mb-0 ${className}`}>
       <label
         htmlFor={fieldId}
-        className="block text-[9px] font-bold text-gray-400 uppercase mb-1 ml-0.5 tracking-wider"
+        /* Используем ui-text-muted для меток */
+        className="block text-[9px] font-bold text-[var(--color-ui-text-muted)] uppercase mb-1 ml-0.5 tracking-wider"
       >
         {label}
         {required && (
           <span className="ml-1 text-red-500 font-bold" title="Обязательное поле">*</span>
         )}
       </label>
+
       <div className="relative group">
-        {/* Иконка: центрируем для одной строки или прижимаем к верху для многострочного текста */}
+        {/* Иконка: меняет цвет на акцентный при фокусе на поле */}
         {Icon && (
           <Icon
             size={12}
             className={`absolute left-2.5 ${multiline ? "top-3" : "top-1/2 -translate-y-1/2"} 
-            ${showError ? "text-red-400" : "text-gray-300 group-focus-within:text-blue-500"} 
-            transition-colors pointer-events-none z-10`}
+          ${showError ? "text-red-400" : "text-[var(--color-ui-text-muted)] opacity-50 group-focus-within:text-[var(--color-ui-accent)] group-focus-within:opacity-100"} 
+          transition-colors pointer-events-none z-10`}
           />
         )}
-        {/* Вставляем кнопку действия, если она передана */}
+
+        {/* Кнопка действия */}
         {hasAction && (
           <button
             type="button"
             onClick={action.onClick}
             title={action.title}
             disabled={!isEditable}
-            className="absolute right-1.5 top-1/2 -translate-y-1/2 p-1 text-gray-300 hover:text-blue-500 hover:bg-blue-50 disabled:pointer-events-none rounded transition-all z-20"
+            /* Используем ui-bg-hover для фона при наведении */
+            className="absolute right-1.5 top-1/2 -translate-y-1/2 p-1 text-[var(--color-ui-text-muted)] hover:text-[var(--color-ui-accent)] hover:bg-[var(--color-ui-bg-hover)] disabled:pointer-events-none rounded transition-all z-20"
           >
             <action.icon size={14} />
           </button>
         )}
+
         {options ? (
           <div className="relative">
             <select
               {...commonProps}
               ref={internalRef as React.Ref<HTMLSelectElement>}
-              className={`${baseInputStyles} pr-8 appearance-none cursor-pointer`}
+              /* Важно: добавь в baseInputStyles цвета bg-[var(--color-ui-bg)] и border-[var(--color-ui-border)] */
+              className={`${baseInputStyles} pr-8 appearance-none cursor-pointer bg-[var(--color-ui-bg)] text-[var(--color-ui-text)] border-[var(--color-ui-border)] focus:border-[var(--color-ui-accent)]`}
             >
-              <option value="" disabled>Выбрать...</option>
+              <option value="" disabled className="bg-[var(--color-ui-bg)]">Выбрать...</option>
               {options.map((opt) => (
-                <option key={opt.value} value={opt.value}>{opt.label}</option>
+                <option key={opt.value} value={opt.value} className="bg-[var(--color-ui-bg)]">{opt.label}</option>
               ))}
             </select>
-            <div className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
+            <div className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-[var(--color-ui-text-muted)]">
               <ChevronDown size={12} />
             </div>
           </div>
@@ -146,7 +167,7 @@ export const FieldComponent = ({
             ref={internalRef as React.Ref<HTMLTextAreaElement>}
             readOnly={!isEditable}
             rows={rows}
-            className={`${baseInputStyles} resize-none block`}
+            className={`${baseInputStyles} resize-none block bg-[var(--color-ui-bg)] text-[var(--color-ui-text)] border-[var(--color-ui-border)] focus:border-[var(--color-ui-accent)] placeholder:text-[var(--color-ui-text-muted)]/40`}
           />
         ) : (
           <input
@@ -154,12 +175,12 @@ export const FieldComponent = ({
             ref={internalRef as React.Ref<HTMLInputElement>}
             type={type}
             readOnly={!isEditable}
-            className={baseInputStyles}
+            className={`${baseInputStyles} bg-[var(--color-ui-bg)] text-[var(--color-ui-text)] border-[var(--color-ui-border)] focus:border-[var(--color-ui-accent)] placeholder:text-[var(--color-ui-text-muted)]/40`}
           />
         )}
       </div>
 
-      {/* Ошибка с aria-live для скринридеров */}
+      {/* Ошибка */}
       <div
         id={errorId}
         aria-live="polite"

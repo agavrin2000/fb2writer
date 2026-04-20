@@ -70,6 +70,7 @@
 
 	<ItemGroup>
 		<PackageReference Include="Photino.NET" Version="4.0.16" />
+		<PackageReference Include="EpubCore" Version="1.6.2" />
 	</ItemGroup>
 
 	<ItemGroup>

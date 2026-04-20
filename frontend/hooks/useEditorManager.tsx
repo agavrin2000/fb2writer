@@ -25,6 +25,7 @@ interface EditorActions {
   addFootnote: (id?: string) => void;
   addLink: () => void;
   newFile: () => void;
+  exitApp: () => void;
   undo: () => void;
   redo: () => void;
 }
@@ -347,12 +348,20 @@ export function useEditorManager(): EditorManager {
     return confirmed;
   }, [isDirty, confirm]);
 
-  // Обработка закрытия окна по "крестику"
-  const onShowExitConfirmation = useCallback(async () => {
+  /**
+   * Выход из приложения.
+   * Перед выходом проверяет наличие несохранённых изменений.
+   */
+  const exitApp = useCallback(async () => {
     const canProceed = await ensureSafeToProceed();
     if (!canProceed) return;
     photino.send("close-app");
   }, [ensureSafeToProceed]);
+
+  // Обработка закрытия окна по "крестику"
+  const onShowExitConfirmation = useCallback(async () => {
+    exitApp()
+  }, [exitApp]);
 
   /**
    * Объект с обработчиками событий, получаемых от Photino.
@@ -535,6 +544,7 @@ export function useEditorManager(): EditorManager {
       addFootnote: notes.addFootnote,
       addLink,
       newFile: createNewFile,
+      exitApp: exitApp,
       undo: () => fb2.editor?.chain().undo().run(),
       redo: () => fb2.editor?.chain().redo().run(),
     },
