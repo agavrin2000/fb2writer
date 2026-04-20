@@ -59,6 +59,10 @@ public class MessageHub(PhotinoWindow window, FileService fileService, string? i
                     await HandleSaveFile(payload);
                     break;
 
+                case "export-epub":
+                    await HandleEpubExport(payload);
+                    break;
+
                 case "select-image":
                     await HandleSelectImage(payload);
                     break;
@@ -152,6 +156,31 @@ public class MessageHub(PhotinoWindow window, FileService fileService, string? i
         await fileService.SaveFileAsync(payload, localPath);
         UpdateWindowTitle(localPath);
         Emit("save-success", fileName);
+    }
+
+    /// <summary>
+    /// Обрабатывает команду "export-epub" — запрос на экспорт в EPUB текущего документа.
+    /// Если путь не указан, открывается диалог выбора места сохранения.
+    /// Выполняет сохранение через <see cref="FileService"/> и уведомляет об успехе.
+    /// </summary>
+    /// <param name="payload">JSON-элемент с данными для сохранения, включая содержимое и опциональный путь.</param>
+    private async Task HandleEpubExport(JsonElement payload)
+    {
+        if (payload.ValueKind == JsonValueKind.Null || payload.ValueKind == JsonValueKind.Undefined)
+            return;
+
+        var localPath = await ChooseFileAsync("Экспорт в EPUB", [("Книги EPUB", ["epub"])]);
+        if (string.IsNullOrEmpty(localPath))
+        {
+            Emit("cancel-loading");
+            return;
+        }
+
+        string fileName = Path.GetFileName(localPath);
+        Emit("start-exporting", fileName);
+        await fileService.ExportEpubAsync(payload, localPath);
+        UpdateWindowTitle(localPath);
+        Emit("cancel-loading");
     }
 
     /// <summary>

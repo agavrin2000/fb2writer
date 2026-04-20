@@ -18,6 +18,8 @@ public class FileService
     /// </summary>
     private readonly Fb2Service _fb2Converter = new();
 
+    private readonly EpubConverter _epubConverter = new();
+
     /// <summary>
     /// Асинхронно загружает FB2-файл по указанному пути, преобразует его содержимое в JSON и отправляет во frontend.
     /// Метод не вызывает диалог выбора файла — используется, когда путь уже известен.
@@ -142,4 +144,44 @@ public class FileService
             throw;
         }
     }
+    /// <summary>
+    /// Асинхронно сохраняет JSON-представление документа в FB2-файл (или .fb2.zip).
+    /// Использует временный файл для обеспечения атомарности операции: при ошибке исходный файл не повреждается.
+    /// Поддерживает прямое сохранение в .fb2 и упаковку в ZIP-архив.
+    /// </summary>
+    /// <param name="jsonContent">JSON-строка с данными редактора, подлежащая конвертации в FB2.</param>
+    /// <param name="filePath">Полный путь к файлу, куда необходимо сохранить документ.</param>
+    /// <returns>Задача, представляющая асинхронную операцию сохранения.</returns>
+    /// <exception cref="Exception">Выбрасывается в случае ошибки конвертации или записи файла, с описанием проблемы.</exception>
+    public async Task ExportEpubAsync(JsonElement jsonContent, string filePath)
+    {
+        if (string.IsNullOrWhiteSpace(filePath)) return;
+
+        // Создаем временный файл в той же папке для атомарности
+        string tempPath = filePath + "." + Guid.NewGuid().ToString("N") + ".tmp";
+        string fileName = Path.GetFileName(filePath);
+
+        try
+        {
+            await Task.Run(() =>
+            {
+                // Используем обычный using, так как мы в Task.Run
+                using (var fs = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.None))
+                {
+                    _epubConverter.ConvertJsonToEpub(fs, jsonContent);
+                    fs.Flush(); // Сбрасываем буферы на диск
+                }
+
+                // Атомарная замена (на Linux это системный вызов rename)
+                File.Move(tempPath, filePath, overwrite: true);
+            });
+        }
+        catch
+        {
+            // Очистка временного файла при ошибке
+            if (File.Exists(tempPath)) File.Delete(tempPath);
+            throw;
+        }
+    }
+
 }

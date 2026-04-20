@@ -20,6 +20,7 @@ import {
 
 interface EditorActions {
   save: () => Promise<void> | void;
+  exportEpub: () => Promise<void> | void;
   open: () => Promise<void> | void;
   selectImage: (type: ImageDisplayType) => void;
   addFootnote: (id?: string) => void;
@@ -203,7 +204,6 @@ export function useEditorManager(): EditorManager {
   const onImageSelected = useCallback(
     (payload: string | object | null) => {
       try {
-
         const imageData =
           typeof payload === "string" ? JSON.parse(payload) : payload;
         if (!imageData?.data) return; // Защита от пустых данных
@@ -274,6 +274,18 @@ export function useEditorManager(): EditorManager {
     });
     setLoadingFileName(getFileName(currentFilePath));
   }, [setLoadingFileName, setIsLoading, setLoaderConfig, currentFilePath]);
+
+  /**
+   * Обрабатывает начало процесса сохранения файла.
+   * Активирует индикатор сохранения и устанавливает имя файла.
+   */
+  const onStartExporting = useCallback(() => {
+    setIsLoading(true);
+    setLoaderConfig({
+      title: "Экспорт",
+      subtitle: "Формирование EPUB",
+    });
+  }, [setIsLoading, setLoaderConfig]);
 
   /**
    * Обрабатывает отмену процесса загрузки.
@@ -360,7 +372,7 @@ export function useEditorManager(): EditorManager {
 
   // Обработка закрытия окна по "крестику"
   const onShowExitConfirmation = useCallback(async () => {
-    exitApp()
+    exitApp();
   }, [exitApp]);
 
   /**
@@ -374,6 +386,7 @@ export function useEditorManager(): EditorManager {
       "start-loading": onStartLoading,
       "cancel-loading": onCancelLoading,
       "start-saving": onStartSaving,
+      "start-exporting": onStartExporting,
       "save-success": onSaveSuccess,
       "show-exit-confirmation": onShowExitConfirmation,
       error: onError,
@@ -385,6 +398,7 @@ export function useEditorManager(): EditorManager {
       onCancelLoading,
       onStartSaving,
       onSaveSuccess,
+      onStartExporting,
       onShowExitConfirmation,
       onError,
     ],
@@ -451,6 +465,51 @@ export function useEditorManager(): EditorManager {
       setIsLoading,
     ],
   );
+
+  /**
+   * Сохраняет текущий документ в файл.
+   * Если `saveAs` истинно или путь не задан, открывается диалог выбора места сохранения.
+   * Перед сохранением очищает неиспользуемые сноски.
+   * @param {boolean} [saveAs=false] - Если `true`, принудительно открывает диалог "Сохранить как".
+   */
+  const exportEpub = useCallback(() => {
+    if (!fb2.editor || isLoading) return;
+
+    setLoaderConfig({
+      title: "Экспорт...",
+      subtitle: "Экспорт в формат Epub3. Подождите...",
+    });
+    setIsLoading(true);
+
+    // Очистка сносок на которые нет сыылок в тексте документа
+    const usedIds = new Set<string>();
+    fb2.editor.state.doc.descendants((node) => {
+      const linkMark = node.marks.find(
+        (m) => m.type.name === "link" && m.attrs.rel === "footnote",
+      );
+      if (linkMark) {
+        const id = linkMark.attrs.href?.replace("#", "");
+        if (id) usedIds.add(id);
+      }
+    });
+
+    const actualFootnotes = Object.keys(notes.footnotes)
+      .filter((id) => usedIds.has(id))
+      .reduce((acc, id) => {
+        acc[id] = notes.footnotes[id];
+        return acc;
+      }, {} as FootnotesMap);
+
+    const payload = {
+      content: fb2.editor.getJSON(),
+      footnotes: actualFootnotes,
+      metadata: fb2.editor.storage.metadata.meta,
+      filePath: "",
+    };
+
+    // Сериализуем в строку перед отправкой
+    photino.send("export-epub", payload);
+  }, [fb2.editor, isLoading, notes, setLoaderConfig, setIsLoading]);
 
   /**
    * Открывает диалог выбора файла для загрузки.
@@ -539,6 +598,7 @@ export function useEditorManager(): EditorManager {
     notes,
     actions: {
       save: saveFile,
+      exportEpub: exportEpub,
       open: openFile,
       selectImage: selectImage,
       addFootnote: notes.addFootnote,

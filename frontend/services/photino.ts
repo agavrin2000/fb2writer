@@ -8,6 +8,7 @@ export type PhotinoEvent =
   | { type: "image-selected"; payload: string | object }
   | { type: "cancel-loading"; payload: string | object }
   | { type: "save-file"; payload: string | object }
+  | { type: "export-epub"; payload: string | object }
   | { type: "error"; payload: string | object }
   | { type: "fb2-content"; payload: string | object }
   | { type: "save-success"; payload: string | object }
@@ -37,30 +38,30 @@ class PhotinoBridge extends EventEmitter {
     this.setupReceiver();
   }
 
-private setupReceiver() {
-  const chromeWebview = window.chrome?.webview;
+  private setupReceiver() {
+    const chromeWebview = window.chrome?.webview;
 
-  // 1. Проверяем WebView2 (Windows)
-  if (chromeWebview) {
-    chromeWebview.addEventListener("message", (event: { data: unknown }) => {
-      this.handleMessage(event.data as string | PhotinoEvent);
-    });
-    console.log("✅ Подключен через WebView2");
-    return; // Выходим, чтобы не вешать вторую подписку
-  }
+    // 1. Проверяем WebView2 (Windows)
+    if (chromeWebview) {
+      chromeWebview.addEventListener("message", (event: { data: unknown }) => {
+        this.handleMessage(event.data as string | PhotinoEvent);
+      });
+      console.log("✅ Подключен через WebView2");
+      return; // Выходим, чтобы не вешать вторую подписку
+    }
 
-  // 2. Фоллбек для Linux/macOS
-  if (this.bridge && typeof this.bridge.receiveMessage === "function") {
-    try {
-      this.bridge.receiveMessage((data: PhotinoEvent | string) =>
-        this.handleMessage(data),
-      );
-      console.log("✅ Подключен через Photino receiveMessage");
-    } catch (e) {
-      console.error("🚨 Ошибка подписки receiveMessage:", e);
+    // 2. Фоллбек для Linux/macOS
+    if (this.bridge && typeof this.bridge.receiveMessage === "function") {
+      try {
+        this.bridge.receiveMessage((data: PhotinoEvent | string) =>
+          this.handleMessage(data),
+        );
+        console.log("✅ Подключен через Photino receiveMessage");
+      } catch (e) {
+        console.error("🚨 Ошибка подписки receiveMessage:", e);
+      }
     }
   }
-}
 
   private handleMessage(data: PhotinoEvent | string): void {
     if (data === null || data === undefined) return;

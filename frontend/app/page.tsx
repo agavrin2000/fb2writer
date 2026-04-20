@@ -98,6 +98,7 @@ export default function Page() {
       <Header
         editor={editor}
         onSave={actions.save}
+        onEpubExport={actions.exportEpub}
         onNew={actions.newFile}
         onOpen={actions.open}
         onExit={actions.exitApp}

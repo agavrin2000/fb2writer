@@ -35,6 +35,11 @@ interface HeaderProps {
   onSave: (saveAs: boolean) => void;
 
   /**
+   * Обработчик экспорта в EPUB.
+   */
+  onEpubExport: () => void;
+
+  /**
    * Обработчик открытия файла.
    */
   onOpen: () => void;
@@ -85,7 +90,15 @@ interface HeaderProps {
  * />
  */
 export const Header = memo(
-  ({ editor, onSave, onOpen, onNew, onExit, fileName }: HeaderProps) => {
+  ({
+    editor,
+    onSave,
+    onEpubExport,
+    onOpen,
+    onNew,
+    onExit,
+    fileName,
+  }: HeaderProps) => {
     const [activeMenu, setActiveMenu] = useState<string | null>(null);
     const [isAboutOpen, setIsAboutOpen] = useState(false);
 
@@ -123,7 +136,9 @@ export const Header = memo(
             <div className="relative">
               <button
                 type="button"
-                onClick={() => setActiveMenu(activeMenu === "file" ? null : "file")}
+                onClick={() =>
+                  setActiveMenu(activeMenu === "file" ? null : "file")
+                }
                 className={`header-menu-btn ${activeMenu === "file" ? "is-active" : ""}`}
               >
                 Файл
@@ -178,6 +193,17 @@ export const Header = memo(
                       <span>Сохранить как...</span>
                     </div>
                     <span>Ctrl+Shift+S</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleAction(() => onEpubExport())}
+                    className="header-item"
+                  >
+                    <div className="flex items-center gap-2">
+                      <FileCode size={14} />
+                      <span>Экспорт в EPUB3...</span>
+                    </div>
                   </button>
 
                   <div className="header-divider"></div>

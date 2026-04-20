@@ -1,6 +1,7 @@
 using System.IO.Compression;
 using System.Net;
 using System.Text;
+using System.Text.Json;
 using System.Xml.Linq;
 using FB2Writer.Models;
 
@@ -8,31 +9,31 @@ namespace FB2Writer.Services;
 
 /*https://github.com/fb2kindle/fb2kindle/*/
 
-public class EpubExporter
+public class EpubConverter
 {
     private readonly XNamespace _dc = "http://purl.org";
     private readonly XNamespace _opf = "http://idpf.org";
 
-    public async Task<byte[]> ExportAsync(Fb2BookExport book)
+    public void ConvertJsonToEpub(FileStream fs, JsonElement jsonContent)
     {
+        Fb2BookExport book = jsonContent.Deserialize<Fb2BookExport>()!;
         using var ms = new MemoryStream();
         // Используем LeaveOpen: true, чтобы MemoryStream не закрылся раньше времени
-        using (var archive = new ZipArchive(ms, ZipArchiveMode.Create, true))
+        using var archive = new ZipArchive(ms, ZipArchiveMode.Create, true);
+        // 1. mimetype (ОБЯЗАТЕЛЬНО ПЕРВЫМ И БЕЗ СЖАТИЯ)
+        var mimeEntry = archive.CreateEntry("mimetype", CompressionLevel.NoCompression);
+        using (var sw = new StreamWriter(mimeEntry.Open())) sw.Write("application/epub+zip");
+
+        // 2. container.xml
+        var containerEntry = archive.CreateEntry("META-INF/container.xml");
+        using (var sw = new StreamWriter(containerEntry.Open()))
+            sw.Write("<?xml version=\"1.0\"?><container version=\"1.0\" xmlns=\"urn:oasis:names:tc:opendocument:xmlns:container\"><rootfiles><rootfile full-path=\"OEBPS/content.opf\" media-type=\"application/oebps-package+xml\"/></rootfiles></container>");
+
+        // 3. style.css
+        var cssEntry = archive.CreateEntry("OEBPS/style.css");
+        using (var sw = new StreamWriter(cssEntry.Open()))
         {
-            // 1. mimetype (ОБЯЗАТЕЛЬНО ПЕРВЫМ И БЕЗ СЖАТИЯ)
-            var mimeEntry = archive.CreateEntry("mimetype", CompressionLevel.NoCompression);
-            using (var sw = new StreamWriter(mimeEntry.Open())) sw.Write("application/epub+zip");
-
-            // 2. container.xml
-            var containerEntry = archive.CreateEntry("META-INF/container.xml");
-            using (var sw = new StreamWriter(containerEntry.Open()))
-                sw.Write("<?xml version=\"1.0\"?><container version=\"1.0\" xmlns=\"urn:oasis:names:tc:opendocument:xmlns:container\"><rootfiles><rootfile full-path=\"OEBPS/content.opf\" media-type=\"application/oebps-package+xml\"/></rootfiles></container>");
-
-            // 3. style.css
-            var cssEntry = archive.CreateEntry("OEBPS/style.css");
-            using (var sw = new StreamWriter(cssEntry.Open()))
-            {
-                sw.Write(@"
+            sw.Write(@"
                 p{margin-bottom: 1pt;margin-top: 1pt;margin-left: -1pt;margin-right: -1pt;font-size:100%;}
                 p.text-name{text-indent:0;font-size:130%;font-weight:bolder;}
                 p.text-author{text-indent:0;font-style:italic;font-weight:bold;text-align:right;}
@@ -57,76 +58,75 @@ public class EpubExporter
                 ul{text-align:left;}
                 sup{font-size: 60%;color:#555555;}
                 span.dc2{text-shadow:1px 1px #505050;}");
-            }
-
-            var manifestItems = new List<(string id, string href, string mime)>();
-            var navItems = new List<(string id, string href, string title)>();
-
-            // 2. ОБРАБОТКА ВСЕХ КАРТИН (включая обложку)
-            // Допустим, у вас есть Dictionary<string, string> Images в book, где Key - id, Value - Base64
-            // Если картинки лежат в другом месте, адаптируйте этот блок:
-            var allImages = ExtractImagesFromBook(book); // Метод для сбора всех Base64 из данных
-
-            foreach (var img in allImages)
-            {
-                try
-                {
-                    // Определяем формат ДО очистки строки
-                    var (ext, mime) = GetImageInfo(img.Value);
-
-                    // Очищаем и декодируем
-                    string base64Pure = img.Value.Contains(",") ? img.Value.Split(',')[1] : img.Value;
-                    byte[] imageBytes = Convert.FromBase64String(base64Pure);
-
-                    var imgHref = $"images/{img.Key}.{ext}";
-                    var entry = archive.CreateEntry($"OEBPS/{imgHref}");
-                    using (var os = entry.Open())
-                    {
-                        os.Write(imageBytes, 0, imageBytes.Length);
-                    }
-
-                    // ВАЖНО: передаем mime-type в манифест
-                    bool isCover = img.Key == book.Metadata.TitleInfo?.CoverPage;
-                    manifestItems.Add((
-                        id: isCover ? "cover-img" : $"img_{img.Key}",
-                        href: imgHref,
-                        mime: mime // Сохраните это значение для GenerateOpf
-                    ));
-                }
-                catch { /* Пропустить битую картинку */ }
-            }
-
-            var sections = book.Content.Content ?? new();
-            for (int i = 0; i < sections.Count; i++)
-            {
-                var fileName = $"chapter_{i}.xhtml";
-                var bodyHtml = TipTapToHtml.ToHtml(sections[i]);
-                var finalHtml = WrapInXhtml($"Глава {i + 1}", ApplyDropCap(bodyHtml) + GenerateFootnotesHtml(bodyHtml, book.Footnotes));
-
-                var entry = archive.CreateEntry($"OEBPS/{fileName}");
-                using (var sw = new StreamWriter(entry.Open())) sw.Write(finalHtml);
-
-                manifestItems.Add(($"ch_{i}", fileName, mime: "application/xhtml+xml"));
-                navItems.Add(($"ch_{i}", fileName, $"Глава {i + 1}"));
-            }
-
-            // 4. НАВИГАЦИЯ И OPF
-            archive.CreateEntry("OEBPS/nav.xhtml"); // + запись контента через GenerateNav
-            manifestItems.Add(("nav", "nav.xhtml", mime: "application/xhtml+xml"));
-
-            // 1. Генерируем NCX контент
-            var ncxContent = GenerateNcx(book, navItems);
-            var ncxEntry = archive.CreateEntry("OEBPS/toc.ncx");
-            using (var sw = new StreamWriter(ncxEntry.Open())) sw.Write(ncxContent);
-
-            // 2. Добавляем в manifestItems
-            manifestItems.Add((id: "ncx", href: "toc.ncx", mime: "application/x-dtbncx+xml"));
-
-            var opfEntry = archive.CreateEntry("OEBPS/content.opf");
-            using (var sw = new StreamWriter(opfEntry.Open()))
-                sw.Write(GenerateOpf(book, manifestItems, book.Metadata.TitleInfo?.CoverPage != null ? "images/cover.jpg" : null));
         }
-        return ms.ToArray();
+
+        var manifestItems = new List<(string id, string href, string mime)>();
+        var navItems = new List<(string id, string href, string title)>();
+
+        // 2. ОБРАБОТКА ВСЕХ КАРТИН (включая обложку)
+        // Допустим, у вас есть Dictionary<string, string> Images в book, где Key - id, Value - Base64
+        // Если картинки лежат в другом месте, адаптируйте этот блок:
+        var allImages = ExtractImagesFromBook(book); // Метод для сбора всех Base64 из данных
+
+        foreach (var img in allImages)
+        {
+            try
+            {
+                // Определяем формат ДО очистки строки
+                var (ext, mime) = GetImageInfo(img.Value);
+
+                // Очищаем и декодируем
+                string base64Pure = img.Value.Contains(",") ? img.Value.Split(',')[1] : img.Value;
+                byte[] imageBytes = Convert.FromBase64String(base64Pure);
+
+                var imgHref = $"images/{img.Key}.{ext}";
+                var entry = archive.CreateEntry($"OEBPS/{imgHref}");
+                using (var os = entry.Open())
+                {
+                    os.Write(imageBytes, 0, imageBytes.Length);
+                }
+
+                // ВАЖНО: передаем mime-type в манифест
+                bool isCover = img.Key == book.Metadata.TitleInfo?.CoverPage;
+                manifestItems.Add((
+                    id: isCover ? "cover-img" : $"img_{img.Key}",
+                    href: imgHref,
+                    mime: mime // Сохраните это значение для GenerateOpf
+                ));
+            }
+            catch { /* Пропустить битую картинку */ }
+        }
+
+        var sections = book.Content.Content ?? new();
+        for (int i = 0; i < sections.Count; i++)
+        {
+            var fileName = $"chapter_{i}.xhtml";
+            var bodyHtml = TipTapToHtml.ToHtml(sections[i]);
+            var finalHtml = WrapInXhtml($"Глава {i + 1}", ApplyDropCap(bodyHtml) + GenerateFootnotesHtml(bodyHtml, book.Footnotes));
+
+            var entry = archive.CreateEntry($"OEBPS/{fileName}");
+            using (var sw = new StreamWriter(entry.Open())) sw.Write(finalHtml);
+
+            manifestItems.Add(($"ch_{i}", fileName, mime: "application/xhtml+xml"));
+            navItems.Add(($"ch_{i}", fileName, $"Глава {i + 1}"));
+        }
+
+        // 4. НАВИГАЦИЯ И OPF
+        archive.CreateEntry("OEBPS/nav.xhtml"); // + запись контента через GenerateNav
+        manifestItems.Add(("nav", "nav.xhtml", mime: "application/xhtml+xml"));
+
+        // 1. Генерируем NCX контент
+        var ncxContent = GenerateNcx(book, navItems);
+        var ncxEntry = archive.CreateEntry("OEBPS/toc.ncx");
+        using (var sw = new StreamWriter(ncxEntry.Open())) sw.Write(ncxContent);
+
+        // 2. Добавляем в manifestItems
+        manifestItems.Add((id: "ncx", href: "toc.ncx", mime: "application/x-dtbncx+xml"));
+
+        var opfEntry = archive.CreateEntry("OEBPS/content.opf");
+        using (var sw = new StreamWriter(opfEntry.Open()))
+            sw.Write(GenerateOpf(book, manifestItems, book.Metadata.TitleInfo?.CoverPage != null ? "images/cover.jpg" : null));
+        return;
     }
 
     private string WrapInXhtml(string title, string body) =>
