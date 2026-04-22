@@ -1,6 +1,5 @@
 using System.Xml.Linq;
 using System.Text;
-using System.IO.Compression;
 using System.Xml.Schema;
 using System.Text.Json;
 using FB2Writer.Models;

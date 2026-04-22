@@ -64,7 +64,7 @@ export function useEditorManager(): EditorManager {
    * Ссылка на функцию установки активной сноски.
    * Позволяет обновлять состояние активной сноски из любого места.
    */
-  const setActiveNoteRef = useRef<(note: ActiveNote | null) => void>(() => {});
+  const setActiveNoteRef = useRef<(note: ActiveNote | null) => void>(() => { });
 
   /**
    * Флаг состояния загрузки.
@@ -446,8 +446,14 @@ export function useEditorManager(): EditorManager {
           return acc;
         }, {} as FootnotesMap);
 
+      const json = fb2.editor.getJSON();
+      // Удаляем meta 
+      const cleanJson = JSON.parse(JSON.stringify(json, (key, value) =>
+        key === 'meta' ? undefined : value
+      ));
+
       const payload = {
-        content: fb2.editor.getJSON(),
+        content: cleanJson,
         footnotes: actualFootnotes,
         metadata: fb2.editor.storage.metadata.meta,
         filePath: saveAs ? "" : currentFilePath,
@@ -500,8 +506,14 @@ export function useEditorManager(): EditorManager {
         return acc;
       }, {} as FootnotesMap);
 
+    const json = fb2.editor.getJSON();
+    // Удаляем meta 
+    const cleanJson = JSON.parse(JSON.stringify(json, (key, value) =>
+      key === 'meta' ? undefined : value
+    ));
+
     const payload = {
-      content: fb2.editor.getJSON(),
+      content: cleanJson,
       footnotes: actualFootnotes,
       metadata: fb2.editor.storage.metadata.meta,
       filePath: "",

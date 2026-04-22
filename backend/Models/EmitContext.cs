@@ -61,7 +61,7 @@ public record AppDetails(
 [JsonSerializable(typeof(Dictionary<string, string>))] // Для атрибутов (attrs)
 internal partial class EmitContext : JsonSerializerContext
 {
-     public static readonly EmitContext Custom = new (CustomOptions);
+    public static readonly EmitContext Custom = new(CustomOptions);
     private static JsonSerializerOptions? _customOptions;
 
     /// <summary>
@@ -79,7 +79,7 @@ internal partial class EmitContext : JsonSerializerContext
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
         WriteIndented = false,
         Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
-        TypeInfoResolver = Default // Важно для работы Source Generation
+        TypeInfoResolver = Default, // Важно для работы Source Generation
     };
 }
 

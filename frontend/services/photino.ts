@@ -96,7 +96,17 @@ class PhotinoBridge extends EventEmitter {
     const messageObject = { type, payload };
 
     const jsonMessage = JSON.stringify(messageObject, (key, value) => {
-      return value === null ? undefined : value;
+      // 1. Убираем null (заменяем на undefined, чтобы ключ исчез из JSON)
+      if (value === null) {
+        return undefined;
+      }
+
+      // 2. Превращаем числа в строки
+      if (typeof value === "number") {
+        return value.toString();
+      }
+
+      return value;
     });
 
     this.bridge.sendMessage(jsonMessage);

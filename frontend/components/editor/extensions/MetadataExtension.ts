@@ -31,6 +31,9 @@ export const MetadataExtension = Extension.create({
             default: this.options.initialMeta,
             // Обязательно для глубокого сравнения и сохранения в истории
             keepOnSplit: false,
+            renderHTML: () => {
+              return {}; // Не добавляет атрибут в итоговый HTML-тег
+            },
           },
         },
       },

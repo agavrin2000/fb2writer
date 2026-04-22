@@ -117,7 +117,7 @@ public class MessageHub(PhotinoWindow window, FileService fileService, string? i
     /// </summary>
     private async Task HandleOpenFile()
     {
-        string? path = await ChooseFileAsync("Выберите книгу", [("Книги FB2", ["fb2", "fb2.zip"]), ("Все файлы", ["*"])]);
+        string? path = await ChooseFileAsync("Выберите книгу", [("Книги FB2", ["fb2", "fb2.zip"]), ("Все файлы", ["*"])], "open");
         if (string.IsNullOrEmpty(path))
         {
             Emit("cancel-loading");
@@ -143,7 +143,7 @@ public class MessageHub(PhotinoWindow window, FileService fileService, string? i
 
         if (string.IsNullOrEmpty(localPath))
         {
-            localPath = await ChooseFileAsync("Сохранить книгу", [("Книги FB2", ["fb2", "fb2.zip"]), ("Все файлы", ["*"])]);
+            localPath = await ChooseFileAsync("Сохранить книгу", [("Книги FB2", ["fb2", "fb2.zip"]), ("Все файлы", ["*"])], "save");
             if (string.IsNullOrEmpty(localPath))
             {
                 Emit("cancel-loading");
@@ -169,7 +169,7 @@ public class MessageHub(PhotinoWindow window, FileService fileService, string? i
         if (payload.ValueKind == JsonValueKind.Null || payload.ValueKind == JsonValueKind.Undefined)
             return;
 
-        var localPath = await ChooseFileAsync("Экспорт в EPUB", [("Книги EPUB", ["epub"])]);
+        var localPath = await ChooseFileAsync("Экспорт в EPUB", [("Книги EPUB", ["epub"])], "save");
         if (string.IsNullOrEmpty(localPath))
         {
             Emit("cancel-loading");
@@ -198,7 +198,7 @@ public class MessageHub(PhotinoWindow window, FileService fileService, string? i
             ? t.GetString() ?? "block"
             : "block";
 
-        string? path = await ChooseFileAsync("Выберите изображение", [("Изображения", ["jpg", "jpeg", "png"])]);
+        string? path = await ChooseFileAsync("Выберите изображение", [("Изображения", ["jpg", "jpeg", "png"])], "open");
         if (string.IsNullOrEmpty(path))
         {
             Emit("cancel-loading");
@@ -224,20 +224,31 @@ public class MessageHub(PhotinoWindow window, FileService fileService, string? i
     /// <param name="title">Заголовок окна диалога выбора файла.</param>
     /// <param name="filters">Массив кортежей, определяющих фильтры файлов (например, "Изображения", ["jpg", "png"]).</param>
     /// <returns>Полный путь к выбранному файлу или <see langword="null"/>, если выбор отменён.</returns>
-    private async Task<string?> ChooseFileAsync(string title, (string Name, string[] Extensions)[] filters)
+    private async Task<string?> ChooseFileAsync(string title, (string Name, string[] Extensions)[] filters, string dialogType)
     {
         // Выбираем метод: сохранение или открытие
         // Примечание: В текущей версии Photino.NET ShowSaveFileAsync может отсутствовать, 
         // тогда используйте ShowOpenFileAsync (многие системы позволяют это)
+        string? localPath = null;
+        if (dialogType == "save")
+        {
+            localPath = await window.ShowSaveFileAsync(
+                title: title,
+                defaultPath: _lastUsedPath,
+                filters: filters
+            );
+        }
+        else
+        {
+            string[] result = await window.ShowOpenFileAsync(
+                title: title,
+                defaultPath: _lastUsedPath,
+                multiSelect: false,
+                filters: filters
+            );
+            localPath = result?.FirstOrDefault();
+        }
 
-        string[] result = await window.ShowOpenFileAsync(
-            title: title,
-            defaultPath: _lastUsedPath,
-            multiSelect: false,
-            filters: filters
-        );
-
-        string? localPath = result?.FirstOrDefault();
 
         if (string.IsNullOrEmpty(localPath)) return null;
 
@@ -245,6 +256,21 @@ public class MessageHub(PhotinoWindow window, FileService fileService, string? i
         _lastUsedPath = Path.GetDirectoryName(localPath);
 
         return localPath;
+    }
+
+    private async Task<string?> ChooseSaveFileAsync(string title, string defaultFileName, (string Name, string[] Extensions)[] filters)
+    {
+        // Важно: проверяем наличие метода ShowSaveFileAsync в вашей версии SDK
+        string result = await window.ShowSaveFileAsync(
+            title: title,
+            defaultPath: Path.Combine(_lastUsedPath ?? "", defaultFileName),
+            filters: filters
+        );
+
+        if (string.IsNullOrEmpty(result)) return null;
+
+        _lastUsedPath = Path.GetDirectoryName(result);
+        return result;
     }
 
     /// <summary>

@@ -7,33 +7,32 @@ using FB2Writer.Models;
 
 namespace FB2Writer.Services;
 
-/*https://github.com/fb2kindle/fb2kindle/*/
+/*https://github.com/fb2kindle/fb2kindle/
+// https://www.w3.org/TR/epub/#sec-nav-intro
+// */
 
-public class EpubConverter
+
+public record Chapter(
+    string id,
+    string href,
+    string title,
+    List<Chapter> Children
+);
+public partial class EpubConverter
 {
-    private readonly XNamespace _dc = "http://purl.org";
-    private readonly XNamespace _opf = "http://idpf.org";
+    /// <summary>
+    /// Кэш для хранения бинарных данных изображений в формате Base64.
+    /// Ключ — ID изображения (без #), значение — кортеж с Base64-строкой и MIME-типом.
+    /// Используется регистронезависимое сравнение ключей.
+    /// </summary>
+    private readonly Dictionary<string, (string Base64, string ContentType)> _binaryCache = new(StringComparer.OrdinalIgnoreCase);
+    private readonly XNamespace _dc = "http://purl.org/dc/elements/1.1/";
+    private readonly XNamespace _opf = "http://www.idpf.org/2007/opf";
+    private readonly XNamespace _daisy = "http://www.daisy.org/z3986/2005/ncx/";
 
-    public void ConvertJsonToEpub(FileStream fs, JsonElement jsonContent)
-    {
-        Fb2BookExport book = jsonContent.Deserialize<Fb2BookExport>()!;
-        using var ms = new MemoryStream();
-        // Используем LeaveOpen: true, чтобы MemoryStream не закрылся раньше времени
-        using var archive = new ZipArchive(ms, ZipArchiveMode.Create, true);
-        // 1. mimetype (ОБЯЗАТЕЛЬНО ПЕРВЫМ И БЕЗ СЖАТИЯ)
-        var mimeEntry = archive.CreateEntry("mimetype", CompressionLevel.NoCompression);
-        using (var sw = new StreamWriter(mimeEntry.Open())) sw.Write("application/epub+zip");
+    private int _chapterCounter = 1;
 
-        // 2. container.xml
-        var containerEntry = archive.CreateEntry("META-INF/container.xml");
-        using (var sw = new StreamWriter(containerEntry.Open()))
-            sw.Write("<?xml version=\"1.0\"?><container version=\"1.0\" xmlns=\"urn:oasis:names:tc:opendocument:xmlns:container\"><rootfiles><rootfile full-path=\"OEBPS/content.opf\" media-type=\"application/oebps-package+xml\"/></rootfiles></container>");
-
-        // 3. style.css
-        var cssEntry = archive.CreateEntry("OEBPS/style.css");
-        using (var sw = new StreamWriter(cssEntry.Open()))
-        {
-            sw.Write(@"
+    private readonly string style = @"
                 p{margin-bottom: 1pt;margin-top: 1pt;margin-left: -1pt;margin-right: -1pt;font-size:100%;}
                 p.text-name{text-indent:0;font-size:130%;font-weight:bolder;}
                 p.text-author{text-indent:0;font-style:italic;font-weight:bold;text-align:right;}
@@ -57,8 +56,36 @@ public class EpubConverter
                 div.poem{text-indent:0;font-style:italic;text-align:center;}
                 ul{text-align:left;}
                 sup{font-size: 60%;color:#555555;}
-                span.dc2{text-shadow:1px 1px #505050;}");
+                span.dc2{text-shadow:1px 1px #505050;}";
+
+    public void ConvertJsonToEpub(FileStream fs, JsonElement jsonContent)
+    {
+        //Fb2BookExport book = jsonContent.Deserialize<Fb2BookExport>()!;
+        var book = JsonSerializer.Deserialize(jsonContent, EmitContext.Custom.Fb2BookExport) ?? throw new Exception("Ошибка формата книги");
+        using var ms = new MemoryStream();
+        // Используем LeaveOpen: true, чтобы MemoryStream не закрылся раньше времени
+        using var archive = new ZipArchive(ms, ZipArchiveMode.Create, true);
+        // 1. mimetype (ОБЯЗАТЕЛЬНО ПЕРВЫМ И БЕЗ СЖАТИЯ)
+        var mimeEntry = archive.CreateEntry("mimetype", CompressionLevel.NoCompression);
+        using (var sw = new StreamWriter(mimeEntry.Open())) sw.Write("application/epub+zip");
+
+        // 2. container.xml
+        var containerEntry = archive.CreateEntry("META-INF/container.xml");
+        using (var sw = new StreamWriter(containerEntry.Open()))
+            sw.Write("<?xml version=\"1.0\"?><container version=\"1.0\" xmlns=\"urn:oasis:names:tc:opendocument:xmlns:container\"><rootfiles><rootfile full-path=\"OEBPS/content.opf\" media-type=\"application/oebps-package+xml\"/></rootfiles></container>");
+
+        // 3. style.css
+        var cssEntry = archive.CreateEntry("OEBPS/style.css");
+        using (var sw = new StreamWriter(cssEntry.Open()))
+        {
+            sw.Write(style);
         }
+
+
+        // 3. Генерация файлов навигации (используем дерево)
+        //var ncxContent = GenerateNcx(book, chapterTree);
+        //var navContent = GenerateNav(chapterTree);
+
 
         var manifestItems = new List<(string id, string href, string mime)>();
         var navItems = new List<(string id, string href, string title)>();
@@ -66,19 +93,23 @@ public class EpubConverter
         // 2. ОБРАБОТКА ВСЕХ КАРТИН (включая обложку)
         // Допустим, у вас есть Dictionary<string, string> Images в book, где Key - id, Value - Base64
         // Если картинки лежат в другом месте, адаптируйте этот блок:
-        var allImages = ExtractImagesFromBook(book); // Метод для сбора всех Base64 из данных
+        ExtractImagesFromBook(book); // Метод для сбора всех Base64 из данных
 
-        foreach (var img in allImages)
+        foreach (var img in _binaryCache)
         {
             try
             {
-                // Определяем формат ДО очистки строки
-                var (ext, mime) = GetImageInfo(img.Value);
+                var ext = img.Value.ContentType switch
+                {
+                    "image/jpeg" => "jpg",
+                    "image/png" => "png",
+                    _ => "jpg"
+                };
 
-                // Очищаем и декодируем
-                string base64Pure = img.Value.Contains(",") ? img.Value.Split(',')[1] : img.Value;
-                byte[] imageBytes = Convert.FromBase64String(base64Pure);
+                // Декодируем
+                byte[] imageBytes = Convert.FromBase64String(img.Value.Base64);
 
+                // Записываем в архив
                 var imgHref = $"images/{img.Key}.{ext}";
                 var entry = archive.CreateEntry($"OEBPS/{imgHref}");
                 using (var os = entry.Open())
@@ -87,15 +118,58 @@ public class EpubConverter
                 }
 
                 // ВАЖНО: передаем mime-type в манифест
-                bool isCover = img.Key == book.Metadata.TitleInfo?.CoverPage;
+                bool isCover = img.Key == "cover";
                 manifestItems.Add((
-                    id: isCover ? "cover-img" : $"img_{img.Key}",
+                    id: isCover ? "cover" : $"img_{img.Key}",
                     href: imgHref,
-                    mime: mime // Сохраните это значение для GenerateOpf
+                    mime: img.Value.ContentType
                 ));
             }
             catch { /* Пропустить битую картинку */ }
         }
+
+
+// 1. Строим дерево навигации
+_chapterCounter = 1;
+var chapterTree = MapTipTapToChapters(book.Content.Content ?? new());
+
+// 2. Плоский список для Манифеста/Spine
+var flatChapters = new List<Chapter>();
+
+// Рекурсивный метод для сохранения файлов
+void ProcessTipTapNode(Chapter chapter, TipTapNode node)
+{
+    flatChapters.Add(chapter);
+
+    // Конвертируем TipTap ноду в HTML (ваш существующий конвертер)
+    var bodyHtml = TipTapToHtml.ToHtml(node); 
+    var finalHtml = WrapInXhtml(chapter.title, ApplyDropCap(bodyHtml) + GenerateFootnotesHtml(bodyHtml, book.Footnotes));
+
+    // Пишем в ZIP
+    var entry = archive.CreateEntry($"OEBPS/{chapter.href}");
+    using (var sw = new StreamWriter(entry.Open())) sw.Write(finalHtml);
+
+    // В манифест
+    manifestItems.Add((chapter.id, chapter.href, "application/xhtml+xml"));
+
+    // Идем вглубь по дереву, если есть дети
+    if (node.Content != null && chapter.Children.Any())
+    {
+        // Сопоставляем вложенные главы
+        var childSections = node.Content.Where(n => n.Type == "section" || n.Type == "chapter").ToList();
+        for (int i = 0; i < chapter.Children.Count; i++)
+        {
+            ProcessTipTapNode(chapter.Children[i], childSections[i]);
+        }
+    }
+}
+
+// Запуск процесса для верхнего уровня
+var rootSections = book.Content.Content?.Where(n => n.Type == "section" || n.Type == "chapter").ToList() ?? new();
+for (int i = 0; i < chapterTree.Count; i++)
+{
+    ProcessTipTapNode(chapterTree[i], rootSections[i]);
+}
 
         var sections = book.Content.Content ?? new();
         for (int i = 0; i < sections.Count; i++)
@@ -142,82 +216,146 @@ public class EpubConverter
         </div>
     </body></html>";
 
-    private string GenerateOpf(Fb2BookExport book, List<(string id, string href, string mime)> items, string? coverFileName)
+    private string GenerateOpf(Fb2BookExport book, List<(string id, string href, string mime)> items, string? coverFileName, string id)
     {
-        var info = book.Metadata.TitleInfo;
-        var docInfo = book.Metadata.DocumentInfo;
 
-        var authorsList = info?.Authors?.Select(a => $"{a.FirstName} {a.LastName}".Trim())
-                          ?? new[] { "Unknown Author" };
-        var authors = string.Join(", ", authorsList.Where(s => !string.IsNullOrEmpty(s)));
+        void AddPersons(XElement metadata, List<PersonInfo> persons, string prefix, string role)
+    {
+        if (persons == null) return;
 
-        var opf = new XElement(_opf + "package",
-            new XAttribute("version", "3.0"),
-            new XAttribute("unique-identifier", "pub-id"),
-            new XAttribute("xmlns", _opf.NamespaceName),
+        for (int i = 0; i < persons.Count; i++)
+        {
+            string fn = persons[i].FirstName?.Trim() ?? "";
+            string mn = persons[i].MiddleName?.Trim() ?? "";
+            string ln = persons[i].LastName?.Trim() ?? "";
 
-            new XElement(_opf + "metadata",
-                new XAttribute(XNamespace.Xmlns + "dc", _dc.NamespaceName),
-                new XAttribute(XNamespace.Xmlns + "opf", _opf.NamespaceName),
+            string fullName = $"{fn} {ln}".Trim();
 
-                new XElement(_dc + "title", info?.Title ?? "Untitled Book"),
-                new XElement(_dc + "language", info?.Lang ?? "ru"),
-                new XElement(_dc + "creator", new XAttribute("id", "creator"), authors),
-                new XElement(_dc + "identifier", new XAttribute("id", "pub-id"), docInfo?.Id ?? Guid.NewGuid().ToString()),
-                new XElement(_opf + "meta", new XAttribute("property", "dcterms:modified"), DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ")),
+            // КРИТИЧНО: Если имени нет совсем, пропускаем итерацию
+            if (string.IsNullOrWhiteSpace(fullName)) continue;
 
-                // Метаданные обложки для старых устройств
-                coverFileName != null ? new XElement(_opf + "meta", new XAttribute("name", "cover"), new XAttribute("content", "cover-img")) : null
-            ),
+            string id = $"{prefix}{i}";
 
-            new XElement(_opf + "manifest",
-                // 1. Стили
-                new XElement(_opf + "item",
-                    new XAttribute("id", "style"),
-                    new XAttribute("href", "style.css"),
-                    new XAttribute("media-type", "text/css")),
+            // Исправленное формирование fileAs (Фамилия, Имя Отчество)
+            string namePart = $"{fn} {mn}".Trim();
+            string fileAs = string.IsNullOrWhiteSpace(ln)
+                ? namePart
+                : (string.IsNullOrWhiteSpace(namePart) ? ln : $"{ln}, {namePart}");
 
-                // 2. Все файлы из списка (картинки, главы, навигация)
-                items.Select(x =>
-                {
-                    var item = new XElement(_opf + "item",
-                        new XAttribute("id", x.id),
-                        new XAttribute("href", x.href),
-                        new XAttribute("media-type", x.mime));
+            // 1. Основной элемент
+            metadata.Add(new XElement(_dc + "creator",
+                new XAttribute("id", id),
+                fullName));
 
-                    // Спец-свойства EPUB 3
-                    if (x.id == "nav") item.Add(new XAttribute("properties", "nav"));
-                    if (x.id == "cover-img") item.Add(new XAttribute("properties", "cover-image"));
+            // 2. Роль
+            metadata.Add(new XElement(_opf + "meta",
+                new XAttribute("refines", "#" + id),
+                new XAttribute("property", "role"),
+                new XAttribute("scheme", "marc:relators"),
+                role));
 
-                    return item;
-                })
-            ),
-                new XElement(_opf + "spine",
-                    new XAttribute("toc", "ncx"), // Указываем ID файла NCX из манифеста
-                    items.Where(x => x.href.EndsWith(".xhtml")).Select(x => new XElement(_opf + "itemref", new XAttribute("idref", x.id))))
-        );
+            // 3. Сортировка (file-as)
+            if (!string.IsNullOrWhiteSpace(fileAs))
+            {
+                metadata.Add(new XElement(_opf + "meta",
+                    new XAttribute("refines", "#" + id),
+                    new XAttribute("property", "file-as"),
+                    fileAs));
+            }
+        }
+    }
+    var info = book.Metadata.TitleInfo;
+    var docInfo = book.Metadata.DocumentInfo;
+    var title = info?.Title ?? "Untitled Book";
+
+
+    var authorsList = info?.Authors?.Select(a => $"{a.FirstName} {a.LastName}".Trim())
+                      ?? new[] { "Unknown Author" };
+    var authors = string.Join(", ", authorsList.Where(s => !string.IsNullOrEmpty(s)));
+
+    var opf = new XElement(_opf + "package",
+        new XAttribute("version", "3.0"),
+        new XAttribute("unique-identifier", "pub-id"),
+        new XAttribute("xmlns", _opf.NamespaceName));
+
+    var metadata = new XElement(_opf + "metadata",
+         new XAttribute(XNamespace.Xmlns + "dc", _dc.NamespaceName),
+         new XAttribute(XNamespace.Xmlns + "opf", _opf.NamespaceName),
+
+         new XElement(_dc + "title", title),
+         new XElement(_dc + "language", info?.Lang ?? "ru"),
+         new XElement(_dc + "identifier", new XAttribute("id", "pub-id"), id),
+         new XElement(_opf + "meta", new XAttribute("property", "dcterms:modified"), DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ")),
+         new XElement(_dc + "creator", new XAttribute("id", "creator"), authors),
+
+         // Метаданные обложки для старых устройств
+         coverFileName != null ? new XElement(_opf + "meta", new XAttribute("name", "cover"), new XAttribute("content", "cover-img")) : null
+     );
+
+    // MANIFEST
+    var manifest = new XElement(_opf + "manifest",
+        // 1. Стили
+        new XElement(_opf + "item",
+            new XAttribute("id", "style"),
+            new XAttribute("href", "style.css"),
+            new XAttribute("media-type", "text/css")),
+
+        // 2. Все файлы из списка (картинки, главы, навигация)
+        items.Select(x =>
+        {
+            var item = new XElement(_opf + "item",
+                new XAttribute("id", x.id),
+                new XAttribute("href", x.href),
+                new XAttribute("media-type", x.mime));
+
+            // Спец-свойства EPUB 3
+            if (x.id == "nav") item.Add(new XAttribute("properties", "nav"));
+            if (x.id == "cover-img") item.Add(new XAttribute("properties", "cover-image"));
+
+            return item;
+        })
+    );
+
+    // SPINE
+    var spine = new XElement(_opf + "spine",
+        new XAttribute("toc", "ncx"),
+        items
+            .Where(x => x.href.EndsWith(".xhtml") && x.id != "nav") // Исключаем навигацию из линейного чтения
+            .Select(x => new XElement(_opf + "itemref", new XAttribute("idref", x.id)))
+    );
 
         return "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n" + opf.ToString();
     }
-    private string GenerateNav(List<(string id, string href, string title)> chapters)
+    private static string GenerateNav(List<Chapter> chapters)
     {
-        var listItems = string.Join("\n", chapters.Select(c =>
-            $"<li><a href=\"{c.href}\">{WebUtility.HtmlEncode(c.title)}</a></li>"));
+        string RenderChapters(List<Chapter> items)
+        {
+            var html = items.Select(c =>
+            {
+                var li = $"<li><a href=\"{c.href}\">{WebUtility.HtmlEncode(c.title)}</a>";
+                if (c.Children.Any())
+                {
+                    li += $"\n<ol>\n{RenderChapters(c.Children)}\n</ol>\n";
+                }
+                li += "</li>";
+                return li;
+            });
+            return string.Join("\n", html);
+        }
 
         return $@"<?xml version=""1.0"" encoding=""utf-8""?>
-                    <html xmlns=""http://w3.org"" xmlns:epub=""http://idpf.org"">
-                    <head><title>Table of Contents</title></head>
-                    <body>
-                        <nav epub:type=""toc"" id=""toc"">
-                            <h1>Оглавление</h1>
-                            <ol>
-                                {listItems}
-                            </ol>
-                        </nav>
-                    </body>
-                    </html>";
+<html xmlns=""http://w3.org"" xmlns:epub=""http://idpf.org"">
+<head><title>Table of Contents</title></head>
+<body>
+    <nav epub:type=""toc"" id=""toc"">
+        <h1>Оглавление</h1>
+        <ol>
+            {RenderChapters(chapters)}
+        </ol>
+    </nav>
+</body>
+</html>";
     }
-
     private static string GenerateFootnotesHtml(string chapterHtml, Dictionary<string, TipTapDoc>? allFootnotes)
     {
         if (allFootnotes == null || allFootnotes.Count == 0) return "";
@@ -275,16 +413,14 @@ public class EpubConverter
                html.Substring(textStart + 1);
     }
 
-    private Dictionary<string, string> ExtractImagesFromBook(Fb2BookExport book)
+    private void ExtractImagesFromBook(Fb2BookExport book)
     {
-        var images = new Dictionary<string, string>();
-
         // 1. Ищем картинки в основном контенте
         if (book.Content.Content != null)
         {
             foreach (var node in book.Content.Content)
             {
-                FindImageNodes(node, images);
+                FindImageNodes(node);
             }
         }
 
@@ -297,19 +433,20 @@ public class EpubConverter
                 {
                     foreach (var node in note.Content)
                     {
-                        FindImageNodes(node, images);
+                        FindImageNodes(node);
                     }
                 }
             }
         }
 
-        return images;
+        // 3. Добавляем обложку
+        AddImage("cover", book.Metadata.TitleInfo?.CoverPage);
     }
 
-    private void FindImageNodes(TipTapNode node, Dictionary<string, string> images)
+    private void FindImageNodes(TipTapNode node)
     {
         // Если узел — картинка, извлекаем данные
-        if (node.Type == "image" && node.Attrs != null)
+        if ((node.Type == "fb2BlockImage" || node.Type == "fb2InlineImage") && node.Attrs != null)
         {
             // В TipTap данные обычно в 'src' (Base64) или в 'id'
             if (node.Attrs.TryGetValue("src", out var src) && src != null)
@@ -319,11 +456,7 @@ public class EpubConverter
                 {
                     id = Guid.NewGuid().ToString("N").Substring(0, 8);
                 }
-
-                if (!images.ContainsKey(id))
-                {
-                    images.Add(id, src);
-                }
+                AddImage(id, src);
             }
         }
 
@@ -332,60 +465,133 @@ public class EpubConverter
         {
             foreach (var child in node.Content)
             {
-                FindImageNodes(child, images);
+                FindImageNodes(child);
             }
         }
     }
 
-    private (string ext, string mime) GetImageInfo(string base64OrHeader)
+    private void AddImage(string id, string? base64OrHeader)
     {
-        // 1. Проверка по префиксу data URI
-        if (base64OrHeader.StartsWith("data:image/png", StringComparison.OrdinalIgnoreCase)) return ("png", "image/png");
-        if (base64OrHeader.StartsWith("data:image/jpeg", StringComparison.OrdinalIgnoreCase)) return ("jpg", "image/jpeg");
-        if (base64OrHeader.StartsWith("data:image/gif", StringComparison.OrdinalIgnoreCase)) return ("gif", "image/gif");
-        if (base64OrHeader.StartsWith("data:image/webp", StringComparison.OrdinalIgnoreCase)) return ("webp", "image/webp");
 
-        // 2. Если префикса нет, анализируем первые символы самой строки Base64
-        // iVBOR... - PNG
-        // /9j/4... - JPEG
-        // R0lG... - GIF
-        if (base64OrHeader.StartsWith("iVBOR")) return ("png", "image/png");
-        if (base64OrHeader.StartsWith("/9j/4")) return ("jpg", "image/jpeg");
-        if (base64OrHeader.StartsWith("R0lG")) return ("gif", "image/gif");
-        if (base64OrHeader.StartsWith("UklG")) return ("webp", "image/webp");
+        if (string.IsNullOrEmpty(base64OrHeader)) return;
 
-        return ("jpg", "image/jpeg"); // По умолчанию
+        // 2. Парсинг Data URL
+        string base64Only;
+        string contentType = "image/jpeg"; // Default
+
+        if (base64OrHeader.StartsWith("data:", StringComparison.OrdinalIgnoreCase))
+        {
+            int commaIndex = base64OrHeader.IndexOf(',');
+            if (commaIndex == -1) return;
+
+            string header = base64OrHeader[..commaIndex]; // data:image/png;base64
+            base64Only = base64OrHeader[(commaIndex + 1)..];
+
+            // Более надежное извлечение mime-type
+            var match = System.Text.RegularExpressions.Regex.Match(header, @"data:([^;]+)");
+            if (match.Success)
+            {
+                contentType = match.Groups[1].Value;
+            }
+        }
+        else
+        {
+            base64Only = base64OrHeader;
+        }
+        // Очищаем base64 от мусора (переносы строк, пробелы)
+        base64Only = base64Only.Trim();
+
+        // 3. Запись в кэш
+        _binaryCache.TryAdd(id, (base64Only, contentType));
     }
 
-    private string GenerateNcx(Fb2BookExport book, List<(string id, string href, string title)> chapters)
+    private XDocument GenerateNcx(Fb2BookExport book, List<Chapter> chapters)
     {
         XNamespace ns = "http://daisy.org";
-        var info = book.Metadata.TitleInfo;
+        int playOrder = 1;
 
-        var navPoints = chapters.Select((c, index) =>
-            new XElement(ns + "navPoint",
-                new XAttribute("id", c.id),
-                new XAttribute("playOrder", index + 1),
-                new XElement(ns + "navLabel", new XElement(ns + "text", c.title)),
-                new XElement(ns + "content", new XAttribute("src", c.href))
-            )
-        );
+        // Рекурсивная функция для создания navPoint
+        IEnumerable<XElement> CreateNavPoints(List<Chapter> items)
+        {
+            foreach (var c in items)
+            {
+                var navPoint = new XElement(ns + "navPoint",
+                    new XAttribute("id", c.id),
+                    new XAttribute("playOrder", playOrder++),
+                    new XElement(_daisy + "navLabel", new XElement(ns + "text", c.title)),
+                    new XElement(ns + "content", new XAttribute("src", c.href))
+                );
+
+                if (c.Children.Any())
+                {
+                    navPoint.Add(CreateNavPoints(c.Children));
+                }
+
+                yield return navPoint;
+            }
+        }
 
         var ncx = new XElement(ns + "ncx",
             new XAttribute("version", "2005-1"),
             new XElement(ns + "head",
-                new XElement(ns + "meta", new XAttribute("name", "dtb:uid"), new XAttribute("content", book.Metadata.DocumentInfo?.Id ?? Guid.NewGuid().ToString())),
-                new XElement(ns + "meta", new XAttribute("name", "dtb:depth"), new XAttribute("content", "1")),
+                new XElement(ns + "meta", new XAttribute("name", "dtb:uid"), new XAttribute("content", book.Metadata.DocumentInfo?.Id ?? "id")),
+                new XElement(ns + "meta", new XAttribute("name", "dtb:depth"), new XAttribute("content", "2")), // Увеличьте, если вложенность глубже
                 new XElement(ns + "meta", new XAttribute("name", "dtb:totalPageCount"), new XAttribute("content", "0")),
                 new XElement(ns + "meta", new XAttribute("name", "dtb:maxPageNumber"), new XAttribute("content", "0"))
             ),
-            new XElement(ns + "docTitle",
-                new XElement(ns + "text", info?.Title ?? "Untitled")
-            ),
-            new XElement(ns + "navMap", navPoints)
+            new XElement(ns + "docTitle", new XElement(ns + "text", book.Metadata.TitleInfo?.Title ?? "Untitled")),
+            new XElement(ns + "navMap", CreateNavPoints(chapters))
         );
 
-        return "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n" + ncx.ToString();
+        return new XDocument(new XDeclaration("1.0", "utf-8", null), ncx);
     }
 
+    public List<Chapter> MapTipTapToChapters(List<TipTapNode> nodes)
+    {
+        var chapters = new List<Chapter>();
+
+        // Фильтруем только узлы-контейнеры (секции)
+        foreach (var node in nodes.Where(n => n.Type == "fb2Section"))
+        {
+            // Вызываем поиск заголовка в дочерних узлах
+            string title = GetTitleFromContent(node, _chapterCounter);
+
+            string id = $"ch{_chapterCounter}";
+            string href = $"chapter_{_chapterCounter}.xhtml";
+            _chapterCounter++;
+
+            var chapter = new Chapter(id, href, title, new List<Chapter>());
+
+            // Рекурсия для вложенных секций
+            if (node.Content != null)
+            {
+                chapter.Children.AddRange(MapTipTapToChapters(node.Content));
+            }
+
+            chapters.Add(chapter);
+        }
+
+        return chapters;
+    }
+    private string GetTitleFromContent(TipTapNode node, int fallbackIndex)
+    {
+        // 1. Пытаемся найти узел с типом "title" в первом уровне вложенности
+        var headingNode = node.Content?.FirstOrDefault(n => n.Type == "heading");
+
+        if (headingNode?.Content != null)
+        {
+            // Собираем весь текст из узла (там может быть несколько текстовых узлов с разными марками)
+            var text = string.Join("", headingNode.Content
+                .Where(c => c.Type == "text")
+                .Select(c => c.Text));
+
+            if (!string.IsNullOrWhiteSpace(text)) return text.Trim();
+        }
+
+        // 2. Если заголовок не найден, возвращаем запасной вариант
+        return $"Глава {fallbackIndex}";
+    }
+
+    [System.Text.RegularExpressions.GeneratedRegex(@"data:([^;]+)")]
+    private static partial System.Text.RegularExpressions.Regex MyRegex();
 }
