@@ -163,12 +163,16 @@ public class FileService
 
         try
         {
-            await Task.Run(() =>
+            await Task.Run(async () =>
             {
                 // Используем обычный using, так как мы в Task.Run
                 using (var fs = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.None))
-                {
-                    _epubConverter.ConvertJsonToEpub(fs, jsonContent);
+                {        
+                    using var ms = new MemoryStream();
+                    // Используем LeaveOpen: true, чтобы MemoryStream не закрылся раньше времени
+
+                    _epubConverter.ConvertJsonToEpub(ms, jsonContent);
+                    ms.WriteTo(fs);
                     fs.Flush(); // Сбрасываем буферы на диск
                 }
 
