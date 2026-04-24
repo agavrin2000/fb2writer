@@ -164,10 +164,10 @@ public partial class EpubConverter
             ProcessTipTapNode(chapterTree[i], rootSections[i]);
         }
 
-        // Генерация файлов глав
+        /* Генерация файлов глав
         for (int i = 0; i < rootSections.Count; i++)
         {
-            var fileName = $"chapter_{i+1}.xhtml";
+            var fileName = $"chapter_{i + 1}.xhtml";
             var bodyHtml = TipTapToHtml.ToHtml(rootSections[i]);
             var finalHtml = WrapInXhtml($"Глава {i + 1}", ApplyDropCap(bodyHtml) + GenerateFootnotesHtml(bodyHtml, book.Footnotes));
 
@@ -176,7 +176,7 @@ public partial class EpubConverter
 
             manifestItems.Add(($"ch_{i}", fileName, mime: "application/xhtml+xml"));
             navItems.Add(($"ch_{i}", fileName, $"Глава {i + 1}"));
-        }
+        }*/
 
         // Генерация файлов навигации и добавляем в manifestItems
         var navEntry = archive.CreateEntry("OEBPS/nav.xhtml"); // + запись контента через GenerateNav
@@ -185,7 +185,7 @@ public partial class EpubConverter
 
         // Генерируем NCX контент и добавляем в manifestItems
         var ncxEntry = archive.CreateEntry("OEBPS/toc.ncx");
-        using (var sw = new StreamWriter(ncxEntry.Open())) sw.Write(GenerateNcx(book, chapterTree));
+        using (var sw = new StreamWriter(ncxEntry.Open())) sw.Write(GenerateNcx(book, chapterTree, bookId));
         manifestItems.Add((id: "ncx", href: "toc.ncx", mime: "application/x-dtbncx+xml"));
 
         // Формирует OPF
@@ -197,7 +197,7 @@ public partial class EpubConverter
 
     private static string WrapInXhtml(string title, string body) =>
         $@"<?xml version=""1.0"" encoding=""utf-8""?>
-    <html xmlns=""http://w3.org"" xmlns:epub=""http://idpf.org"">
+    <html xmlns:xlink=""http://www.w3.org/1999/xlink"" xmlns:fb=""http://www.gribuser.ru/xml/fictionbook/2.0"" xmlns=""http://www.w3.org/1999/xhtml"">
     <head>
         <title>{WebUtility.HtmlEncode(title)}</title>
         <link rel=""stylesheet"" type=""text/css"" href=""style.css"" />
@@ -268,13 +268,11 @@ public partial class EpubConverter
 
         var metadata = new XElement(_opf + "metadata",
              new XAttribute(XNamespace.Xmlns + "dc", _dc.NamespaceName),
-             new XAttribute(XNamespace.Xmlns + "opf", _opf.NamespaceName),
 
              new XElement(_dc + "title", title),
              new XElement(_dc + "language", info?.Lang ?? "ru"),
              new XElement(_dc + "identifier", new XAttribute("id", "pub-id"), id),
              new XElement(_opf + "meta", new XAttribute("property", "dcterms:modified"), DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ")),
-             new XElement(_dc + "description", new XAttribute("id", "creator"), info?.Annotation),
 
              // Метаданные обложки для старых устройств
              new XElement(_opf + "meta", new XAttribute("name", "cover"), new XAttribute("content", "cover-img"))
@@ -286,6 +284,17 @@ public partial class EpubConverter
         // Жанры
         foreach (var genre in info?.Genres ?? [])
             metadata.Add(new XElement(_dc + "subject", genre));
+
+        // Аннотация
+        var annotation = "";
+        foreach (var node in info?.Annotation?.Content ?? [])
+        {
+            annotation += TipTapToHtml.ToHtml(node);
+        }
+        if (!string.IsNullOrWhiteSpace(annotation))
+        {
+            metadata.Add(new XElement(_dc + "description", info?.Annotation));
+        }
         opf.Add(metadata);
 
         // MANIFEST
@@ -316,9 +325,16 @@ public partial class EpubConverter
         // SPINE
         var spine = new XElement(_opf + "spine",
             new XAttribute("toc", "ncx"),
-            items
-                .Where(x => x.href.EndsWith(".xhtml") && x.id != "nav") // Исключаем навигацию из линейного чтения
-                .Select(x => new XElement(_opf + "itemref", new XAttribute("idref", x.id)))
+
+            // 1. Навигация (теперь без linear="no", чтобы не было ошибки валидации)
+            items.Where(x => x.id == "nav")
+                 .Select(x => new XElement(_opf + "itemref", new XAttribute("idref", x.id)))
+                 .ToArray(),
+
+            // 2. Все остальные XHTML страницы
+            items.Where(x => x.href.EndsWith(".xhtml") && x.id != "nav")
+                 .Select(x => new XElement(_opf + "itemref", new XAttribute("idref", x.id)))
+                 .ToArray()
         );
         opf.Add(spine);
 
@@ -332,7 +348,7 @@ public partial class EpubConverter
             var html = items.Select(c =>
             {
                 var li = $"<li><a href=\"{c.href}\">{WebUtility.HtmlEncode(c.title)}</a>";
-                if (c.Children.Any())
+                if (c.Children.Count != 0)
                 {
                     li += $"\n<ol>\n{RenderChapters(c.Children)}\n</ol>\n";
                 }
@@ -342,8 +358,8 @@ public partial class EpubConverter
             return string.Join("\n", html);
         }
 
-        return $@"<?xml version=""1.0"" encoding=""utf-8""?>
-<html xmlns=""http://w3.org"" xmlns:epub=""http://idpf.org"">
+        return $@"<!DOCTYPE html>
+<html xmlns=""http://www.w3.org/1999/xhtml"" xmlns:epub=""http://www.idpf.org/2007/ops"">
 <head><title>Table of Contents</title></head>
 <body>
     <nav epub:type=""toc"" id=""toc"">
@@ -504,9 +520,8 @@ public partial class EpubConverter
         _binaryCache.TryAdd(id, (base64Only, contentType));
     }
 
-    private XDocument GenerateNcx(Fb2BookExport book, List<Chapter> chapters)
+    private XDocument GenerateNcx(Fb2BookExport book, List<Chapter> chapters, string id)
     {
-        XNamespace ns = "http://daisy.org";
         int playOrder = 1;
 
         // Рекурсивная функция для создания navPoint
@@ -514,14 +529,14 @@ public partial class EpubConverter
         {
             foreach (var c in items)
             {
-                var navPoint = new XElement(ns + "navPoint",
+                var navPoint = new XElement(_daisy + "navPoint",
                     new XAttribute("id", c.id),
                     new XAttribute("playOrder", playOrder++),
-                    new XElement(_daisy + "navLabel", new XElement(ns + "text", c.title)),
-                    new XElement(ns + "content", new XAttribute("src", c.href))
+                    new XElement(_daisy + "navLabel", new XElement(_daisy + "text", c.title)),
+                    new XElement(_daisy + "content", new XAttribute("src", c.href))
                 );
 
-                if (c.Children.Any())
+                if (c.Children.Count != 0)
                 {
                     navPoint.Add(CreateNavPoints(c.Children));
                 }
@@ -530,16 +545,16 @@ public partial class EpubConverter
             }
         }
 
-        var ncx = new XElement(ns + "ncx",
+        var ncx = new XElement(_daisy + "ncx",
             new XAttribute("version", "2005-1"),
-            new XElement(ns + "head",
-                new XElement(ns + "meta", new XAttribute("name", "dtb:uid"), new XAttribute("content", book.Metadata.DocumentInfo?.Id ?? "id")),
-                new XElement(ns + "meta", new XAttribute("name", "dtb:depth"), new XAttribute("content", "2")), // Увеличьте, если вложенность глубже
-                new XElement(ns + "meta", new XAttribute("name", "dtb:totalPageCount"), new XAttribute("content", "0")),
-                new XElement(ns + "meta", new XAttribute("name", "dtb:maxPageNumber"), new XAttribute("content", "0"))
+            new XElement(_daisy + "head",
+                new XElement(_daisy + "meta", new XAttribute("name", "dtb:uid"), new XAttribute("content", id)),
+                new XElement(_daisy + "meta", new XAttribute("name", "dtb:depth"), new XAttribute("content", "2")), // Увеличьте, если вложенность глубже
+                new XElement(_daisy + "meta", new XAttribute("name", "dtb:totalPageCount"), new XAttribute("content", "0")),
+                new XElement(_daisy + "meta", new XAttribute("name", "dtb:maxPageNumber"), new XAttribute("content", "0"))
             ),
-            new XElement(ns + "docTitle", new XElement(ns + "text", book.Metadata.TitleInfo?.Title ?? "Untitled")),
-            new XElement(ns + "navMap", CreateNavPoints(chapters))
+            new XElement(_daisy + "docTitle", new XElement(_daisy + "text", book.Metadata.TitleInfo?.Title ?? "Untitled")),
+            new XElement(_daisy + "navMap", CreateNavPoints(chapters))
         );
 
         return new XDocument(new XDeclaration("1.0", "utf-8", null), ncx);
@@ -574,21 +589,37 @@ public partial class EpubConverter
     }
     private string GetTitleFromContent(TipTapNode node, int fallbackIndex)
     {
-        // 1. Пытаемся найти узел с типом "title" в первом уровне вложенности
-        var headingNode = node.Content?.FirstOrDefault(n => n.Type == "heading");
+        // 1. Ищем узел заголовка
+        var headingNode = node.Content?.FirstOrDefault(n => n.Type == "fb2Title");
 
-        if (headingNode?.Content != null)
+        if (headingNode != null)
         {
-            // Собираем весь текст из узла (там может быть несколько текстовых узлов с разными марками)
-            var text = string.Join("", headingNode.Content
-                .Where(c => c.Type == "text")
-                .Select(c => c.Text));
+            // Выбираем весь текст из всех вложенных узлов любого уровня
+            var text = ExtractAllText(headingNode);
 
-            if (!string.IsNullOrWhiteSpace(text)) return text.Trim();
+            if (!string.IsNullOrWhiteSpace(text))
+                return text.Trim();
         }
 
-        // 2. Если заголовок не найден, возвращаем запасной вариант
+        // 2. Запасной вариант
         return $"Глава {fallbackIndex}";
+    }
+
+    // Вспомогательный метод для глубокого сбора текста
+    private string ExtractAllText(TipTapNode node)
+    {
+        if (node == null) return "";
+
+        // Если это текстовый узел — возвращаем текст
+        if (node.Type == "text") return node.Text ?? "";
+
+        // Если есть вложенные узлы — собираем текст из них рекурсивно
+        if (node.Content != null && node.Content.Count > 0)
+        {
+            return string.Join("", node.Content.Select(ExtractAllText));
+        }
+
+        return "";
     }
 
     [System.Text.RegularExpressions.GeneratedRegex(@"data:([^;]+)")]

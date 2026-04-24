@@ -239,7 +239,7 @@ public class Fb2Service
                                 Translators: titleInfo?.Elements(ns + "translator").Select(parseAuthor).ToListOrNull(),
                                 Sequence: titleInfo?.Elements(ns + "sequence").Select(x => new Fb2Sequence(
                                     Name: (string?)x.Attribute("name"),
-                                    Number: (int?)x.Attribute("number")
+                                    Number: (string?)x.Attribute("number")
                                 )).ToListOrNull()
                             ),
                             SrcTitleInfo: new Fb2TitleInfo(// Данные о произведении на языке оригинала
@@ -256,7 +256,7 @@ public class Fb2Service
                                 Translators: srcTitleInfo?.Elements(ns + "translator").Select(parseAuthor).ToListOrNull(),
                                 Sequence: srcTitleInfo?.Elements(ns + "sequence").Select(x => new Fb2Sequence(
                                         Name: (string?)x.Attribute("name"),
-                                        Number: (int?)x.Attribute("number")
+                                        Number: (string?)x.Attribute("number")
                                     )).ToListOrNull()
                             ),
                             DocumentInfo: new Fb2DocumentInfo(// Данные о документе
@@ -278,7 +278,7 @@ public class Fb2Service
                                 ISBN: (string?)pubInfo?.Element(ns + "isbn"),
                                 Sequence: pubInfo?.Elements(ns + "sequence").Select(x => new Fb2Sequence(
                                             Name: (string?)x.Attribute("name"),
-                                            Number: (int?)x.Attribute("number")
+                                            Number: (string?)x.Attribute("number")
                                         )).ToListOrNull()
                             ),
                             // Произвольная информация

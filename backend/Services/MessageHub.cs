@@ -226,10 +226,8 @@ public class MessageHub(PhotinoWindow window, FileService fileService, string? i
     /// <returns>Полный путь к выбранному файлу или <see langword="null"/>, если выбор отменён.</returns>
     private async Task<string?> ChooseFileAsync(string title, (string Name, string[] Extensions)[] filters, string dialogType)
     {
-        // Выбираем метод: сохранение или открытие
-        // Примечание: В текущей версии Photino.NET ShowSaveFileAsync может отсутствовать, 
-        // тогда используйте ShowOpenFileAsync (многие системы позволяют это)
         string? localPath = null;
+
         if (dialogType == "save")
         {
             localPath = await window.ShowSaveFileAsync(
@@ -237,6 +235,30 @@ public class MessageHub(PhotinoWindow window, FileService fileService, string? i
                 defaultPath: _lastUsedPath,
                 filters: filters
             );
+
+            if (!string.IsNullOrEmpty(localPath))
+            {
+                // Собираем все допустимые расширения из фильтров для проверки
+                // Приводим к виду ".ext"
+                var allAllowed = filters
+                    .SelectMany(f => f.Extensions)
+                    .Select(e => "." + e.TrimStart('.'))
+                    .ToList();
+
+                if (allAllowed.Any())
+                {
+                    // Проверяем, ввел ли пользователь одно из допустимых расширений сам
+                    bool alreadyHasValidExt = allAllowed.Any(ext =>
+                        localPath.EndsWith(ext, StringComparison.OrdinalIgnoreCase));
+
+                    if (!alreadyHasValidExt)
+                    {
+                        // Если нет — добавляем самое первое (основное) из списка
+                        var primaryExt = allAllowed.First();
+                        localPath += primaryExt;
+                    }
+                }
+            }
         }
         else
         {
@@ -249,11 +271,17 @@ public class MessageHub(PhotinoWindow window, FileService fileService, string? i
             localPath = result?.FirstOrDefault();
         }
 
-
         if (string.IsNullOrEmpty(localPath)) return null;
 
-        // Запоминаем папку, чтобы в следующий раз открыть её же
-        _lastUsedPath = Path.GetDirectoryName(localPath);
+        // Сохраняем путь к директории для следующего вызова
+        try
+        {
+            _lastUsedPath = Path.GetDirectoryName(localPath);
+        }
+        catch
+        {
+            // На случай специфических путей ОС
+        }
 
         return localPath;
     }

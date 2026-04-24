@@ -113,7 +113,7 @@ public record Fb2PublishInfo(
 /// <param name="Number">Порядковый номер книги в серии.</param>
 public record Fb2Sequence(
     [property: JsonPropertyName("name")] string? Name,
-    [property: JsonPropertyName("number")] int? Number);
+    [property: JsonPropertyName("number")] string? Number);
 
 /// <summary>
 /// Содержит пользовательские поля, добавленные в документ.
