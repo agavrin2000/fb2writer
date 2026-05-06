@@ -32,32 +32,26 @@ public partial class EpubConverter
     private readonly XNamespace _daisy = "http://www.daisy.org/z3986/2005/ncx/";
 
     private int _chapterCounter = 1;
+    private int _footnoteCounter = 0; // Сбрасывайте в 0 в начале каждой главы!
 
     private readonly string style = """
-            p{margin-bottom: 1pt;margin-top: 1pt;margin-left: -1pt;margin-right: -1pt;font-size:100%;}
-            p.text-name{text-indent:0;font-size:130%;font-weight:bolder;}
-            p.text-author{text-indent:0;font-style:italic;font-weight:bold;text-align:right;}
-            span.dc {
-                float: left;
-                font-size: 3.5em; 
-                line-height: 0.85;
-                margin-right: 0.1em;
-                font-family: 'Georgia', serif;
-                color: #903;
-                display: inline-block; 
-            }
-            div.text-author{text-indent:0;font-size:130%;font-weight:bold;}
-            div.image{text-indent:0;text-align:center;}
-            div.book{text-indent: 35px;page-break-before: always;}
-            div.title{font-size: 130%;text-align:center;font-weight:bold;page-break-before:always;}
-            div.epigraph{font-style:italic;margin-left:20%;width:80%}
-            div.supertitle{text-align:center;}
-            div.subtitle{font-style:italic;font-weight: bold;text-align:center;}
-            div.cite{font-style:italic;font-size:95%;}
-            div.poem{text-indent:0;font-style:italic;text-align:center;}
-            ul{text-align:left;}
+            p {margin: 0;text-indent: 1.5em;text-align:justify;hyphens:auto;-webkit-hyphens:auto;}
+            p.text-author {text-indent:0;font-style:italic;font-weight:bold;text-align:right;}
+            div.text-author {text-indent:0;font-size:130%;font-weight:bold;}
+            h1,h2,h3,h4,h5,h6 {text-align: center;page-break-after: avoid;page-break-inside: avoid;}
+            div.image {text-indent:0;text-align:center;}
+            body { margin: 0 2%; }
+            .epigraph {margin-left: 25%;margin-top: 2em;margin-bottom: 2em;}
+            .epigraph p {font-size: 0.9em;text-align: left; text-indent: 0;}
+            .subtitle {font-style:italic;font-weight: bold;text-align:center; page-break-after: avoid;page-break-inside: avoid;margin-top: 1.5em;margin-left: auto;margin-right: auto; }
+            .cite {font-style:italic;font-size:95%;}
+            .poem {margin: 1em 10%; text-align:left;}
+            .stanza {page-break-inside:avoid;margin:0.5em 0px;}
+            .v {padding-left:1em;text-indent:-1em;margin:0px;text-align:left;}
+            div.section {}
             sup{font-size: 60%;color:#555555;}
-            span.dc2{text-shadow:1px 1px #505050;}
+            .footnote-link { vertical-align: super; font-size: 0.8em; text-decoration: none; }
+            .footnotes { font-size: 0.9em; color: #666;}
             """;
 
     public void ConvertJsonToEpub(Stream outputStream, JsonElement jsonContent)
@@ -65,6 +59,7 @@ public partial class EpubConverter
         //Fb2BookExport book = jsonContent.Deserialize<Fb2BookExport>()!;
         var book = JsonSerializer.Deserialize(jsonContent, EmitContext.Custom.Fb2BookExport) ?? throw new Exception("Ошибка формата книги");
         using var archive = new ZipArchive(outputStream, ZipArchiveMode.Create, true);
+
         // 1. mimetype (ОБЯЗАТЕЛЬНО ПЕРВЫМ И БЕЗ СЖАТИЯ)
         var mimeEntry = archive.CreateEntry("mimetype", CompressionLevel.NoCompression);
         using (var sw = new StreamWriter(mimeEntry.Open())) sw.Write("application/epub+zip");
@@ -81,12 +76,11 @@ public partial class EpubConverter
             sw.Write(style);
         }
 
-
         string bookId = Guid.NewGuid().ToString("N")[..8];
         var manifestItems = new List<(string id, string href, string mime)>();
         var navItems = new List<(string id, string href, string title)>();
 
-        // 2. ОБРАБОТКА ВСЕХ ИЗОБРАЖЕНИЙ (включая обложку)
+        // 2. ОБРАБОТКА ИЗОБРАЖЕНИЙ (включая обложку)
         ExtractImagesFromBook(book); // Метод для сбора всех Base64 из данных
 
         foreach (var img in _binaryCache)
@@ -103,7 +97,7 @@ public partial class EpubConverter
                 // Декодируем
                 byte[] imageBytes = Convert.FromBase64String(img.Value.Base64);
 
-                // Записываем в архив
+                // Записываем файлы с изображениями в архив
                 var imgHref = $"images/{img.Key}.{ext}";
                 var entry = archive.CreateEntry($"OEBPS/{imgHref}");
                 using (var os = entry.Open())
@@ -111,17 +105,25 @@ public partial class EpubConverter
                     os.Write(imageBytes, 0, imageBytes.Length);
                 }
 
-                // ВАЖНО: передаем mime-type в манифест
+                // Добавляем в manifestItems
                 bool isCover = img.Key == "cover";
                 manifestItems.Add((
                     id: isCover ? "cover" : $"img_{img.Key}",
                     href: imgHref,
                     mime: img.Value.ContentType
                 ));
+                if (isCover)
+                {
+                    // Добавляем страницу с обложкой как файл в архив
+                    var coverEntry = archive.CreateEntry($"OEBPS/titlepage.xhtml");
+                    using (var sw = new StreamWriter(coverEntry.Open())) sw.Write(WrapInXhtml("Cover", "<div><img src=\"images/cover.jpg\"/></div>"));
+
+                    // Добавляем страницу с обложкой в manifestItems
+                    manifestItems.Add(("titlepage", "titlepage.xhtml", "application/xhtml+xml"));
+                }
             }
             catch { /* Пропустить битую картинку */ }
         }
-
 
         // 1. Строим дерево навигации
         _chapterCounter = 1;
@@ -136,6 +138,7 @@ public partial class EpubConverter
             flatChapters.Add(chapter);
 
             // Конвертируем TipTap ноду в HTML (ваш существующий конвертер)
+            _footnoteCounter = 0;
             var bodyHtml = ToHtml(node);
             var finalHtml = WrapInXhtml(chapter.title, bodyHtml + GenerateFootnotesHtml(bodyHtml, book.Footnotes));
 
@@ -143,11 +146,11 @@ public partial class EpubConverter
             var entry = archive.CreateEntry($"OEBPS/{chapter.href}");
             using (var sw = new StreamWriter(entry.Open())) sw.Write(finalHtml);
 
-            // В манифест
+            // Добавляем в manifestItems
             manifestItems.Add((chapter.id, chapter.href, "application/xhtml+xml"));
 
             // Идем вглубь по дереву, если есть дети
-            if (node.Content != null && chapter.Children.Any())
+            if (node.Content != null && chapter.Children.Count != 0)
             {
                 // Сопоставляем вложенные главы
                 var childSections = node.Content.Where(n => n.Type == "fb2Section").ToList();
@@ -165,53 +168,48 @@ public partial class EpubConverter
             ProcessTipTapNode(chapterTree[i], rootSections[i]);
         }
 
-        /* Генерация файлов глав
-        for (int i = 0; i < rootSections.Count; i++)
-        {
-            var fileName = $"chapter_{i + 1}.xhtml";
-            var bodyHtml = TipTapToHtml.ToHtml(rootSections[i]);
-            var finalHtml = WrapInXhtml($"Глава {i + 1}", ApplyDropCap(bodyHtml) + GenerateFootnotesHtml(bodyHtml, book.Footnotes));
-
-            var entry = archive.CreateEntry($"OEBPS/{fileName}");
-            using (var sw = new StreamWriter(entry.Open())) sw.Write(finalHtml);
-
-            manifestItems.Add(($"ch_{i}", fileName, mime: "application/xhtml+xml"));
-            navItems.Add(($"ch_{i}", fileName, $"Глава {i + 1}"));
-        }*/
-
-        // Генерация файлов навигации и добавляем в manifestItems
+        // Генерация файлов навигации и добавление в manifestItems
         var navEntry = archive.CreateEntry("OEBPS/nav.xhtml"); // + запись контента через GenerateNav
         using (var sw = new StreamWriter(navEntry.Open())) sw.Write(GenerateNav(chapterTree));
         manifestItems.Add(("nav", "nav.xhtml", mime: "application/xhtml+xml"));
 
-        // Генерируем NCX контент и добавляем в manifestItems
+        // Генерируем NCX контент и добавление в manifestItems
         var ncxEntry = archive.CreateEntry("OEBPS/toc.ncx");
         using (var sw = new StreamWriter(ncxEntry.Open())) sw.Write(GenerateNcx(book, chapterTree, bookId));
         manifestItems.Add((id: "ncx", href: "toc.ncx", mime: "application/x-dtbncx+xml"));
 
-        // Формирует OPF
+        // Формируем OPF
         var opfEntry = archive.CreateEntry("OEBPS/content.opf");
         using (var sw = new StreamWriter(opfEntry.Open()))
             sw.Write(GenerateOpf(book, manifestItems, bookId));
         return;
     }
 
+    /// <summary>
+    /// Обёртывает заданный заголовок и HTML-содержимое в валидный XHTML-документ, пригодный для использования в EPUB.
+    /// </summary>
+    /// <param name="title">Заголовок страницы, который будет помещён в тег &lt;title&gt;. Должен быть не <see langword="null"/>.</param>
+    /// <param name="body">HTML-содержимое тела страницы, которое будет вставлено внутрь контейнера &lt;div class="book"&gt;.</param>
+    /// <returns>
+    /// Строка, содержащая полный XHTML-документ с правильным объявлением XML, пространствами имён,
+    /// подключением стилей и экранированным заголовком.
+    /// </returns>
     private static string WrapInXhtml(string title, string body)
     {
         // Очищаем body от недопустимых управляющих символов
         string cleanBody = StripInvalidXmlChars(body);
 
         return $@"<?xml version=""1.0"" encoding=""utf-8""?>
-<html xmlns=""http://www.w3.org/1999/xhtml"" xmlns:epub=""http://www.idpf.org/2007/ops"">
-<head>
-    <title>{WebUtility.HtmlEncode(title)}</title>
-    <link rel=""stylesheet"" type=""text/css"" href=""style.css"" />
-</head>
-<body>
-    <div class=""book"">
-        {cleanBody}
-    </div>
-</body></html>";
+        <html xmlns=""http://www.w3.org/1999/xhtml"" xmlns:epub=""http://www.idpf.org/2007/ops"">
+        <head>
+            <title>{WebUtility.HtmlEncode(title)}</title>
+            <link rel=""stylesheet"" type=""text/css"" href=""style.css"" />
+        </head>
+        <body>
+            <div class=""book"">
+                {cleanBody}
+            </div>
+        </body></html>";
     }
 
     /// <summary>
@@ -264,6 +262,16 @@ public partial class EpubConverter
         return Regex.Replace(text, @"[\x00-\x08\x0B\x0C\x0E-\x1F]", "");
     }
 
+    /// <summary>
+    /// Генерирует OPF-файл (Open Packaging Format) — основной метафайл EPUB, содержащий метаданные, список ресурсов и порядок чтения.
+    /// </summary>
+    /// <param name="book">Объект книги с полной информацией о содержимом и метаданных.</param>
+    /// <param name="items">Список всех цифровых ресурсов (главы, изображения, CSS, навигация), включённых в книгу.</param>
+    /// <param name="id">Уникальный идентификатор публикации (обычно GUID), используемый для <c>dc:identifier</c>.</param>
+    /// <returns>
+    /// Объект <see cref="T:System.Xml.Linq.XDocument"/>, представляющий собой валидный <c>content.opf</c>-файл,
+    /// соответствующий спецификации EPUB 3.0.
+    /// </returns>
     private XDocument GenerateOpf(Fb2BookExport book, List<(string id, string href, string mime)> items, string id)
     {
 
@@ -331,7 +339,7 @@ public partial class EpubConverter
              new XElement(_opf + "meta", new XAttribute("property", "dcterms:modified"), DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ")),
 
              // Метаданные обложки для старых устройств
-             new XElement(_opf + "meta", new XAttribute("name", "cover"), new XAttribute("content", "cover-img"))
+             new XElement(_opf + "meta", new XAttribute("name", "cover"), new XAttribute("content", "cover.jpg"))
          );
         // Авторы и переводчики
         AddPersons(metadata, info?.Authors, "aut", "aut");
@@ -371,7 +379,7 @@ public partial class EpubConverter
 
                 // Спец-свойства EPUB 3
                 if (x.id == "nav") item.Add(new XAttribute("properties", "nav"));
-                if (x.id == "cover-img") item.Add(new XAttribute("properties", "cover-image"));
+                if (x.id == "cover") item.Add(new XAttribute("properties", "cover-image"));
 
                 return item;
             })
@@ -383,10 +391,10 @@ public partial class EpubConverter
             new XAttribute("toc", "ncx"),
 
             // 1. Навигация (теперь без linear="no", чтобы не было ошибки валидации)
-            items.Where(x => x.id == "nav")
+            /*items.Where(x => x.id == "nav")
                  .Select(x => new XElement(_opf + "itemref", new XAttribute("idref", x.id)))
                  .ToArray(),
-
+*/
             // 2. Все остальные XHTML страницы
             items.Where(x => x.href.EndsWith(".xhtml") && x.id != "nav")
                  .Select(x => new XElement(_opf + "itemref", new XAttribute("idref", x.id)))
@@ -436,57 +444,136 @@ public partial class EpubConverter
 </html>";
     }
 
-    private static string GenerateFootnotesHtml(string chapterHtml, Dictionary<string, TipTapDoc>? allFootnotes)
+
+    private int GetMaxDepth(List<Chapter> items)
     {
-        if (allFootnotes == null || allFootnotes.Count == 0) return "";
+        if (items == null || items.Count == 0) return 0;
 
-        var foundFootnotes = new StringBuilder();
-
-        foreach (var note in allFootnotes)
+        int maxSubDepth = 0;
+        foreach (var chapter in items)
         {
-            // Проверяем, есть ли ссылка на эту сноску в текущем HTML главы
-            if (chapterHtml.Contains($"href=\"#{note.Key}\""))
+            int depth = GetMaxDepth(chapter.Children);
+            if (depth > maxSubDepth) maxSubDepth = depth;
+        }
+        return 1 + maxSubDepth;
+    }
+
+
+
+    /// <summary>
+    /// Генерирует XML-документ в формате NCX (Navigation Center eXtended) — устаревшее, но обязательное оглавление для совместимости с некоторыми читалками.
+    /// </summary>
+    /// <param name="book">Объект книги, содержащий метаданные (в частности, заголовок).</param>
+    /// <param name="chapters">Иерархический список глав, на основе которого строится карта навигации.</param>
+    /// <param name="id">Уникальный идентификатор книги (обычно GUID), используемый в метаданных <c>dtb:uid</c>.</param>
+    /// <returns>
+    /// Объект <see cref="T:System.Xml.Linq.XDocument"/>, представляющий собой валидный NCX-файл (<c>toc.ncx</c>),
+    /// соответствующий спецификации DAISY 2005.
+    /// </returns>
+    /// <remarks>
+    /// <para>
+    /// Формат NCX используется в EPUB 2 и поддерживается многими устройствами для отображения оглавления.
+    /// Хотя в EPUB 3 предпочтительнее использовать <c>nav.xhtml</c>, файл <c>toc.ncx</c> всё ещё требуется для совместимости.
+    /// </para>
+    private XDocument GenerateNcx(Fb2BookExport book, List<Chapter> chapters, string id)
+    {
+        int playOrder = 1;
+        // Считаем глубину динамически
+        int depth = GetMaxDepth(chapters);
+
+        // Рекурсивная функция для создания navPoint (ваша без изменений)
+        IEnumerable<XElement> CreateNavPoints(List<Chapter> items)
+        {
+            foreach (var c in items)
             {
-                /*var noteContent = string.Join("", note.Value.Content?.Select(ToHtml()) ?? Array.Empty<string>());
-                foundFootnotes.Append($@"
-                <aside id=""{note.Key}"" epub:type=""footnote"">
-                    {noteContent}
-                </aside>");*/
+                var navPoint = new XElement(_daisy + "navPoint",
+                    new XAttribute("id", c.id),
+                    new XAttribute("playOrder", playOrder++),
+                    new XElement(_daisy + "navLabel", new XElement(_daisy + "text", c.title)),
+                    new XElement(_daisy + "content", new XAttribute("src", c.href))
+                );
+
+                if (c.Children != null && c.Children.Count != 0)
+                {
+                    navPoint.Add(CreateNavPoints(c.Children));
+                }
+
+                yield return navPoint;
             }
         }
 
-        if (foundFootnotes.Length == 0) return "";
+        var ncx = new XElement(_daisy + "ncx",
+            new XAttribute("version", "2005-1"),
+            new XElement(_daisy + "head",
+                new XElement(_daisy + "meta", new XAttribute("name", "dtb:uid"), new XAttribute("content", id)),
+                // Используем вычисленную переменную depth
+                new XElement(_daisy + "meta", new XAttribute("name", "dtb:depth"), new XAttribute("content", depth.ToString())),
+                new XElement(_daisy + "meta", new XAttribute("name", "dtb:totalPageCount"), new XAttribute("content", "0")),
+                new XElement(_daisy + "meta", new XAttribute("name", "dtb:maxPageNumber"), new XAttribute("content", "0"))
+            ),
+            new XElement(_daisy + "docTitle", new XElement(_daisy + "text", book.Metadata.TitleInfo?.Title ?? "Untitled")),
+            new XElement(_daisy + "navMap", CreateNavPoints(chapters))
+        );
 
-        return $@"<section class=""footnotes"" epub:type=""footnotes"">
-                <hr/>
-                {foundFootnotes}
-              </section>";
+        return new XDocument(new XDeclaration("1.0", "utf-8", null), ncx);
     }
 
-    private static string ApplyDropCap(string html)
+    /// <summary>
+    /// Генерирует HTML-разметку для блока сносок в конце главы, включая двусторонние ссылки (вперёд и назад).
+    /// Извлекает только те сноски, на которые есть ссылки в текущей главе.
+    /// </summary>
+    /// <param name="chapterHtml">HTML-содержимое главы, в котором ищутся ссылки на сноски (с атрибутом <c>epub:type="noteref"</c>).</param>
+    /// <param name="allFootnotes">Словарь всех доступных сносок книги, где ключ — ID сноски (например, <c>note1</c>), значение — структура <see cref="T:TipTapDoc"/>.</param>
+    /// <returns>
+    /// Строка с HTML-кодом секции <c>&lt;section epub:type="footnotes"&gt;</c>, содержащей все найденные сноски.
+    /// Если сносок нет или они не используются в главе, возвращается пустая строка.
+    /// </returns>
+    private string GenerateFootnotesHtml(string chapterHtml, Dictionary<string, TipTapDoc>? allFootnotes)
     {
-        if (string.IsNullOrWhiteSpace(html)) return html;
+        if (allFootnotes == null || allFootnotes.Count == 0) return "";
 
-        // Ищем начало первого параграфа
-        int pIndex = html.IndexOf("<p>");
-        if (pIndex == -1) return html;
+        // Оптимизация: собираем все упоминания сносок в главе один раз
+        var matches = Regex.Matches(chapterHtml, @"epub:type=""noteref"" id=""(ref_([^""]+)_(\d+))""\s+href=""#([^""]+)""");
 
-        int textStart = pIndex + 3;
-        if (textStart >= html.Length) return html;
+        if (matches.Count == 0) return "";
 
-        // Список возможных открывающих кавычек
-        string quotes = "«\"'„";
-        string firstChar = html[textStart].ToString();
+        var foundFootnotes = new StringBuilder();
+        var processedNotes = new HashSet<string>();
 
-        // Если первая — кавычка, пробуем захватить и следующий за ней символ
-        if (quotes.Contains(firstChar) && textStart + 1 < html.Length)
+        foreach (Match m in matches)
         {
-            string pair = html.Substring(textStart, 2);
-            return string.Concat(html.AsSpan(0, textStart), $"<span class=\"dc\">{pair}</span>", html.AsSpan(textStart + 2));
+            string backlinkId = m.Groups[1].Value; // ref_note1_1
+            string noteId = m.Groups[4].Value;     // note1
+
+            if (allFootnotes.TryGetValue(noteId, out var noteDoc))
+            {
+                var noteContent = string.Join("", (noteDoc.Content ?? [])
+                    .Select(node => ToHtml(node)));
+
+                // Добавляем ссылку «назад» в виде символа ↵ или номера
+                string backlink = $" <a href=\"#{backlinkId}\" epub:type=\"backlink\">↵</a>";
+
+                // Вставляем обратную ссылку в конец последнего параграфа сноски
+                if (noteContent.EndsWith("</p>"))
+                {
+                    noteContent = noteContent.Insert(noteContent.Length - 4, backlink);
+                }
+                else
+                {
+                    noteContent += backlink;
+                }
+
+                foundFootnotes.Append($@"
+            <aside id=""{noteId}"" epub:type=""footnote"">
+                {noteContent}
+            </aside>");
+            }
         }
 
-        // Если просто буква
-        return string.Concat(html.AsSpan(0, textStart), $"<span class=\"dc\">{firstChar}</span>", html.AsSpan(textStart + 1));
+        return $@"<section class=""footnotes"" epub:type=""footnotes"">
+            <hr/>
+            {foundFootnotes}
+          </section>";
     }
 
     /// ОБРАБОТКА КАРТИНОК
@@ -724,47 +811,6 @@ public partial class EpubConverter
         _binaryCache.TryAdd(id, (base64Only, contentType));
     }
 
-
-    private XDocument GenerateNcx(Fb2BookExport book, List<Chapter> chapters, string id)
-    {
-        int playOrder = 1;
-
-        // Рекурсивная функция для создания navPoint
-        IEnumerable<XElement> CreateNavPoints(List<Chapter> items)
-        {
-            foreach (var c in items)
-            {
-                var navPoint = new XElement(_daisy + "navPoint",
-                    new XAttribute("id", c.id),
-                    new XAttribute("playOrder", playOrder++),
-                    new XElement(_daisy + "navLabel", new XElement(_daisy + "text", c.title)),
-                    new XElement(_daisy + "content", new XAttribute("src", c.href))
-                );
-
-                if (c.Children.Count != 0)
-                {
-                    navPoint.Add(CreateNavPoints(c.Children));
-                }
-
-                yield return navPoint;
-            }
-        }
-
-        var ncx = new XElement(_daisy + "ncx",
-            new XAttribute("version", "2005-1"),
-            new XElement(_daisy + "head",
-                new XElement(_daisy + "meta", new XAttribute("name", "dtb:uid"), new XAttribute("content", id)),
-                new XElement(_daisy + "meta", new XAttribute("name", "dtb:depth"), new XAttribute("content", "2")), // Увеличьте, если вложенность глубже
-                new XElement(_daisy + "meta", new XAttribute("name", "dtb:totalPageCount"), new XAttribute("content", "0")),
-                new XElement(_daisy + "meta", new XAttribute("name", "dtb:maxPageNumber"), new XAttribute("content", "0"))
-            ),
-            new XElement(_daisy + "docTitle", new XElement(_daisy + "text", book.Metadata.TitleInfo?.Title ?? "Untitled")),
-            new XElement(_daisy + "navMap", CreateNavPoints(chapters))
-        );
-
-        return new XDocument(new XDeclaration("1.0", "utf-8", null), ncx);
-    }
-
     /// ФОРМИРОВАНИЕ ИЕРАРХИЧЕСКОЙ СТРУКТУРЫ ГЛАВ
 
     /// <summary>
@@ -942,6 +988,22 @@ public partial class EpubConverter
         return "";
     }
 
+    /// ПРЕОБРАЗОВАНИЕ ОСНОВНОГО ТЕКСТА РАЗДЕЛА В HTML
+    /// 
+    /// <summary>
+    /// Рекурсивно преобразует узел формата TipTap в строку HTML, пригодную для использования в EPUB-документе.
+    /// Поддерживает текстовые стили, ссылки, изображения, абзацы, заголовки и другие элементы FB2.
+    /// </summary>
+    /// <param name="node">Узел TipTap, который необходимо конвертировать. Может быть <see langword="null"/>.</param>
+    /// <param name="isInsideTitle">
+    /// Флаг, указывающий, находится ли текущий узел внутри заголовка (<c>fb2Title</c>).
+    /// Влияет на способ обработки дочерних элементов — например, абзацы не оборачиваются в <c>&lt;p&gt;</c> внутри заголовков.
+    /// </param>
+    /// <returns>
+    /// Строка с валидным HTML-кодом, представляющим содержимое узла.
+    /// Если <paramref name="node"/> равен <see langword="null"/>, возвращается пустая строка.
+    /// Пустые или некорректные узлы также возвращают пустую строку.
+    /// </returns>
     public string ToHtml(TipTapNode node, bool isInsideTitle = false)
     {
         if (node == null) return "";
@@ -974,8 +1036,9 @@ public partial class EpubConverter
         // Рекурсивно вызываем ToHtml. 
         // Если текущий узел — это заголовок, передаем true всем его детям.
         bool childrenShouldBeHeaders = isInsideTitle || node.Type == "fb2Title";
+
         var childrenHtml = string.Join("", (node.Content ?? [])
-            .Select(child => ToHtml(child)));
+            .Select(child => ToHtml(child, childrenShouldBeHeaders)));
 
         return node.Type switch
         {
@@ -983,6 +1046,7 @@ public partial class EpubConverter
                        ? childrenHtml
                        : (string.IsNullOrWhiteSpace(childrenHtml) ? "" : $"<p>{childrenHtml}</p>"),
             "fb2Title" => $"<h1>{childrenHtml}</h1>", // Упростил, обычно в EPUB h1-h2
+            "fb2InlineImage" => HandleFB2Image(node, true),
             "fb2Subtitle" => $"<p class=\"subtitle\">{childrenHtml}</p>",
             "fb2Epigraph" => $"<div class=\"epigraph\">{childrenHtml}</div>",
             "fb2Cite" => $"<blockquote class=\"cite\">{childrenHtml}</blockquote>",
@@ -992,43 +1056,75 @@ public partial class EpubConverter
             "fb2TextAuthor" => $"<p class=\"text-author\">{childrenHtml}</p>",
 
             // Блочное изображение
-            "fb2BlockImage" => HandleBlockImage(node),
+            "fb2BlockImage" => HandleFB2Image(node, false),
             "fb2Section" => $"<section>{childrenHtml}</section>",
             _ => childrenHtml
         };
     }
 
-    private string HandleBlockImage(TipTapNode node)
+    private string HandleFB2Image(TipTapNode node, bool isInline)
     {
-        if (node.Attrs?.TryGetValue("href", out string? idB) == true && idB?.StartsWith('#') == true)
+        // Извлекаем ID и проверяем формат #id
+        if (node.Attrs?.TryGetValue("href", out string? href) != true || string.IsNullOrEmpty(href) || !href.StartsWith('#'))
         {
-            var cleanId = idB[1..];
-            // Безопасное получение расширения из вашего кэша
-            string ext = "jpg";
-            if (_binaryCache.TryGetValue(cleanId, out var cachedData))
-            {
-                ext = cachedData.ContentType switch
-                {
-                    "image/png" => "png",
-                    "image/gif" => "gif",
-                    _ => "jpg"
-                };
-            }
-            return $"<div class=\"image\"><img src=\"images/{cleanId}.{ext}\" alt=\"\" /></div>";
+            return "";
         }
-        return "";
+        string cleanId = href[1..]; // Отсекаем '#'
+
+        // Определяем расширение на основе кэша
+        string ext = _binaryCache.TryGetValue(cleanId, out var cachedData)
+            ? (cachedData.ContentType switch
+            {
+                "image/png" => "png",
+                "image/gif" => "gif",
+                _ => "jpg"
+            })
+            : "jpg"; // Default fallback
+
+        return isInline ? $"<img class=\"inline-image\" src=\"images/{cleanId}.{ext}\" alt=\"\" />" : $"<div class=\"image\"><img src=\"images/{cleanId}.{ext}\" alt=\"\" /></div>";
     }
 
-    private static string BuildLink(TipTapMark mark, string text)
+    /// <summary>
+    /// Генерирует HTML-разметку для ссылки на основе атрибутов разметки TipTap.
+    /// Поддерживает обычные ссылки и специальные ссылки на сноски (footnotes).
+    /// </summary>
+    /// <param name="mark">Объект разметки TipTap, содержащий атрибуты ссылки (например, <c>href</c>, <c>rel</c>).</param>
+    /// <param name="text">Текст ссылки, который будет обёрнут в тег <c>&lt;a&gt;</c>.</param>
+    /// <returns>
+    /// Строка с HTML-кодом ссылки. Если <c>mark</c> не содержит корректного <c>href</c>, возвращается исходный <paramref name="text"/> без изменений.
+    /// Для сносок добавляется уникальный <c>id</c> и атрибут <c>epub:type="noteref"</c>.
+    /// </returns>
+    /// <remarks>
+    /// <para>
+    /// Особенности реализации:
+    /// <list type="bullet">
+    ///   <item><description>Проверяет наличие атрибута <c>href</c> и его тип — должен быть строкой.</description></item>
+    ///   <item><description>Если указано <c>rel="footnote"</c>, ссылка считается ссылкой на сноску и обрабатывается особым образом:</description>
+    ///   </item>
+    ///   <item><description>Для обычных ссылок генерируется стандартный тег <c>&lt;a href="..."&gt;</c>.</description></item>
+    /// </list>
+    /// </para>
+    /// <para>
+    /// Потокобезопасность: метод <b>не является потокобезопасным</b>, так как модифицирует общее состояние <see cref="F:_footnoteCounter"/>.
+    /// Должен вызываться в однопоточном контексте.
+    /// </para>
+    private string BuildLink(TipTapMark mark, string text)
     {
         if (mark.Attrs?.TryGetValue("href", out var h) == true && h is string hrefStr)
         {
             string encodedHref = WebUtility.HtmlEncode(hrefStr);
-            if (hrefStr.StartsWith('#'))
+            if (mark.Attrs?.TryGetValue("rel", out var linkType) == true && linkType == "footnote")
             {
-                return $"<a epub:type=\"noteref\" href=\"{encodedHref}\">{text}</a>";
+                _footnoteCounter++;
+
+                string backlinkId = $"ref_{hrefStr[1..]}_{_footnoteCounter}";   // ref_{id}_{number} — уникальный ID для этого конкретного места в тексте
+
+                return $"<a epub:type=\"noteref\" id=\"{backlinkId}\" href=\"{encodedHref}\" class=\"footnote-link\">{text}</a>";
             }
-            return $"<a href=\"{encodedHref}\">{text}</a>";
+            else
+            {
+                return $"<a href=\"{encodedHref}\">{text}</a>";
+            }
         }
         return text;
     }
