@@ -13,8 +13,8 @@ import {
   FolderOpen,
   Undo,
   Redo,
-  FileCode,
   FilePlus,
+  SquareArrowRightExit,
 } from "lucide-react";
 import { AboutModal } from "./AboutModal";
 import ThemeToggle from "@/components/ui/ThemeToggle";
@@ -189,7 +189,7 @@ export const Header = memo(
                     className="header-item"
                   >
                     <div className="flex items-center gap-2">
-                      <FileCode size={14} />
+                      <Save size={14} />
                       <span>Сохранить как...</span>
                     </div>
                     <span>Ctrl+Shift+S</span>
@@ -201,7 +201,7 @@ export const Header = memo(
                     className="header-item"
                   >
                     <div className="flex items-center gap-2">
-                      <FileCode size={14} />
+                      <SquareArrowRightExit size={14} />
                       <span>Экспорт в EPUB3...</span>
                     </div>
                   </button>

@@ -8,17 +8,24 @@ using System.Text.RegularExpressions;
 
 namespace FB2Writer.Services;
 
-/*https://github.com/fb2kindle/fb2kindle/
-// https://www.w3.org/TR/epub/#sec-nav-intro
-// */
-
-
+/// <summary>
+/// Представляет структуру главы книги с идентификатором, ссылкой, заголовком и вложенными подглавами.
+/// Используется для построения иерархического оглавления в EPUB.
+/// </summary>
+/// <param name="id">Уникальный идентификатор главы (например, "ch1").</param>
+/// <param name="href">Путь к файлу XHTML главы внутри EPUB-архива (например, "chapter_1.xhtml").</param>
+/// <param name="title">Заголовок главы, отображаемый в оглавлении.</param>
+/// <param name="Children">Список вложенных подглав. Может быть пустым, но не <see langword="null"/>.</param>
 public record Chapter(
     string id,
     string href,
     string title,
     List<Chapter> Children
 );
+/// <summary>
+/// Основной класс для конвертации книги из формата FB2 (в JSON-представлении) в стандарт EPUB 3.0.
+/// Генерирует все необходимые файлы: контейнер, манифест, навигацию, стили и XHTML-страницы.
+/// </summary>
 public partial class EpubConverter
 {
     /// <summary>
@@ -27,13 +34,41 @@ public partial class EpubConverter
     /// Используется регистронезависимое сравнение ключей.
     /// </summary>
     private readonly Dictionary<string, (string Base64, string ContentType)> _binaryCache = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Пространство имён Dublin Core, используемое для метаданных книги (автор, заголовок, язык).
+    /// URI: http://purl.org/dc/elements/1.1/
+    /// </summary>
     private readonly XNamespace _dc = "http://purl.org/dc/elements/1.1/";
+
+    /// <summary>
+    /// Пространство имён OPF (Open Packaging Format), используемое в основном пакетном файле EPUB.
+    /// URI: http://www.idpf.org/2007/opf
+    /// </summary>
     private readonly XNamespace _opf = "http://www.idpf.org/2007/opf";
+
+    /// <summary>
+    /// Пространство имён DAISY NCX, используемое для генерации устаревшего файла оглавления toc.ncx.
+    /// URI: http://www.daisy.org/z3986/2005/ncx/
+    /// </summary>
     private readonly XNamespace _daisy = "http://www.daisy.org/z3986/2005/ncx/";
 
+    /// <summary>
+    /// Счётчик глав, используемый для генерации уникальных идентификаторов и имён файлов.
+    /// Должен сбрасываться перед обработкой новой книги.
+    /// </summary>
     private int _chapterCounter = 1;
+
+    /// <summary>
+    /// Счётчик сносок, используемый для генерации уникальных ID ссылок на сноски.
+    /// Должен сбрасываться в 0 в начале каждой главы.
+    /// </summary>
     private int _footnoteCounter = 0; // Сбрасывайте в 0 в начале каждой главы!
 
+    /// <summary>
+    /// Встроенное CSS-оформление для всех страниц EPUB.
+    /// Обеспечивает единообразное отображение текста, абзацев, цитат, стихов и других элементов.
+    /// </summary>
     private readonly string style = """
             p {margin: 0;text-indent: 1.5em;text-align:justify;hyphens:auto;-webkit-hyphens:auto;}
             p.text-author {text-indent:0;font-style:italic;font-weight:bold;text-align:right;}
@@ -54,10 +89,17 @@ public partial class EpubConverter
             .footnotes { font-size: 0.9em; color: #666;}
             """;
 
+    /// <summary>
+    /// Конвертирует книгу из JSON-представления в формат EPUB и записывает результат в выходной поток.
+    /// Генерирует все необходимые файлы: mimetype, container.xml, content.opf, nav.xhtml, toc.ncx, XHTML-страницы, изображения и стили.
+    /// </summary>
+    /// <param name="outputStream">Выходной поток, в который будет записан ZIP-архив в формате EPUB. Должен быть доступен для записи.</param>
+    /// <param name="jsonContent">JSON-элемент, содержащий структурированное представление книги в формате FB2. Не должен быть <see langword="null"/>.</param>
+    /// <exception cref="System.Exception">Выбрасывается при невозможности десериализовать JSON в объект <see cref="T:FB2Writer.Models.Fb2BookExport"/>.</exception>
     public void ConvertJsonToEpub(Stream outputStream, JsonElement jsonContent)
     {
-        //Fb2BookExport book = jsonContent.Deserialize<Fb2BookExport>()!;
         var book = JsonSerializer.Deserialize(jsonContent, EmitContext.Custom.Fb2BookExport) ?? throw new Exception("Ошибка формата книги");
+
         using var archive = new ZipArchive(outputStream, ZipArchiveMode.Create, true);
 
         // 1. mimetype (ОБЯЗАТЕЛЬНО ПЕРВЫМ И БЕЗ СЖАТИЯ)
@@ -87,22 +129,23 @@ public partial class EpubConverter
         {
             try
             {
+                // Определяем расширение
                 var ext = img.Value.ContentType switch
                 {
                     "image/jpeg" => "jpg",
                     "image/png" => "png",
+                    "image/gif" => "gif",
                     _ => "jpg"
                 };
 
-                // Декодируем
+                // Декодируем и записываем файлы с изображениями в архив
                 byte[] imageBytes = Convert.FromBase64String(img.Value.Base64);
-
-                // Записываем файлы с изображениями в архив
                 var imgHref = $"images/{img.Key}.{ext}";
                 var entry = archive.CreateEntry($"OEBPS/{imgHref}");
                 using (var os = entry.Open())
                 {
                     os.Write(imageBytes, 0, imageBytes.Length);
+                    os.Flush();
                 }
 
                 // Добавляем в manifestItems
@@ -116,7 +159,7 @@ public partial class EpubConverter
                 {
                     // Добавляем страницу с обложкой как файл в архив
                     var coverEntry = archive.CreateEntry($"OEBPS/titlepage.xhtml");
-                    using (var sw = new StreamWriter(coverEntry.Open())) sw.Write(WrapInXhtml("Cover", "<div><img src=\"images/cover.jpg\"/></div>"));
+                    using (var sw = new StreamWriter(coverEntry.Open())) sw.Write(WrapInXhtml("Cover", $"<div><img src=\"{imgHref}\"/></div>"));
 
                     // Добавляем страницу с обложкой в manifestItems
                     manifestItems.Add(("titlepage", "titlepage.xhtml", "application/xhtml+xml"));
@@ -125,7 +168,7 @@ public partial class EpubConverter
             catch { /* Пропустить битую картинку */ }
         }
 
-        // 1. Строим дерево навигации
+        // Строим дерево навигации
         _chapterCounter = 1;
         var chapterTree = MapTipTapToChapters(book.Content.Content?[0].Content ?? []);
 
@@ -444,8 +487,17 @@ public partial class EpubConverter
 </html>";
     }
 
-
-    private int GetMaxDepth(List<Chapter> items)
+    /// <summary>
+    /// Рекурсивно вычисляет максимальную глубину вложенности глав в иерархической структуре оглавления.
+    /// Глубина определяется как наибольшее количество уровней вложенности подразделов.
+    /// </summary>
+    /// <param name="items">Список глав, для которых необходимо вычислить максимальную глубину. Может быть <see langword="null"/> или пустым.</param>
+    /// <returns>
+    /// Целое число, представляющее максимальную глубину вложенности.
+    /// Возвращает <c>0</c>, если список <paramref name="items"/> равен <see langword="null"/> или пуст;
+    /// иначе возвращает положительное число, соответствующее количеству уровней (сама глава плюс её самые глубокие подразделы).
+    /// </returns>
+    private static int GetMaxDepth(List<Chapter> items)
     {
         if (items == null || items.Count == 0) return 0;
 
@@ -457,8 +509,6 @@ public partial class EpubConverter
         }
         return 1 + maxSubDepth;
     }
-
-
 
     /// <summary>
     /// Генерирует XML-документ в формате NCX (Navigation Center eXtended) — устаревшее, но обязательное оглавление для совместимости с некоторыми читалками.
@@ -989,7 +1039,7 @@ public partial class EpubConverter
     }
 
     /// ПРЕОБРАЗОВАНИЕ ОСНОВНОГО ТЕКСТА РАЗДЕЛА В HTML
-    /// 
+
     /// <summary>
     /// Рекурсивно преобразует узел формата TipTap в строку HTML, пригодную для использования в EPUB-документе.
     /// Поддерживает текстовые стили, ссылки, изображения, абзацы, заголовки и другие элементы FB2.
@@ -1022,6 +1072,7 @@ public partial class EpubConverter
                         "strike" => $"<del>{text}</del>", // Более современно для XHTML
                         "superscript" => $"<sup>{text}</sup>",
                         "subscript" => $"<sub>{text}</sub>",
+                        "code" => $"<code>{text}</code>",
                         "link" => BuildLink(mark, text),
                         "fb2InlineImage" => node.Attrs?.TryGetValue("id", out var idI) == true
                             ? $"<img class=\"inline-image\" src=\"images/{idI}.jpg\" alt=\"\" />"
@@ -1129,9 +1180,7 @@ public partial class EpubConverter
         return text;
     }
 
-
-    [System.Text.RegularExpressions.GeneratedRegex(@"data:([^;]+)")]
-    private static partial System.Text.RegularExpressions.Regex MyRegex();
     [GeneratedRegex(@"data:([^;]+)")]
-    private static partial Regex MyRegex1();
+    private static partial System.Text.RegularExpressions.Regex MyRegex();
+   
 }

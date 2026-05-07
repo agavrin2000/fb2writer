@@ -33,21 +33,6 @@ export const Fb2Date = Node.create({
       const contentDOM = document.createElement("span");
       contentDOM.classList.add("fb2-date-text");
 
-      // 1. Хелпер для форматирования в YYYY-MM-DD
-      const formatDate = (val: string) => {
-        const date = new Date(val);
-        // Проверка на валидность даты, чтобы не упасть в ошибку
-        return isNaN(date.getTime())
-          ? "0000-00-00"
-          : date.toISOString().split("T")[0];
-      };
-
-      const dateBadge = document.createElement("span");
-      dateBadge.classList.add("fb2-date-badge");
-      dateBadge.contentEditable = "false";
-      // Устанавливаем текст в формате YYYY-MM-DD
-      dateBadge.innerText = formatDate(node.attrs.value);
-
       const controls = document.createElement("span");
       controls.classList.add("fb2-date-controls");
       controls.contentEditable = "false";
@@ -77,20 +62,13 @@ export const Fb2Date = Node.create({
         }
       };
       controls.append(button, input);
-      dom.append(contentDOM, dateBadge, controls);
+      dom.append(contentDOM, controls);
 
       return {
         dom,
         contentDOM,
         update: (updatedNode) => {
           if (updatedNode.type.name !== this.name) return false;
-
-          // 2. Обновляем текст в badge в формате YYYY-MM-DD
-          const newDateText = formatDate(updatedNode.attrs.value);
-          if (dateBadge.innerText !== newDateText) {
-            dateBadge.innerText = newDateText;
-          }
-
           input.value = updatedNode.attrs.value;
           button.title = `ISO: ${updatedNode.attrs.value}`;
 

@@ -117,11 +117,11 @@ export const Toolbar: React.FC<ToolbarProps> = memo(
               // Используем (undefined as any), чтобы удовлетворить сигнатуру вызова
               [
                 `canInsert${name}`,
-                (ed.can()as unknown as Record<keyof Fb2Commands<boolean>, () => boolean>)[insertCommand]?.() ?? false,
+                (ed.can() as unknown as Record<keyof Fb2Commands<boolean>, () => boolean>)[insertCommand]?.() ?? false,
               ],
               [
                 `canRemove${name}`,
-                (ed.can()as unknown as Record<keyof Fb2Commands<boolean>, () => boolean>)[removeCommand]?.() ?? false,
+                (ed.can() as unknown as Record<keyof Fb2Commands<boolean>, () => boolean>)[removeCommand]?.() ?? false,
               ],
             ];
           }),

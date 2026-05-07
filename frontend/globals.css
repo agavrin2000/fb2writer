@@ -439,20 +439,6 @@ section.fb2-section {
   /* Обычно даты в FB2 пишутся курсивом */
 }
 
-/* Плашка с технической датой */
-.fb2-date-badge {
-  background: transparent;
-  /* Убираем фон плашки */
-  color: #94a3b8;
-  /* Делаем цвет даты более приглушенным */
-  padding: 0 4px;
-  font-size: 0.85em;
-  user-select: none;
-  white-space: nowrap;
-  font-family: monospace;
-  /* Моноширинный шрифт для YYYY-MM-DD */
-}
-
 .fb2-date-controls {
   position: relative;
   display: inline-flex;
@@ -460,6 +446,8 @@ section.fb2-section {
   opacity: 0.6;
   /* Кнопка будет полупрозрачной, пока не навели */
   transition: opacity 0.2s;
+  font-family: monospace;
+  font-size: 0.8em;
 }
 
 .fb2-date-controls:hover {
