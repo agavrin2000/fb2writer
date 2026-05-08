@@ -27,9 +27,9 @@ import { Fb2InlineImage } from "./extensions/fb2inlineimage";
 import { Fb2Placeholder } from "./extensions/fb2placeholder";
 import { Fb2Annotation } from "./extensions/fb2annotation";
 import { Fb2Paragraph } from "./extensions/fb2paragraph";
+import { Fb2Table, Fb2TableRow, Fb2Td, Fb2Th } from "./extensions/fb2table";
 import { MetadataExtension } from "./extensions/MetadataExtension";
 import { createInitialContent } from "../../types/types";
-
 /**
  * Кастомное расширение документа, переопределяющее корневой узел.
  * Ограничивает содержимое документа одним разрешённым блоком — `fb2BodySection`.
@@ -121,4 +121,8 @@ export const EditorExtensions = [
   Fb2Subtitle,
   Fb2Placeholder,
   Fb2Annotation,
+  Fb2Table.configure({ resizable: false}),
+  Fb2TableRow,
+  Fb2Td,
+  Fb2Th,
 ];

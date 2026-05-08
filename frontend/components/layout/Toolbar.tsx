@@ -23,6 +23,8 @@ import {
 import { useEditorState } from "@tiptap/react";
 import { Fb2ActionIcon } from "../ui/Fb2ActionIcon";
 import { ImageDropdown } from "./ImageDropdown";
+import { TableDropdown } from "./TableDropdown";
+import { CellAlignDropdown } from "./CellAlignDropdown";
 import { NodeSelection } from "@tiptap/pm/state";
 import { ImageDisplayType, COMMAND_NAMES, Fb2Commands } from "../../types/types";
 
@@ -146,6 +148,70 @@ export const Toolbar: React.FC<ToolbarProps> = memo(
       onSelectImage(type);
     };
 
+    const canInsertTable = () => {
+      // Вставляем только если внутри p и родитель fb2Section,fb2Cite или fb2Annotation
+      const { selection } = editor.state;
+      const { $from } = selection;
+
+      const parentNode = $from.node($from.depth);
+      const grandParentNode = $from.node($from.depth - 1);
+
+      if (parentNode.type.name !== "paragraph" || (grandParentNode?.type.name !== "fb2Section" && grandParentNode?.type.name !== "fb2Annotation" && grandParentNode?.type.name !== "fb2Cite"))
+        return false;
+      return true;
+    };
+
+    // Обработка табличных команд
+    const handleTableSelect = (type: string) => {
+      if (!editor) return;
+
+      switch (type) {
+        case "addTable":
+          // Создаем таблицу 3x3 (fb2-совместимую)
+          editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run();
+          break;
+        case "removeTable":
+          editor.chain().focus().deleteTable().run();
+          break;
+        case "addColumn":
+          editor.chain().focus().addColumnAfter().run();
+          break;
+        case "removeColumn":
+          editor.chain().focus().deleteColumn().run();
+          break;
+        case "addRow":
+          editor.chain().focus().addRowAfter().run();
+          break;
+        case "removeRow":
+          editor.chain().focus().deleteRow().run();
+          break;
+        case "mergeCells":
+          editor.chain().focus().mergeCells().run();
+          break;
+        case "splitCells":
+          editor.chain().focus().splitCell().run();
+          break;
+        case "alignLeft":
+          editor.chain().focus().setCellAttribute('align', 'left').run();
+          break;
+        case "alignCenter":
+          editor.chain().focus().setCellAttribute('align', 'center').run();
+          break;
+        case "alignRight":
+          editor.chain().focus().setCellAttribute('align', 'right').run();
+          break;
+        case "valignTop":
+          editor.chain().focus().setCellAttribute('valign', 'top').run()
+          break;
+        case "valignMiddle":
+          editor.chain().focus().setCellAttribute('valign', 'middle').run()
+          break;
+        case "valignBottom":
+          editor.chain().focus().setCellAttribute('valign', 'bottom').run()
+          break;
+      }
+    };
+
     const {
       isMarkDisabled,
       isCiteDisabled,
@@ -266,6 +332,21 @@ export const Toolbar: React.FC<ToolbarProps> = memo(
             canBlockImage={capabilities?.canInsertBlockImage}
             canInlineImage={capabilities?.canInsertInlineImage}
             canSectionImage={capabilities?.canInsertSectionImage}
+          />
+          <TableDropdown
+            onSelect={handleTableSelect}
+            canAddTable={canInsertTable()}
+            canRemoveTable={editor.can().deleteTable()}
+            canAddColumn={editor.can().addColumnAfter()}
+            canRemoveColumn={editor.can().deleteColumn()}
+            canAddRow={editor.can().addRowAfter()}
+            canRemoveRow={editor.can().deleteRow()}
+            canMergeCells={editor.can().mergeCells()}
+            canSplitCells={editor.can().splitCell()}
+          />
+          <CellAlignDropdown
+            onSelect={handleTableSelect}
+            canAllign={editor.can().deleteTable()}
           />
         </div>
 

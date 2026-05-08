@@ -36,8 +36,7 @@ class Program
             .Center()
             .SetMinWidth(800)
             .SetResizable(true)
-            .SetDevToolsEnabled(true)
-            .SetContextMenuEnabled(true)
+            .SetDevToolsEnabled(IsDebugMode)
             .SetBrowserControlInitParameters("--allow-file-access-from-files --allow-scheme-access --disable-http-cache")
             .SetTemporaryFilesPath(tempUserDataPath);
 

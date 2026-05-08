@@ -485,6 +485,48 @@ section.fb2-section {
 .fb2-link:hover {
   @apply text-blue-800 decoration-blue-500 decoration-2;
 }
+
+
+/* ТАБЛИЦЫ */
+
+/* Базовые стили таблицы */
+.fb2-table {
+  border-collapse: collapse;
+  table-layout: fixed;
+  width: 100%;
+  margin: 1rem 0;
+}
+
+.fb2-table td,
+.fb2-table th {
+  min-width: 1em;
+  border: 1px solid #ced4da;
+  padding: 5px 8px;
+  vertical-align: top;
+  box-sizing: border-box;
+  position: relative;
+}
+
+/* Стилизация ВЫДЕЛЕННЫХ ячеек (для объединения) */
+.fb2-table .selectedCell:after {
+  z-index: 2;
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  background: rgba(200, 200, 255, 0.4);
+  /* Полупрозрачный голубой цвет */
+  pointer-events: none;
+}
+
+/* Стилизация ячеек заголовка */
+.fb2-table th {
+  font-weight: bold;
+  text-align: left;
+  background-color: #f1f3f5;
+}
 /*палитры Slate Professional*/
 @layer base {
   :root {
