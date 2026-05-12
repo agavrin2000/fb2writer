@@ -215,9 +215,9 @@ public class Fb2Service
 
             contentNodes.Add(new TipTapNode(
                 Type: "fb2BodySection",
-                Attrs: new Dictionary<string, string?>
+                Attrs: new Dictionary<string, object?>
                 {
-                    ["level"] = "1", // Значения должны быть строками, так как Dictionary<string, string>
+                    ["level"] = 1,
                     ["sectionId"] = Guid.NewGuid().ToString()
                 }, Content: bodyContent
             ));
@@ -372,8 +372,8 @@ public class Fb2Service
         foreach (var el in container.Elements())
         {
             string name = el.Name.LocalName;
-            Dictionary<string, string?> attrs = el.Attributes()
-                .ToDictionary(a => a.Name.LocalName, a => (string?)a.Value);
+            Dictionary<string, object?> attrs = el.Attributes()
+     .ToDictionary(a => a.Name.LocalName, a => (object?)a.Value);
             if (name == "section")
             {
                 if (!el.Elements().Any())
@@ -392,16 +392,16 @@ public class Fb2Service
                 // Добавляем всю секцию как единый блок в общий список
                 nodes.Add(new TipTapNode(
                     Type: "fb2Section",
-                      Attrs: new Dictionary<string, string?>
+                      Attrs: new Dictionary<string, object?>
                       {
-                          ["level"] = (level + 1).ToString(), // Значения должны быть строками, так как Dictionary<string, string>
+                          ["level"] = level + 1, // Значения должны быть строками, так как Dictionary<string, string>
                           ["sectionId"] = Guid.NewGuid().ToString(),
                           ["elementId"] = el.Attribute("id")?.Value
                       },
                     Content: sectionContent
                 ));
             }
-            else if (name is "title" or "epigraph" or "cite" or "poem" or "stanza")
+            else if (name is "title" or "epigraph" or "cite" or "poem" or "stanza" or "table" or "tr")
             {
                 var contentList = new List<TipTapNode>();
                 ParseElement(el, contentList);
@@ -414,6 +414,8 @@ public class Fb2Service
                     "poem" => "fb2Poem",
                     "stanza" => "fb2Stanza",
                     "annotation" => "fb2Annotation",
+                    "table" => "table",
+                    "tr" => "tableRow",
                     _ => "fb2Title"
                 };
 
@@ -423,12 +425,31 @@ public class Fb2Service
                     Content: contentList
                 ));
             }
-            else if (name is "text-author" or "subtitle" or "p" or "v")
+            else if (name is "text-author" or "subtitle" or "p" or "v" or "th" or "td")
             {
                 var inlineContent = new List<TipTapNode>();
                 foreach (var node in el.Nodes())
                 {
                     ProcessInline(node, inlineContent, []);
+                }
+
+                // Список атрибутов, которые должны стать числами
+                string[] numericAttrs = ["colspan", "rowspan"];
+
+                foreach (var key in numericAttrs)
+                {
+                    if (attrs.ContainsKey(key))
+                    {
+                        // Пытаемся распарсить строку в число
+                        if (int.TryParse(attrs[key]?.ToString(), out int intVal))
+                        {
+                            attrs[key] = intVal; // Заменяем строку на число
+                        }
+                        else
+                        {
+                            attrs[key] = 1; // Дефолтное значение, если в XML был мусор
+                        }
+                    }
                 }
                 // Сопоставляем имя тега с типом в TipTap
                 string type = name switch
@@ -437,6 +458,8 @@ public class Fb2Service
                     "text-author" => "fb2TextAuthor",
                     "subtitle" => "fb2Subtitle",
                     "v" => "fb2V",
+                    "th" => "tableHeader",
+                    "td" => "tableCell",
                     _ => "paragraph"
                 };
 
@@ -463,7 +486,7 @@ public class Fb2Service
                     {
                         nodes.Add(new TipTapNode(
                             Type: "fb2BlockImage",
-                              Attrs: new Dictionary<string, string?>
+                              Attrs: new Dictionary<string, object?>
                               {
                                   ["src"] = base64,
                                   ["title"] = el.Attribute(ns + "title")?.Value,
@@ -514,7 +537,7 @@ public class Fb2Service
                     {
                         container.Add(new TipTapNode(
                             Type: "fb2InlineImage",
-                            Attrs: new Dictionary<string, string?>
+                            Attrs: new Dictionary<string, object?>
                             {
                                 ["src"] = base64,
                                 ["href"] = hrefAttr.Value
@@ -859,16 +882,15 @@ public class Fb2Service
             JsonElement finalCoverNode = coverNode;
 
             // НОРМАЛИЗАЦИЯ: если пришла строка, создаем временный документ с нужной структурой
-            if (coverNode.ValueKind == JsonValueKind.String)
+            if (coverNode.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(coverNode.GetString()))
             {
                 var rawJson = $"{{\"attrs\": {{\"src\": \"{coverNode.GetString()}\" }} }}";
                 finalCoverNode = JsonDocument.Parse(rawJson).RootElement;
-            }
-
-            var img = CreateImage(finalCoverNode, coverId);
-            if (img != null)
-            {
-                el.Add(new XElement(ns + "coverpage", img));
+                var img = CreateImage(finalCoverNode, coverId);
+                if (img != null)
+                {
+                    el.Add(new XElement(ns + "coverpage", img));
+                }
             }
         }
 
@@ -980,18 +1002,22 @@ public class Fb2Service
         {
             "doc" => new XElement("temp", children),
             "paragraph" => CreateParagraph(node, [.. children]),
+            "table" => CreateElementWithId("table", node, [.. children]),
+            "tableRow" => new XElement(ns + "tr", children),
+            "tableHeader" => CreateTableCell(node, "th", children),
+            "tableCell" => CreateTableCell(node, "td", children),
             "text" => WrapTextWithMarks(node),
-            "fb2Section" => CreateElementWithId("section", node, children.ToArray()),
+            "fb2Section" => CreateElementWithId("section", node, [.. children]),
             "fb2BodySection" => new XElement(ns + "body", children),
-            "fb2Annotation" => CreateElementWithId("annotation", node, children.ToArray()),
+            "fb2Annotation" => CreateElementWithId("annotation", node, [.. children]),
             "fb2Title" => new XElement(ns + "title", children),
-            "fb2Cite" => CreateElementWithId("cite", node, children.ToArray()),
-            "fb2Epigraph" => CreateElementWithId("epigraph", node, children.ToArray()),
-            "fb2TextAuthor" => CreateElementWithId("text-author", node, children.ToArray()),
-            "fb2Poem" => CreateElementWithId("poem", node, children.ToArray()),
+            "fb2Cite" => CreateElementWithId("cite", node, [.. children]),
+            "fb2Epigraph" => CreateElementWithId("epigraph", node, [.. children]),
+            "fb2TextAuthor" => CreateElementWithId("text-author", node, [.. children]),
+            "fb2Poem" => CreateElementWithId("poem", node, [.. children]),
             "fb2Stanza" => new XElement(ns + "stanza", children),
-            "fb2V" => CreateElementWithId("v", node, children.ToArray()),
-            "fb2Subtitle" => CreateElementWithId("subtitle", node, children.ToArray()),
+            "fb2V" => CreateElementWithId("v", node, [.. children]),
+            "fb2Subtitle" => CreateElementWithId("subtitle", node, [.. children]),
             "fb2Date" => CreateDate(node),
             "fb2BlockImage" => CreateImage(node),
             "fb2InlineImage" => CreateImage(node),
@@ -1051,6 +1077,31 @@ public class Fb2Service
     }
 
     /// <summary>
+    /// Создаёт XML-элемент ячейки таблицы &lt;th, td&gt; с дочерними элементами.
+    /// Также устанавливает атрибуты id, style, colspan  и т.п. из JSON-узла, если они присутствуют.
+    /// </summary>
+    /// <param name="node">Исходный JSON-узел, содержащий данные, включая атрибуты.</param>
+    /// <param name="type">Тип ячейки: th или td.</param>
+    /// <param name="children">Коллекция дочерних элементов (текст, теги), которые будут вложены в абзац.</param>
+    /// <returns>Элемент &lt;th, td&gt; с содержимым.</returns>
+    private static XElement CreateTableCell(JsonElement node, string type, IEnumerable<object> children)
+    {
+        var cell = new XElement(ns + type, children);
+
+        if (node.TryGetProperty("attrs", out var attrs))
+        {
+            SetAttr(cell, "id", attrs);
+            SetAttr(cell, "colspan", attrs);
+            SetAttr(cell, "rowspan", attrs);
+            SetAttr(cell, "align", attrs);
+            SetAttr(cell, "valign", attrs);
+            SetAttr(cell, "style", attrs);
+        }
+
+        return cell;
+    }
+
+    /// <summary>
     /// Создаёт XML-элемент с заданным именем и присваивает ему атрибут ID на основе данных из JSON.
     /// Для элемента типа "section" атрибут ID извлекается под ключом "elementId" и сохраняется как "id".
     /// Для других элементов используется стандартный ключ "id".
@@ -1092,8 +1143,8 @@ public class Fb2Service
             // Используем GetRawText() и Trim, если это не строка, 
             // или GetString(), если это строка, чтобы избежать кавычек.
             string? val = prop.ValueKind == JsonValueKind.String
-                ? prop.GetString()
-                : prop.GetRawText();
+                ? prop.GetString()?.Trim()
+                : prop.GetRawText().Trim();
 
             if (!string.IsNullOrWhiteSpace(val))
             {
@@ -1101,8 +1152,10 @@ public class Fb2Service
                 string finalName = string.IsNullOrWhiteSpace(targetName)
                     ? name
                     : targetName.Trim();
-
-                el.SetAttributeValue(finalName, val.Trim());
+                if (!((finalName == "colspan" || finalName == "rowspan") && val == "1"))
+                {
+                    el.SetAttributeValue(finalName, val.Trim());
+                }
             }
         }
     }

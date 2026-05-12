@@ -751,16 +751,18 @@ public partial class EpubConverter
         if ((node.Type == "fb2BlockImage" || node.Type == "fb2InlineImage") && node.Attrs != null)
         {
             // В TipTap данные обычно в 'src' (Base64) или в 'id'
-            if (node.Attrs.TryGetValue("src", out var src) && src != null)
+            if (node.Attrs.TryGetValue("src", out object? srcObj) && srcObj is string src)
             {
+                string? id;
                 // Генерируем ID, если его нет в атрибутах
-                if (!node.Attrs.TryGetValue("href", out string? id) || id == null)
+                if (node.Attrs.TryGetValue("href", out object? idObj) && idObj is string idStr)
                 {
-                    id = Guid.NewGuid().ToString("N")[..8];
+                    // Если id начинается с # (например #image1), убираем первый символ
+                    id = idStr.StartsWith("#") ? idStr[1..] : idStr;
                 }
                 else
                 {
-                    id = id[1..];
+                    id = Guid.NewGuid().ToString("N")[..8];
                 }
                 AddImage(id, src);
             }
@@ -1096,7 +1098,7 @@ public partial class EpubConverter
             "paragraph" => isInsideTitle
                        ? childrenHtml
                        : (string.IsNullOrWhiteSpace(childrenHtml) ? "" : $"<p>{childrenHtml}</p>"),
-            "fb2Title" => $"<h1>{childrenHtml}</h1>", // Упростил, обычно в EPUB h1-h2
+            "fb2Title" => $"<h1>{childrenHtml}</h1>",
             "fb2InlineImage" => HandleFB2Image(node, true),
             "fb2Subtitle" => $"<p class=\"subtitle\">{childrenHtml}</p>",
             "fb2Epigraph" => $"<div class=\"epigraph\">{childrenHtml}</div>",
@@ -1105,7 +1107,11 @@ public partial class EpubConverter
             "fb2Stanza" => $"<div class=\"stanza\">{childrenHtml}</div>",
             "fb2V" => $"<p class=\"v\">{childrenHtml}</p>",
             "fb2TextAuthor" => $"<p class=\"text-author\">{childrenHtml}</p>",
-
+            "table" => $"<table>{childrenHtml}</table>",
+            "tableRow" => $"<tr>{childrenHtml}</tr>",
+            // Добавляем атрибуты для ячеек таблиц
+            "tableHeader" => $"<th{GetAttrsHtml(node)}>{childrenHtml}</th>",
+            "tableCell" => $"<td{GetAttrsHtml(node)}>{childrenHtml}</td>",
             // Блочное изображение
             "fb2BlockImage" => HandleFB2Image(node, false),
             "fb2Section" => $"<section>{childrenHtml}</section>",
@@ -1113,13 +1119,41 @@ public partial class EpubConverter
         };
     }
 
+    private static string GetAttrsHtml(TipTapNode node)
+    {
+        if (node.Attrs == null || node.Attrs.Count == 0) return "";
+
+        var sb = new StringBuilder();
+        foreach (var attr in node.Attrs)
+        {
+            // Пропускаем служебные или специфические атрибуты, которые не должны идти в тег
+            if (attr.Key == "src" || attr.Key == "href") continue;
+
+            if (attr.Value != null)
+            {
+                sb.Append($" {attr.Key}=\"{attr.Value}\"");
+            }
+        }
+        return sb.ToString();
+    }
+
     private string HandleFB2Image(TipTapNode node, bool isInline)
     {
         // Извлекаем ID и проверяем формат #id
-        if (node.Attrs?.TryGetValue("href", out string? href) != true || string.IsNullOrEmpty(href) || !href.StartsWith('#'))
+        if (node.Attrs == null) return "";
+
+        // 2. Достаем объект и СРАЗУ проверяем, строка ли это
+        if (!node.Attrs.TryGetValue("href", out object? hrefObj) || hrefObj is not string href)
         {
             return "";
         }
+
+        // Теперь href точно определена для всего кода ниже
+        if (string.IsNullOrEmpty(href) || !href.StartsWith('#'))
+        {
+            return "";
+        }
+
         string cleanId = href[1..]; // Отсекаем '#'
 
         // Определяем расширение на основе кэша
@@ -1182,5 +1216,5 @@ public partial class EpubConverter
 
     [GeneratedRegex(@"data:([^;]+)")]
     private static partial System.Text.RegularExpressions.Regex MyRegex();
-   
+
 }

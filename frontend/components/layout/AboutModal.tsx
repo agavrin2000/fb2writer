@@ -104,7 +104,7 @@ return (
             </div>
 
             <a
-              href="https://github.com"
+              href="https://github.com/agavrin2000/fb2writer"
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-2 text-xs font-semibold text-ui-text-muted hover:text-blue-500 transition-all bg-ui-bg-hover px-3 py-2 rounded-lg border border-ui-border"

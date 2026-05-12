@@ -1,82 +1,62 @@
-import React from "react";
-import { Table as TableIcon, TableCellsMerge, TableCellsSplit, Columns3, Rows3, ChevronDown, TextAlignJustify, TextAlignCenter, TextAlignEnd, TextAlignStart, AlignStartVertical, AlignCenterHorizontal, AlignEndHorizontal } from "lucide-react";
-import { Fb2ActionIcon } from "../ui/Fb2ActionIcon";
+import React, { useState, useRef, useEffect } from "react";
+import {
+    ChevronDown, TextAlignJustify, TextAlignCenter, TextAlignEnd, TextAlignStart,
+    AlignCenterHorizontal, AlignEndHorizontal, AlignStartHorizontal
+} from "lucide-react";
 
-/**
- * Компонент выпадающего меню для работы с таблицами
- */
+const ALIGN_OPTIONS = [
+    { id: "alignLeft", title: "Выровнять влево", Icon: TextAlignStart },
+    { id: "alignCenter", title: "Выровнять по центру", Icon: TextAlignCenter },
+    { id: "alignRight", title: "Выровнять вправо", Icon: TextAlignEnd },
+    { id: "valignTop", title: "Выровнять сверху", Icon: AlignStartHorizontal },
+    { id: "valignMiddle", title: "Выровнять по середине", Icon: AlignCenterHorizontal },
+    { id: "valignBottom", title: "Выровнять снизу", Icon: AlignEndHorizontal },
+];
+
 export const CellAlignDropdown: React.FC<{
-    /**
-   * Обработчик команды
-   * @param type - Тип команды
-   */
     onSelect: (type: string) => void;
     canAllign: boolean;
-
 }> = ({ onSelect, canAllign }) => {
-    const [isOpen, setIsOpen] = React.useState(false);
-    const dropdownRef = React.useRef<HTMLDivElement>(null);
+    const [isOpen, setIsOpen] = useState(false);
+    const dropdownRef = useRef<HTMLDivElement>(null);
 
-    // Закрытие при клике вне меню
-    React.useEffect(() => {
+    useEffect(() => {
         const handleClick = (e: MouseEvent) => {
-            if (
-                dropdownRef.current &&
-                !dropdownRef.current.contains(e.target as Node)
-            ) {
-                setIsOpen(false);
-            }
+            if (!dropdownRef.current?.contains(e.target as Node)) setIsOpen(false);
         };
         document.addEventListener("mousedown", handleClick);
         return () => document.removeEventListener("mousedown", handleClick);
     }, []);
 
-    // Общий стиль для пунктов меню
-    const itemClass = "w-full flex items-center gap-3 px-4 py-2 text-left transition-colors hover:bg-ui-bg-hover disabled:opacity-40 disabled:cursor-not-allowed";
-
     return (
-        <div className="relative" ref={dropdownRef}>
+        <div className="relative inline-block" ref={dropdownRef}>
             <button
+                title="Выравнивание ячейки"
                 type="button"
                 onClick={() => setIsOpen(!isOpen)}
                 disabled={!canAllign}
                 className="p-1.5 px-2 rounded text-ui-text-muted hover:bg-ui-bg-hover border border-transparent hover:border-ui-border flex items-center gap-1 transition-all"
-                title="Работа с таблицами"
             >
                 <TextAlignJustify size={20} />
-                <ChevronDown
-                    size={14}
-                    className={`transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}
-                />
+                <ChevronDown size={14} className={`transition-transform ${isOpen ? "rotate-180" : ""}`} />
             </button>
 
             {isOpen && (
-                <div className="absolute top-full left-0 mt-1 bg-ui-bg border border-ui-border rounded-xl shadow-xl z-30 py-1.5 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
-                    <button
-                        title="Выровнять влево"
-                        key="alignleft"
-                        type="button"
-                        onClick={() => {
-                            onSelect("alignLeft");
-                            setIsOpen(false);
-                        }}
-                        className={itemClass}
-                    >
-                        <TextAlignStart size={20} />
-                    </button>
-
-                    <button
-                        title="Выровнять влево"
-                        key="alignCenter"
-                        type="button"
-                        onClick={() => {
-                            onSelect("alignCenter");
-                            setIsOpen(false);
-                        }}
-                        className={itemClass}
-                    >
-                        <TextAlignCenter size={20} />
-                    </button>
+                <div className="absolute top-full left-0 mt-1 min-w-[44px] bg-ui-bg border border-ui-border rounded-xl shadow-xl z-30 py-1.5 flex flex-col animate-in fade-in zoom-in-95 duration-150">
+                    {ALIGN_OPTIONS.map(({ id, title, Icon }) => (
+                        <button
+                            key={id}
+                            title={title}
+                            type="button"
+                            onClick={() => {
+                                onSelect(id);
+                                setIsOpen(false);
+                            }}
+                            className="w-full flex items-center justify-center px-4 py-2 hover:bg-ui-bg-hover transition-colors text-ui-text"
+                        >
+                            <Icon size={20} className="shrink-0" />
+                        </button>
+                    ))}
                 </div>
             )}
         </div>

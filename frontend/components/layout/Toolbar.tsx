@@ -24,7 +24,6 @@ import { useEditorState } from "@tiptap/react";
 import { Fb2ActionIcon } from "../ui/Fb2ActionIcon";
 import { ImageDropdown } from "./ImageDropdown";
 import { TableDropdown } from "./TableDropdown";
-import { CellAlignDropdown } from "./CellAlignDropdown";
 import { NodeSelection } from "@tiptap/pm/state";
 import { ImageDisplayType, COMMAND_NAMES, Fb2Commands } from "../../types/types";
 
@@ -45,6 +44,8 @@ export const Toolbar: React.FC<ToolbarProps> = memo(
         isCiteDisabled: false,
         isInsideParagraph: false,
         isSelectionEmpty: false,
+              canMergeCells: false,
+              canSplitCell: false
       },
       capabilities = {},
     } = useEditorState({
@@ -59,6 +60,8 @@ export const Toolbar: React.FC<ToolbarProps> = memo(
               isCiteDisabled: false,
               isInsideParagraph: false,
               isSelectionEmpty: false,
+              canMergeCells: false,
+              canSplitCell: false
             },
             capabilities: {},
           };
@@ -106,7 +109,8 @@ export const Toolbar: React.FC<ToolbarProps> = memo(
           active.fb2Subtitle;
         const isSelectionEmpty =
           (selection.empty ?? true) || !isInsideParagraph;
-
+        const canMergeCells = editor?.can().mergeCells() ?? false;
+        const canSplitCell = editor?.can().splitCell() ?? false;
         // Динамические возможности (ваши кастомные команды)
         const caps = Object.fromEntries(
           COMMAND_NAMES.flatMap((name) => {
@@ -136,11 +140,17 @@ export const Toolbar: React.FC<ToolbarProps> = memo(
             isCiteDisabled,
             isInsideParagraph,
             isSelectionEmpty,
+            canMergeCells,
+            canSplitCell
           },
           capabilities: caps,
         };
       },
     });
+    /*const canMerge = useEditorState({
+  editor,
+  selector: ({ editor }) => editor?.can().mergeCells(),
+})*/
     if (!editor) return null;
 
     // Инициируем выбор изображения
@@ -188,7 +198,7 @@ export const Toolbar: React.FC<ToolbarProps> = memo(
         case "mergeCells":
           editor.chain().focus().mergeCells().run();
           break;
-        case "splitCells":
+        case "splitCell":
           editor.chain().focus().splitCell().run();
           break;
         case "alignLeft":
@@ -217,6 +227,8 @@ export const Toolbar: React.FC<ToolbarProps> = memo(
       isCiteDisabled,
       isInsideParagraph,
       isSelectionEmpty,
+      canMergeCells,
+      canSplitCell
     } = disabledStates;
 
     const getBtnClass = (type: string) => {
@@ -225,7 +237,8 @@ export const Toolbar: React.FC<ToolbarProps> = memo(
 
     // Для кастомных кнопок (которые всегда выглядят одинаково)
     const btnCustomClass = cn("toolbar-btn", "toolbar-btn-default");
-
+console.log("Nerge", canMergeCells);
+console.log("Split", canSplitCell);
     return (
       <div className="border-b shadow-sm sticky top-0 z-20 flex flex-col items-center">
         {/* ПЕРВЫЙ РЯД: Базовое форматирование и ссылки */}
@@ -332,21 +345,6 @@ export const Toolbar: React.FC<ToolbarProps> = memo(
             canBlockImage={capabilities?.canInsertBlockImage}
             canInlineImage={capabilities?.canInsertInlineImage}
             canSectionImage={capabilities?.canInsertSectionImage}
-          />
-          <TableDropdown
-            onSelect={handleTableSelect}
-            canAddTable={canInsertTable()}
-            canRemoveTable={editor.can().deleteTable()}
-            canAddColumn={editor.can().addColumnAfter()}
-            canRemoveColumn={editor.can().deleteColumn()}
-            canAddRow={editor.can().addRowAfter()}
-            canRemoveRow={editor.can().deleteRow()}
-            canMergeCells={editor.can().mergeCells()}
-            canSplitCells={editor.can().splitCell()}
-          />
-          <CellAlignDropdown
-            onSelect={handleTableSelect}
-            canAllign={editor.can().deleteTable()}
           />
         </div>
 
@@ -490,6 +488,18 @@ export const Toolbar: React.FC<ToolbarProps> = memo(
               mode={capabilities?.canRemoveAnnotation ? "remove" : "add"}
             />
           </button>
+          <TableDropdown
+            onSelect={handleTableSelect}
+            canAddTable={canInsertTable()}
+            canRemoveTable={editor.can().deleteTable()}
+            canAddColumn={editor.can().addColumnAfter()}
+            canRemoveColumn={editor.can().deleteColumn()}
+            canAddRow={editor.can().addRowAfter()}
+            canRemoveRow={editor.can().deleteRow()}
+            canMergeCells={canMergeCells}
+            canSplitCell={canSplitCell}
+            canAlign={editor.can().deleteTable()}
+          />
         </div>
       </div>
     );

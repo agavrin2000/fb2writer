@@ -155,7 +155,7 @@ public class MessageHub(PhotinoWindow window, FileService fileService, string? i
         Emit("start-saving", fileName);
         await fileService.SaveFileAsync(payload, localPath);
         UpdateWindowTitle(localPath);
-        Emit("save-success", fileName);
+        Emit("save-success", localPath);
     }
 
     /// <summary>

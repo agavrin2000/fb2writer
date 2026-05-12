@@ -6,7 +6,7 @@ export const Fb2Section = Node.create({
   name: "fb2Section",
   group: "block",
   content:
-    "fb2Title? fb2Epigraph* fb2BlockImage? fb2Annotation? (block | fb2Section | fb2Table)+",
+    "fb2Title? fb2Epigraph* fb2BlockImage? fb2Annotation? (block | fb2Section | table)+",
   defining: true,
   selectable: true,
   isolating: true,

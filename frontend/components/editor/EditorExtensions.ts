@@ -121,7 +121,7 @@ export const EditorExtensions = [
   Fb2Subtitle,
   Fb2Placeholder,
   Fb2Annotation,
-  Fb2Table.configure({ resizable: false}),
+  Fb2Table,
   Fb2TableRow,
   Fb2Td,
   Fb2Th,

@@ -1,15 +1,21 @@
-import React from "react";
-import { Table as TableIcon, TableCellsMerge, TableCellsSplit, Columns3, Rows3, ChevronDown, TextAlignCenter, TextAlignEnd, TextAlignStart, AlignStartVertical, AlignCenterHorizontal, AlignEndHorizontal } from "lucide-react";
+import React, { useState, useRef, useEffect } from "react";
+import {
+    Table as TableIcon, TableCellsMerge, TableCellsSplit, Columns3, Rows3,
+    ChevronDown, ChevronRight, TextAlignJustify, TextAlignStart, TextAlignCenter,
+    TextAlignEnd, AlignStartHorizontal, AlignCenterHorizontal, AlignEndHorizontal
+} from "lucide-react";
 import { Fb2ActionIcon } from "../ui/Fb2ActionIcon";
 
-/**
- * Компонент выпадающего меню для работы с таблицами
- */
+const ALIGN_OPTIONS = [
+    { id: "alignLeft", title: "Влево", Icon: TextAlignStart },
+    { id: "alignCenter", title: "По центру", Icon: TextAlignCenter },
+    { id: "alignRight", title: "Вправо", Icon: TextAlignEnd },
+    { id: "valignTop", title: "Сверху", Icon: AlignStartHorizontal },
+    { id: "valignMiddle", title: "По середине", Icon: AlignCenterHorizontal },
+    { id: "valignBottom", title: "Снизу", Icon: AlignEndHorizontal },
+];
+
 export const TableDropdown: React.FC<{
-    /**
-   * Обработчик команды
-   * @param type - Тип команды: `"block"`, `"inline"` или `"section"`.
-   */
     onSelect: (type: string) => void;
     canAddTable: boolean;
     canRemoveTable: boolean;
@@ -18,165 +24,114 @@ export const TableDropdown: React.FC<{
     canAddRow: boolean;
     canRemoveRow: boolean;
     canMergeCells: boolean;
-    canSplitCells: boolean;
+    canSplitCell: boolean;
+    canAlign: boolean;
+}> = ({ onSelect, canAddTable, canRemoveTable, canAddColumn, canRemoveColumn, canAddRow, canRemoveRow, canMergeCells, canSplitCell, canAlign }) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const [isAlignOpen, setIsAlignOpen] = useState(false);
+    const dropdownRef = useRef<HTMLDivElement>(null);
 
-}> = ({ onSelect, canAddTable, canRemoveTable, canAddColumn, canRemoveColumn, canAddRow, canRemoveRow, canMergeCells, canSplitCells }) => {
-    const [isOpen, setIsOpen] = React.useState(false);
-    const dropdownRef = React.useRef<HTMLDivElement>(null);
-
-    // Закрытие при клике вне меню
-    React.useEffect(() => {
+    useEffect(() => {
         const handleClick = (e: MouseEvent) => {
-            if (
-                dropdownRef.current &&
-                !dropdownRef.current.contains(e.target as Node)
-            ) {
+            if (!dropdownRef.current?.contains(e.target as Node)) {
                 setIsOpen(false);
+                setIsAlignOpen(false);
             }
         };
         document.addEventListener("mousedown", handleClick);
         return () => document.removeEventListener("mousedown", handleClick);
     }, []);
 
-    // Общий стиль для пунктов меню
-    const itemClass = "w-full flex items-center gap-3 px-4 py-2 text-left transition-colors hover:bg-ui-bg-hover disabled:opacity-40 disabled:cursor-not-allowed";
+    const handleAction = (id: string) => {
+        onSelect(id);
+        setIsOpen(false);
+        setIsAlignOpen(false);
+    };
+
+    const tableItems = [
+        { id: canAddTable ? "addTable" : "removeTable", title: !canRemoveTable ? "Вставить таблицу" : "Удалить таблицу", disabled: !canAddTable && !canRemoveTable, content: <Fb2ActionIcon icon={TableIcon} mode={!canAddTable ? "remove" : "add"} /> },
+        { id: "addColumn", title: "Добавить столбец", disabled: !canAddColumn, content: <Fb2ActionIcon icon={Columns3} mode="add" /> },
+        { id: "removeColum", title: "Удалить столбец", disabled: !canRemoveColumn, content: <Fb2ActionIcon icon={Columns3} mode="remove" /> },
+        { id: "addRow", title: "Добавить строку", disabled: !canAddRow, content: <Fb2ActionIcon icon={Rows3} mode="add" /> },
+        { id: "removeRow", title: "Удалить строку", disabled: !canRemoveRow, content: <Fb2ActionIcon icon={Rows3} mode="remove" /> },
+        { id: canMergeCells ? "mergeCells" : "splitCell", title: canMergeCells ? "Объединить ячейки" : "Разделить ячейку", disabled: !canMergeCells && !canSplitCell, content: canMergeCells ? <TableCellsMerge size={20} /> : <TableCellsSplit size={20} /> },
+    ];
 
     return (
-        <div className="relative" ref={dropdownRef}>
+        <div className="relative inline-block" ref={dropdownRef}>
             <button
                 type="button"
+                title="Таблицы"
+                disabled={!canAddTable && !canRemoveTable}
                 onClick={() => setIsOpen(!isOpen)}
-                disabled={!canAddTable && !canRemoveTable && !canAddColumn && !canRemoveColumn && !canAddRow && !canRemoveRow && !canMergeCells && !canSplitCells}
-                className="p-1.5 px-2 rounded text-ui-text-muted hover:bg-ui-bg-hover border border-transparent hover:border-ui-border flex items-center gap-1 transition-all"
-                title="Работа с таблицами"
+                onMouseDown={(e) => e.preventDefault()}
+                className="p-1.5 px-2 rounded text-ui-text-muted hover:bg-ui-bg-hover disabled:opacity-30 border border-ui-border flex items-center gap-1 transition-all"
             >
                 <TableIcon size={20} />
-                <ChevronDown
-                    size={14}
-                    className={`transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}
-                />
+                <ChevronDown size={14} className={`transition-transform ${isOpen ? "rotate-180" : ""}`} />
             </button>
 
             {isOpen && (
-                <div className="absolute top-full left-0 mt-1 bg-ui-bg border border-ui-border rounded-xl shadow-xl z-30 py-1.5 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
-                    <button
-                        title={canAddTable ? "Вставить таблицу" : "Удалить таблицу"}
-                        key="table"
-                        type="button"
-                        disabled={!canAddTable && !canRemoveTable}
-                        onClick={() => {
-                            onSelect(canAddTable ? "addTable" : "removeTable");
-                            setIsOpen(false);
-                        }}
-                        className={itemClass}
-                    >
-                        <Fb2ActionIcon
-                            icon={TableIcon}
-                            mode={!canAddTable ? "remove" : "add"}
-                        />
-                    </button>
+                /* УБРАНО: overflow-hidden. ДОБАВЛЕНО: z-30 */
+                <div className="absolute top-full left-0 mt-1 min-w-[200px] bg-ui-bg border border-ui-border rounded-xl shadow-xl z-30 py-1.5 flex flex-col animate-in fade-in zoom-in-95 duration-150">
 
-                    <button
-                        key="addcolumn"
-                        type="button"
-                        title="Вставить столбец после"
-                        disabled={!canAddColumn}
-                        onClick={() => {
-                            onSelect("addColumn");
-                            setIsOpen(false);
-                        }}
-                        onMouseDown={(e) => e.preventDefault()}
-                        className={itemClass}
-                    >
-                        <Fb2ActionIcon
-                            icon={Columns3}
-                            mode="add"
-                        />
-                    </button>
+                    {tableItems.map((item) => (
+                        <button
+                            type="button"
+                            key={item.id}
+                            disabled={item.disabled}
+                            onClick={() => handleAction(item.id)}
+                            onMouseDown={(e) => e.preventDefault()}
+                            className="w-full flex items-center gap-3 px-4 py-2 hover:bg-ui-bg-hover disabled:opacity-30 transition-colors text-ui-text"
+                        >
+                            {item.content}
+                            <div className="flex flex-col">
+                                <span className="text-xs font-semibold text-ui-text">{item.title}</span>
+                            </div>
+                        </button>
+                    ))}
 
-                    <button
-                        key="removecolumn"
-                        type="button"
-                        title="Удалить столбец"
-                        disabled={!canRemoveColumn}
-                        onClick={() => {
-                            onSelect("removeColum");
-                            setIsOpen(false);
-                        }}
-                        onMouseDown={(e) => e.preventDefault()}
-                        className={itemClass}
-                    >
-                        <Fb2ActionIcon
-                            icon={Columns3}
-                            mode="remove"
-                        />
-                    </button>
+                    <div className="h-px bg-ui-border my-1 mx-2" />
 
-                    <button
-                        key="addrow"
-                        type="button"
-                        title="Вставить строку после"
-                        disabled={!canAddRow}
-                        onClick={() => {
-                            onSelect("addRow");
-                            setIsOpen(false);
-                        }}
-                        onMouseDown={(e) => e.preventDefault()}
-                        className={itemClass}
+                    {/* Контейнер для подменю */}
+                    <div
+                        className="relative"
+                        onMouseEnter={() => setIsAlignOpen(true)}
+                        onMouseLeave={() => setIsAlignOpen(false)}
                     >
-                        <Fb2ActionIcon
-                            icon={Rows3}
-                            mode="add"
-                        />
-                    </button>
+                        <button
+                            type="button"
+                            className={`w-full flex items-center justify-between px-4 py-2 transition-colors ${isAlignOpen ? 'bg-ui-bg-hover' : ''}`}
+                        >
+                            <div className="flex items-center gap-3 text-ui-text">
+                                <TextAlignJustify size={20} className="shrink-0" />
+                                <div className="flex flex-col">
+                                    <span className="text-xs font-semibold text-ui-text">Выравнивание</span>
+                                </div>
+                            </div>
+                            <ChevronRight size={14} className="text-ui-text-muted" />
+                        </button>
 
-                    <button
-                        key="removerow"
-                        type="button"
-                        title="Удалить строку"
-                        disabled={!canRemoveRow}
-                        onClick={() => {
-                            onSelect("removeRow");
-                            setIsOpen(false);
-                        }}
-                        onMouseDown={(e) => e.preventDefault()}
-                        className={itemClass}
-                    >
-                        <Fb2ActionIcon
-                            icon={Rows3}
-                            mode="remove"
-                        />
-                    </button>
-
-                    <button
-                        key="merge"
-                        type="button"
-                        title="Объединить ячейки"
-                        disabled={!canMergeCells}
-                        onClick={() => {
-                            onSelect("mergeCells");
-                            setIsOpen(false);
-                        }}
-                        onMouseDown={(e) => e.preventDefault()}
-                        className={itemClass}
-                    >
-                        <TableCellsMerge size={20} />
-                    </button>
-
-                    <button
-                        key="split"
-                        type="button"
-                        title="Разделить ячейки"
-                        disabled={!canSplitCells}
-                        onClick={() => {
-                            onSelect("splitCells");
-                            setIsOpen(false);
-                        }}
-                        onMouseDown={(e) => e.preventDefault()}
-                        className={itemClass}
-                    >
-                        <TableCellsSplit size={20} />
-                    </button>
+                        {/* Подменю: выпадает вправо */}
+                        {isAlignOpen && (
+                            <div className="absolute top-[-6px] left-[calc(100%-4px)] pl-2 z-40">
+                                <div className="bg-ui-bg border border-ui-border rounded-xl shadow-2xl p-1.5 grid grid-cols-3 gap-1 min-w-[120px]">
+                                    {ALIGN_OPTIONS.map(({ id, title, Icon }) => (
+                                        <button
+                                            key={id}
+                                            title={title}
+                                            type="button"
+                                            disabled={!canAlign}
+                                            onClick={() => handleAction(id)}
+                                            className="p-2.5 flex items-center justify-center rounded-lg hover:bg-ui-bg-hover transition-colors text-ui-text hover:text-ui-primary"
+                                        >
+                                            <Icon size={20} className="shrink-0" />
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                    </div>
                 </div>
             )}
         </div>

@@ -115,7 +115,7 @@ export const ImageDropdown: React.FC<{
           }}
           className={itemClass}
         >
-          <ImageIcon size={18} className="text-ui-accent" />
+          <ImageIcon size={18} />
           <div className="flex flex-col">
             <span className="text-xs font-semibold text-ui-text">Блочное</span>
             <span className="text-[10px] text-ui-text-muted leading-tight">Между абзацами</span>
@@ -133,7 +133,7 @@ export const ImageDropdown: React.FC<{
           onMouseDown={(e) => e.preventDefault()}
           className={itemClass}
         >
-          <ImageDown size={18} className="text-ui-accent" />
+          <ImageDown size={18} />
           <div className="flex flex-col">
             <span className="text-xs font-semibold text-ui-text">В тексте</span>
             <span className="text-[10px] text-ui-text-muted leading-tight">Внутри строки</span>
@@ -151,7 +151,7 @@ export const ImageDropdown: React.FC<{
           onMouseDown={(e) => e.preventDefault()}
           className={itemClass}
         >
-          <PanelTop size={18} className="text-ui-accent" />
+          <PanelTop size={18} />
           <div className="flex flex-col">
             <span className="text-xs font-semibold text-ui-text">В заголовок секции</span>
             <span className="text-[10px] text-ui-text-muted leading-tight">Виньетка раздела</span>

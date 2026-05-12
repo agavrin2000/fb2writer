@@ -75,7 +75,7 @@ export const useFB2Editor = (
             debouncedSetToc(nodes);
           }
         }
-      },
+      },      
       // Обработка перемещения курсора / выделения
       onSelectionUpdate: ({ editor }: { editor: Editor }) => {
         // Только обновляем подсветку текущей главы в Sidebar

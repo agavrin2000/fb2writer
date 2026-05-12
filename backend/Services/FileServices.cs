@@ -49,7 +49,7 @@ public class FileService
         try
         {
             // Выполняем тяжелую работу в Task.Run
-            return await Task.Run(() => _fb2Converter.ConvertXMLToJson(targetStream, Path.GetFileName(filePath)));
+            return await Task.Run(() => _fb2Converter.ConvertXMLToJson(targetStream, filePath));
         }
         finally
         {

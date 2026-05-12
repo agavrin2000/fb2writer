@@ -53,12 +53,14 @@ public record AppDetails(
 [JsonSerializable(typeof(System.Dynamic.ExpandoObject))] // На всякий случай, если есть dynamic
 [JsonSerializable(typeof(object))] // Нужно для базовой поддержки
 [JsonSerializable(typeof(TipTapNode))]         // Для одиночных узлов
+[JsonSerializable(typeof(int))]   
+[JsonSerializable(typeof(string))]
 [JsonSerializable(typeof(List<TipTapNode>))]   // Для массивов узлов
 [JsonSerializable(typeof(Dictionary<string, List<object>>))] // Добавляем поддержку словаря со списками объектов внутри
 [JsonSerializable(typeof(TipTapNode))]
 [JsonSerializable(typeof(List<TipTapNode>))] // Для TipTap Content
 [JsonSerializable(typeof(List<object>))]       // Для вложенного контента
-[JsonSerializable(typeof(Dictionary<string, string>))] // Для атрибутов (attrs)
+[JsonSerializable(typeof(Dictionary<string, object>))] // Для атрибутов (attrs)
 internal partial class EmitContext : JsonSerializerContext
 {
     public static readonly EmitContext Custom = new(CustomOptions);

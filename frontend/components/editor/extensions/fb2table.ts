@@ -8,7 +8,7 @@ declare module "@tiptap/core" {
   interface Commands<ReturnType> {
     fb2TableCommands: {
       setCellAlign: (
-        alignment: "left" | "center" | "right" | "justify",
+        alignment: "left" | "center" | "right",
       ) => ReturnType;
       setCellVAlign: (valignment: "top" | "middle" | "bottom") => ReturnType;
     };
@@ -37,6 +37,7 @@ const commonAttributes = {
     default: 1,
     parseHTML: (el: HTMLElement) =>
       parseInt(el.getAttribute("colspan") || "1", 10),
+    keepOnSplit: false,
     renderHTML: (attr: Attributes) => {
       const colspan = Number(attr.colspan);
       return colspan > 1 ? { colspan } : {};
@@ -46,6 +47,7 @@ const commonAttributes = {
     default: 1,
     parseHTML: (el: HTMLElement) =>
       parseInt(el.getAttribute("rowspan") || "1", 10),
+    keepOnSplit: false,
     renderHTML: (attr: Attributes) => {
       const rowspan = Number(attr.rowspan);
       return rowspan > 1 ? { rowspan } : {};
@@ -55,61 +57,80 @@ const commonAttributes = {
 
 // Ячейка данных
 export const Fb2Td = TableCell.extend({
-  name: "fb2Td",
+  name: "tableCell",
+  tableRole: "cell",
   content: "inline*",
   addAttributes() {
     return {
-      ...this.parent?.(), // Наследуем базовые атрибуты (важно для работы плагина таблиц)
+      ...this.parent?.(), // Наследуем базовые атрибуты 
       ...commonAttributes,
     };
   },
-  renderHTML({ HTMLAttributes }) {
-    return ["td", mergeAttributes(HTMLAttributes), 0];
+  renderHTML: ({ HTMLAttributes }) => {
+    const styles = [];
+    if (HTMLAttributes.align)
+      styles.push(`text-align: ${HTMLAttributes.align}`);
+    if (HTMLAttributes.valign)
+      styles.push(`vertical-align: ${HTMLAttributes.valign}`);
+
+    return [
+      "td",
+      mergeAttributes(HTMLAttributes, { style: styles.join("; ") }),
+      0,
+    ];
   },
 });
 
 // Ячейка заголовка
 export const Fb2Th = TableHeader.extend({
-  name: "fb2Th",
+  name: "tableHeader",
   content: "inline*",
+  tableRole: "header_cell",
   addAttributes() {
     return {
       ...this.parent?.(),
       ...commonAttributes,
     };
   },
-  
-    const styles = []
-  if (attributes.align) styles.push(`text-align: ${attributes.align}`)
-  if (attributes.vAlign) styles.push(`vertical-align: ${attributes.vAlign}`)
-  return { style: styles.join('; ') }
 
+  renderHTML: ({ HTMLAttributes }) => {
+    const styles = [];
+    if (HTMLAttributes.align)
+      styles.push(`text-align: ${HTMLAttributes.align}`);
+    if (HTMLAttributes.valign)
+      styles.push(`vertical-align: ${HTMLAttributes.valign}`);
 
-  renderHTML({ HTMLAttributes }) {
-    return ["th", mergeAttributes(HTMLAttributes), 0];
+    return [
+      "th",
+      mergeAttributes(HTMLAttributes, { style: styles.join("; ") }),
+      0,
+    ];
   },
 });
 
 // 3. Строка
 export const Fb2TableRow = TableRow.extend({
-  name: "fb2TableRow",
-  content: "(fb2Td | fb2Th)*",
+  name: "tableRow",
+  tableRole: "row",
+  content: "(tableHeader | tableCell)*",
 });
 
 // 4. Таблица
 export const Fb2Table = Table.extend({
-  name: "fb2Table",
-  content: "fb2TableRow+",
-
+  name: "table",
+  content: "tableRow+",
+  tableRole: "table", 
   addAttributes() {
     return {
+      ...this.parent?.(),
       class: {
         default: "fb2-table",
       },
       id: {
         default: null,
-        parseHTML: element => element.getAttribute('id'),
-        renderHTML: attributes => attributes.id ? { id: attributes.id } : {},
+        parseHTML: (element) => element.getAttribute("id"),
+        renderHTML: (attributes) =>
+          attributes.id ? { id: attributes.id } : {},
       },
     };
   },
@@ -120,16 +141,16 @@ export const Fb2Table = Table.extend({
         (alignment) =>
         ({ chain }) => {
           return chain()
-            .updateAttributes("fb2Td", { align: alignment })
-            .updateAttributes("fb2Th", { align: alignment })
+            .updateAttributes("tableCell", { align: alignment })
+            .updateAttributes("tableHeader", { align: alignment })
             .run();
         },
       setCellVAlign:
         (valignment) =>
         ({ chain }) => {
           return chain()
-            .updateAttributes("fb2Td", { valign: valignment })
-            .updateAttributes("fb2Th", { valign: valignment })
+            .updateAttributes("tableCell", { valign: valignment })
+            .updateAttributes("tableHeader", { valign: valignment })
             .run();
         },
     };
@@ -139,7 +160,7 @@ export const Fb2Table = Table.extend({
     return [
       "table",
       mergeAttributes(HTMLAttributes, { class: "fb2-table" }),
-      ["tbody", 0],
+      0,
     ];
   },
 });

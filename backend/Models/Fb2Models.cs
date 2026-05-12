@@ -185,7 +185,7 @@ public record TipTapMark(
 /// <param name="Marks">Список выделений, применённых к тексту.</param>
 public record TipTapNode(
     [property: JsonPropertyName("type")] string Type,
-    [property: JsonPropertyName("attrs")] Dictionary<string, string?>? Attrs = null,
+    [property: JsonPropertyName("attrs")] Dictionary<string, object?>? Attrs = null,
     [property: JsonPropertyName("content")] List<TipTapNode>? Content = null,
     [property: JsonPropertyName("text")] string? Text = null,
     [property: JsonPropertyName("marks")] List<TipTapMark>? Marks = null);

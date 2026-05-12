@@ -119,7 +119,20 @@ body {
 /* СКРОЛЛБАР */
 .custom-scrollbar {
   overflow-y: auto;
-  scrollbar-gutter: stable;
+}
+
+@supports (scrollbar-gutter: stable) {
+  .custom-scrollbar {
+    scrollbar-gutter: stable;
+  }
+}
+
+/* Для Safari и старых браузеров */
+@supports not (scrollbar-gutter: stable) {
+  .custom-scrollbar {
+    /* Резервируем место под скроллбар классическим способом */
+    padding-right: 0; /* Либо небольшое значение, если контент прилипает */
+  }
 }
 
 @supports (overflow-y: overlay) {
@@ -232,6 +245,22 @@ section.fb2-section {
 :is(.section-node-wrapper, .poem-node-wrapper).ProseMirror-selectednode > :is(section, .fb2-poem) {
   @apply border-blue-500! bg-blue-500/5;
 }
+
+.ProseMirror table .selectedCell:after {
+  z-index: 2;
+  position: absolute;
+  content: "";
+  left: 0; right: 0; top: 0; bottom: 0;
+  background: rgba(200, 200, 255, 0.4);
+  pointer-events: none;
+}
+.ProseMirror table {
+  position: relative;
+}
+.ProseMirror td, .ProseMirror th {
+  position: relative; /* Обязательно для корректного CellSelection */
+}
+
 
 /* ОБЩИЙ КЛАСС ДЛЯ ВСЕХ ЭЛЕМЕНТОВ С ЭТИКЕТКАМИ */
 .fb2-labeled-node {
