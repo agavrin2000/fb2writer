@@ -8,11 +8,14 @@ import Superscript from '@tiptap/extension-superscript';
 import Subscript from '@tiptap/extension-subscript';
 import { Fb2Title } from './extensions/fb2title';
 import { Fb2Cite } from './extensions/fb2cite';
-import React, { useCallback } from 'react';
+import { useCallback } from 'react';
 import { useConfirm } from "../../hooks/ConfirmContext";
 import { createPortal } from 'react-dom';
 import { JSONContent } from "@tiptap/core";
 import { EditorToolbarButton } from "@/components/ui/EditorToolbarButton"
+import { Fb2Table, Fb2TableRow, Fb2Td, Fb2Th } from "@/components/editor/extensions/fb2table";
+import { TableDropdown } from "@/components/layout/TableDropdown";
+
 /**
  * Интерфейс свойств компонента всплывающего окна редактирования сноски.
  */
@@ -76,7 +79,7 @@ interface NotePopupProps {
  *   onDelete={(id) => console.log("Удалено:", id)}
  * />
  */
-export const NotePopup = memo(({ note, content, existingIds, onUpdate, onClose, onDelete }:NotePopupProps) => {
+export const NotePopup = memo(({ note, content, existingIds, onUpdate, onClose, onDelete }: NotePopupProps) => {
   const confirm = useConfirm();
   const [editableId, setEditableId] = useState(note.id);
   const [isConfirming, setIsConfirming] = useState(false);
@@ -164,9 +167,17 @@ export const NotePopup = memo(({ note, content, existingIds, onUpdate, onClose, 
    * Экземпляр редактора TipTap для внутреннего редактирования содержимого сноски.
    */
   const editor = useEditor({
-    extensions: [StarterKit.configure({
-      gapcursor: false,
-    }), Superscript, Subscript, Fb2Title, Fb2Cite],
+    extensions: [
+      StarterKit.configure({ gapcursor: false, }),
+      Superscript,
+      Subscript,
+      Fb2Title,
+      Fb2Cite,
+      Fb2Table,
+      Fb2TableRow,
+      Fb2Td,
+      Fb2Th,
+    ],
     content: content ?? { type: 'doc', content: [] },
     immediatelyRender: false,
     editorProps: {
@@ -182,6 +193,57 @@ export const NotePopup = memo(({ note, content, existingIds, onUpdate, onClose, 
     onSelectionUpdate: forceUpdate, // Это заставит кнопки "оживать" при движении курсора
     onTransaction: forceUpdate,
   });
+
+
+  const handleTableSelect = (type: string) => {
+    if (!editor) return;
+
+    switch (type) {
+      case "addTable":
+        // Создаем таблицу 3x3 (fb2-совместимую)
+        editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run();
+        break;
+      case "removeTable":
+        editor.chain().focus().deleteTable().run();
+        break;
+      case "addColumn":
+        editor.chain().focus().addColumnAfter().run();
+        break;
+      case "removeColumn":
+        editor.chain().focus().deleteColumn().run();
+        break;
+      case "addRow":
+        editor.chain().focus().addRowAfter().run();
+        break;
+      case "removeRow":
+        editor.chain().focus().deleteRow().run();
+        break;
+      case "mergeCells":
+        editor.chain().focus().mergeCells().run();
+        break;
+      case "splitCell":
+        editor.chain().focus().splitCell().run();
+        break;
+      case "alignLeft":
+        editor.chain().focus().setCellAttribute('align', 'left').run();
+        break;
+      case "alignCenter":
+        editor.chain().focus().setCellAttribute('align', 'center').run();
+        break;
+      case "alignRight":
+        editor.chain().focus().setCellAttribute('align', 'right').run();
+        break;
+      case "valignTop":
+        editor.chain().focus().setCellAttribute('valign', 'top').run()
+        break;
+      case "valignMiddle":
+        editor.chain().focus().setCellAttribute('valign', 'middle').run()
+        break;
+      case "valignBottom":
+        editor.chain().focus().setCellAttribute('valign', 'bottom').run()
+        break;
+    }
+  };
 
   // Синхронизация контента при переключении между сносками
   useEffect(() => {
@@ -237,7 +299,7 @@ export const NotePopup = memo(({ note, content, existingIds, onUpdate, onClose, 
         style={{
           top: adjustedPosition.top,
           left: adjustedPosition.left,
-          height: '250px' // ЗАДАЙТЕ ФИКСИРОВАННУЮ ВЫСОТУ
+          height: '400px' // ЗАДАЙТЕ ФИКСИРОВАННУЮ ВЫСОТУ
         }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -281,6 +343,18 @@ export const NotePopup = memo(({ note, content, existingIds, onUpdate, onClose, 
 
         {/* Тулбар */}
         <div className="flex flex-none items-center gap-1 px-2 py-1 bg-white border-b border-slate-100">
+          <TableDropdown
+            onSelect={handleTableSelect}
+            canAddTable={editor.state.selection.$from.parent.type.name == "paragraph" && editor.state.selection.$from.node(editor.state.selection.$from.depth - 1).type.name != "fb2Title" && editor.can().insertTable()}
+            canRemoveTable={editor.can().deleteTable()}
+            canAddColumn={editor.can().addColumnAfter()}
+            canRemoveColumn={editor.can().deleteColumn()}
+            canAddRow={editor.can().addRowAfter()}
+            canRemoveRow={editor.can().deleteRow()}
+            canMergeCells={editor.can().mergeCells()}
+            canSplitCell={editor.can().splitCell()}
+            canAlign={editor.can().deleteTable()}
+          />
           <EditorToolbarButton
             onClick={() => editor.chain().focus().toggleBold().run()}
             active={editor.isActive('bold')}

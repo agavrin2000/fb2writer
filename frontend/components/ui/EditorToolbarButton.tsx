@@ -1,3 +1,5 @@
+import { cn } from "@/utils/cn";
+
 interface EditorToolbarButtonProps {
   onClick: () => void;
   active?: boolean;
@@ -19,12 +21,7 @@ export const EditorToolbarButton = ({ onClick, active, disabled, icon }: EditorT
     type="button"
     onClick={onClick}
     disabled={disabled}
-    className={`p-1.5 rounded transition-colors ${active
-      ? 'bg-blue-100 text-blue-600'
-      : disabled
-        ? 'opacity-25 cursor-default grayscale text-gray-300' // Сделали чуть прозрачнее
-        : 'text-gray-600 hover:bg-gray-100 hover:text-gray-800'
-      }`}
+    className={cn("toolbar-btn", active ? "toolbar-btn-active" : "toolbar-btn-default")}
   >
     {icon}
   </button>

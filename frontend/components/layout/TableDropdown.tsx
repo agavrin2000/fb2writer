@@ -49,9 +49,9 @@ export const TableDropdown: React.FC<{
     };
 
     const tableItems = [
-        { id: canAddTable ? "addTable" : "removeTable", title: !canRemoveTable ? "Вставить таблицу" : "Удалить таблицу", disabled: !canAddTable && !canRemoveTable, content: <Fb2ActionIcon icon={TableIcon} mode={!canAddTable ? "remove" : "add"} /> },
+        { id: canAddTable ? "addTable" : "removeTable", title: canAddTable ? "Вставить таблицу" : "Удалить таблицу", disabled: !canAddTable && !canRemoveTable, content: <Fb2ActionIcon icon={TableIcon} mode={canAddTable ? "add" : "remove"} /> },
         { id: "addColumn", title: "Добавить столбец", disabled: !canAddColumn, content: <Fb2ActionIcon icon={Columns3} mode="add" /> },
-        { id: "removeColum", title: "Удалить столбец", disabled: !canRemoveColumn, content: <Fb2ActionIcon icon={Columns3} mode="remove" /> },
+        { id: "removeColumn", title: "Удалить столбец", disabled: !canRemoveColumn, content: <Fb2ActionIcon icon={Columns3} mode="remove" /> },
         { id: "addRow", title: "Добавить строку", disabled: !canAddRow, content: <Fb2ActionIcon icon={Rows3} mode="add" /> },
         { id: "removeRow", title: "Удалить строку", disabled: !canRemoveRow, content: <Fb2ActionIcon icon={Rows3} mode="remove" /> },
         { id: canMergeCells ? "mergeCells" : "splitCell", title: canMergeCells ? "Объединить ячейки" : "Разделить ячейку", disabled: !canMergeCells && !canSplitCell, content: canMergeCells ? <TableCellsMerge size={20} /> : <TableCellsSplit size={20} /> },
@@ -73,21 +73,19 @@ export const TableDropdown: React.FC<{
 
             {isOpen && (
                 /* УБРАНО: overflow-hidden. ДОБАВЛЕНО: z-30 */
-                <div className="absolute top-full left-0 mt-1 min-w-[200px] bg-ui-bg border border-ui-border rounded-xl shadow-xl z-30 py-1.5 flex flex-col animate-in fade-in zoom-in-95 duration-150">
+                <div className="absolute top-full left-0 mt-1 bg-ui-bg border border-ui-border rounded-xl shadow-xl z-[120] py-1.5 flex flex-col animate-in fade-in zoom-in-95 duration-150">
 
                     {tableItems.map((item) => (
                         <button
                             type="button"
                             key={item.id}
+                            title={item.title}
                             disabled={item.disabled}
                             onClick={() => handleAction(item.id)}
                             onMouseDown={(e) => e.preventDefault()}
                             className="w-full flex items-center gap-3 px-4 py-2 hover:bg-ui-bg-hover disabled:opacity-30 transition-colors text-ui-text"
                         >
                             {item.content}
-                            <div className="flex flex-col">
-                                <span className="text-xs font-semibold text-ui-text">{item.title}</span>
-                            </div>
                         </button>
                     ))}
 
@@ -96,19 +94,16 @@ export const TableDropdown: React.FC<{
                     {/* Контейнер для подменю */}
                     <div
                         className="relative"
-                        onMouseEnter={() => setIsAlignOpen(true)}
+                        onMouseEnter={() => setIsAlignOpen(canAlign && true)}
                         onMouseLeave={() => setIsAlignOpen(false)}
                     >
                         <button
                             type="button"
-                            className={`w-full flex items-center justify-between px-4 py-2 transition-colors ${isAlignOpen ? 'bg-ui-bg-hover' : ''}`}
+                            title="Выравнивание"
+                            disabled={!canAlign}
+                            className={`w-full flex items-center justify-between px-4 py-2 disabled:opacity-30 transition-colors ${isAlignOpen ? 'bg-ui-bg-hover' : ''}`}
                         >
-                            <div className="flex items-center gap-3 text-ui-text">
-                                <TextAlignJustify size={20} className="shrink-0" />
-                                <div className="flex flex-col">
-                                    <span className="text-xs font-semibold text-ui-text">Выравнивание</span>
-                                </div>
-                            </div>
+                            <TextAlignJustify size={20} className="shrink-0" />
                             <ChevronRight size={14} className="text-ui-text-muted" />
                         </button>
 

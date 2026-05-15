@@ -147,10 +147,7 @@ export const Toolbar: React.FC<ToolbarProps> = memo(
         };
       },
     });
-    /*const canMerge = useEditorState({
-  editor,
-  selector: ({ editor }) => editor?.can().mergeCells(),
-})*/
+
     if (!editor) return null;
 
     // Инициируем выбор изображения

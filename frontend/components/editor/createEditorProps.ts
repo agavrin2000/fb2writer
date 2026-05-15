@@ -41,7 +41,7 @@ export const createEditorProps = (
     const anchor = target.closest("a");
     const domHref = anchor?.getAttribute("href") || "";
 
-    // 2. ВАША ЛОГИКА PROSEMIRROR
+    // ЛОГИКА PROSEMIRROR
     const { schema } = view.state;
     // Проверяем узел в позиции клика
     const node = view.state.doc.nodeAt(pos);
@@ -74,13 +74,27 @@ export const createEditorProps = (
 
     return false; // Для обычных ссылок или текста позволяем стандартное поведение
   },
+    /**
+   * Преобразует HTML перед вставкой из буфера обмена.
+   * Очищает вставляемое содержимое от нежелательных тегов и атрибутов,
+   * чтобы избежать загрязнения редактора стилями и разметкой из внешних источников (например, из Word).
+   *
+   * @param html - Исходная HTML-строка, полученная при вставке.
+   * @returns Очищенная HTML-строка, разрешённая к вставке в редактор.
+   *
+   * @remarks
+   * Удаляются:
+   * - Все HTML-комментарии.
+   * - Все теги, кроме допустимых: `p`, `br`, `b`, `i`, `strong`, `em`
+   * - Все атрибуты внутри оставшихся тегов (включая `style`, `class`, `id` и другие).
+   */
   transformPastedHTML(html: string) {
     return (
       html
         // 1. Удаляем все комментарии (Word их обожает)
         .replace(/<!--[\s\S]*?-->/g, "")
         // 2. Удаляем все теги, кроме p, br, b, i, strong, em
-        .replace(/<(?!(\/?(p|br|b|i|strong|em|ul|ol|li))\b)[^>]+>/gi, "")
+        .replace(/<(?!(\/?(p|b|i|strong|em))\b)[^>]+>/gi, "")
         // 3. Удаляем все атрибуты внутри оставшихся тегов (style, class, etc)
         .replace(/<([a-z][a-z0-9]*)\b[^>]*>/gi, "<$1>")
     );

@@ -515,6 +515,15 @@ section.fb2-section {
   @apply text-blue-800 decoration-blue-500 decoration-2;
 }
 
+.tiptap span[rel="footnote"] {
+  color: text-blue-600;
+  vertical-align: super;
+  /* Поднимаем как индекс */
+  font-size: 0.8em;
+  text-decoration: none;
+  font-weight: bold;
+  cursor: pointer;
+}
 
 /* ТАБЛИЦЫ */
 
