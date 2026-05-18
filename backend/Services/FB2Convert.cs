@@ -932,6 +932,11 @@ public class Fb2Service
 
             if (hasContent)
             {
+                // Проверяем, состоит ли элемент только из empty-line
+                bool isEmptyLineOnly = tempEl.Elements().All(e => e.Name == "empty-line");
+
+                if (isEmptyLineOnly) return; // Не добавляем, если только пустые строки
+
                 var content = tempEl.Name == "temp" ? tempEl.Nodes() : (object)tempEl;
                 parent.Add(new XElement(name, content));
             }

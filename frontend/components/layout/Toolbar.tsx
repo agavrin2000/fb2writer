@@ -82,8 +82,6 @@ export const Toolbar: React.FC<ToolbarProps> = memo(
           fb2Title: ed.isActive("fb2Title"),
           fb2Section: nodeName === "fb2Section",
           fb2Poem: nodeName === "fb2Poem",
-          bold: ed.isActive("bold"),
-          italic: ed.isActive("italic"),
         };
 
         // Логика блокировки кнопок
@@ -320,10 +318,11 @@ console.log("Split", canSplitCell);
           <button
             type="button"
             title="Вставить ссылку"
+            disabled={isSelectionEmpty}
             onClick={onAddLink}
-            className={`${btnCustomClass} ${isSelectionEmpty ? "opacity-50 pointer-events-auto" : ""}`}
+            className={btnCustomClass}
           >
-            <Fb2ActionIcon icon={Link} mode="add" />
+            <Fb2ActionIcon icon={Link} mode="add" disabled={isSelectionEmpty}/>
           </button>
           <button
             type="button"
@@ -332,21 +331,11 @@ console.log("Split", canSplitCell);
             disabled={!isInsideParagraph}
             className={btnCustomClass}
           >
-            <Fb2ActionIcon icon={Asterisk} mode="add" />
+            <Fb2ActionIcon icon={Asterisk} mode="add" disabled={!isInsideParagraph}/>
           </button>
 
           <div className="w-px h-4 bg-gray-200 mx-1" />
 
-          <ImageDropdown
-            onSelect={handleImageSelect}
-            canBlockImage={capabilities?.canInsertBlockImage}
-            canInlineImage={capabilities?.canInsertInlineImage}
-            canSectionImage={capabilities?.canInsertSectionImage}
-          />
-        </div>
-
-        {/* ВТОРОЙ РЯД: Структурные элементы FB2 (Секции, Эпиграфы, Поэмы) */}
-        <div className="w-full flex justify-center items-center gap-1 p-1">
           {/* Группа: Заголовок и Подзаголовок */}
           <button
             type="button"
@@ -355,7 +344,8 @@ console.log("Split", canSplitCell);
                 ? editor.chain().focus().removeFb2Title().run()
                 : editor.chain().focus().insertFb2Title().run()
             }
-            className={`${btnCustomClass} ${!capabilities?.canRemoveTitle && !capabilities?.canInsertTitle ? "opacity-50 pointer-events-auto" : ""}`}
+            disabled={!capabilities?.canRemoveTitle && !capabilities?.canInsertTitle}
+            className={btnCustomClass}
             title={
               capabilities?.canRemoveTitle
                 ? "Удалить заголовок"
@@ -365,6 +355,7 @@ console.log("Split", canSplitCell);
             <Fb2ActionIcon
               icon={Heading1}
               mode={capabilities?.canRemoveTitle ? "remove" : "add"}
+              disabled={!capabilities?.canRemoveTitle && !capabilities?.canInsertTitle}
             />
           </button>
 
@@ -375,7 +366,8 @@ console.log("Split", canSplitCell);
                 ? editor.chain().focus().removeFb2Subtitle().run()
                 : editor.chain().focus().insertFb2Subtitle().run()
             }
-            className={`${btnCustomClass} ${!capabilities?.canRemoveSubtitle && !capabilities?.canInsertSubtitle ? "opacity-50 pointer-events-auto" : ""}`}
+            disabled={!capabilities?.canRemoveSubtitle && !capabilities?.canInsertSubtitle}
+            className={btnCustomClass}
             title={
               capabilities?.canRemoveSubtitle
                 ? "Удалить подзаголовок"
@@ -385,45 +377,54 @@ console.log("Split", canSplitCell);
             <Fb2ActionIcon
               icon={Baseline}
               mode={capabilities?.canRemoveSubtitle ? "remove" : "add"}
+              disabled={!capabilities?.canRemoveSubtitle && !capabilities?.canInsertSubtitle}
             />
           </button>
 
-          <div className="w-px h-4 bg-gray-200 mx-1" />
+        </div>
+
+        {/* ВТОРОЙ РЯД: Структурные элементы FB2 (Секции, Эпиграфы, Поэмы) */}
+        <div className="w-full flex justify-center items-center gap-1 p-1">
 
           {/* Группа: Эпиграф и Аннотация */}
           <button
             type="button"
             onClick={() => editor.chain().focus().insertFb2Epigraph().run()}
-            className={`${btnCustomClass} ${!capabilities?.canInsertEpigraph ? "opacity-50 pointer-events-auto" : ""}`}
+            disabled={!capabilities?.canInsertEpigraph}
+            className={btnCustomClass}
             title="Добавить эпиграф"
           >
-            <Fb2ActionIcon icon={TextQuote} mode="add" />
+            <Fb2ActionIcon icon={TextQuote} mode="add" disabled={!capabilities?.canInsertEpigraph}/>
           </button>
+
           <button
             type="button"
             onClick={() => editor.chain().focus().removeFb2Epigraph().run()}
-            className={`${btnCustomClass} ${!capabilities?.canRemoveEpigraph ? "opacity-50 pointer-events-auto" : ""}`}
+            disabled={!capabilities?.canRemoveEpigraph}
+            className={btnCustomClass}
             title="Удалить эпиграф"
           >
-            <Fb2ActionIcon icon={TextQuote} mode="remove" />
+            <Fb2ActionIcon icon={TextQuote} mode="remove" disabled={!capabilities?.canRemoveEpigraph}/>
           </button>
 
           {/* Группа: Автор и Дата */}
           <button
             type="button"
             onClick={() => editor.chain().focus().insertFb2TextAuthor().run()}
-            className={`${btnCustomClass} ${!capabilities?.canInsertTextAuthor ? "opacity-50 pointer-events-auto" : ""}`}
+            disabled={!capabilities?.canInsertTextAuthor}
+            className={btnCustomClass}
             title="Добавить подпись автора"
           >
-            <Fb2ActionIcon icon={Signature} mode="add" />
+            <Fb2ActionIcon icon={Signature} mode="add" disabled={!capabilities?.canInsertTextAuthor}/>
           </button>
           <button
             type="button"
             onClick={() => editor.chain().focus().removeFb2TextAuthor().run()}
-            className={`${btnCustomClass} ${!capabilities?.canRemoveTextAuthor ? "opacity-50 pointer-events-auto" : ""}`}
+            disabled={!capabilities?.canRemoveTextAuthor}
+            className={btnCustomClass}
             title="Удалить подпись автора"
           >
-            <Fb2ActionIcon icon={Signature} mode="remove" />
+            <Fb2ActionIcon icon={Signature} mode="remove" disabled={!capabilities?.canRemoveTextAuthor} />
           </button>
 
           <button
@@ -433,7 +434,8 @@ console.log("Split", canSplitCell);
                 ? editor.chain().focus().removeFb2Date().run()
                 : editor.chain().focus().insertFb2Date().run()
             }
-            className={`${btnCustomClass} ${!capabilities?.canRemoveDate && !capabilities?.canInsertDate ? "opacity-50 pointer-events-auto" : ""}`}
+            disabled={!capabilities?.canRemoveDate && !capabilities?.canInsertDate}
+            className={btnCustomClass}
             title={
               capabilities?.canRemoveDate
                 ? "Удалить дату написания"
@@ -443,6 +445,7 @@ console.log("Split", canSplitCell);
             <Fb2ActionIcon
               icon={CalendarDays}
               mode={capabilities?.canRemoveDate ? "remove" : "add"}
+              disabled={!capabilities?.canRemoveDate && !capabilities?.canInsertDate}
             />
           </button>
           <div className="w-px h-4 bg-gray-200 mx-1" />
@@ -451,18 +454,20 @@ console.log("Split", canSplitCell);
           <button
             type="button"
             onClick={() => editor.chain().focus().insertFb2Poem().run()}
-            className={`${btnCustomClass} ${!capabilities?.canInsertPoem ? "opacity-50 pointer-events-auto" : ""}`}
+            disabled={!capabilities?.canInsertPoem}
+            className={btnCustomClass}
             title="Добавить поэму"
           >
-            <Fb2ActionIcon icon={Feather} mode="add" />
+            <Fb2ActionIcon icon={Feather} mode="add" disabled={!capabilities?.canInsertPoem} />
           </button>
           <button
             type="button"
             onClick={() => editor.chain().focus().insertFb2Stanza().run()}
-            className={`${btnCustomClass} ${!capabilities?.canInsertStanza ? "opacity-50 pointer-events-auto" : ""}`}
+            disabled={!capabilities?.canInsertStanza}
+            className={btnCustomClass}
             title="Добавить строфу"
           >
-            <Fb2ActionIcon icon={AlignLeft} mode="add" />
+            <Fb2ActionIcon icon={AlignLeft} mode="add" disabled={!capabilities?.canInsertStanza} />
           </button>
 
           <div className="w-px h-4 bg-gray-200 mx-1" />
@@ -473,7 +478,8 @@ console.log("Split", canSplitCell);
                 ? editor.chain().focus().removeFb2Annotation().run()
                 : editor.chain().focus().insertFb2Annotation().run()
             }
-            className={`${btnCustomClass} ${!capabilities?.canRemoveAnnotation && !capabilities?.canInsertAnnotation ? "opacity-50 pointer-events-auto" : ""}`}
+            disabled={!capabilities?.canRemoveAnnotation && !capabilities?.canInsertAnnotation}
+            className={btnCustomClass}
             title={
               capabilities?.canRemoveAnnotation
                 ? "Удалить аннотацию"
@@ -483,8 +489,19 @@ console.log("Split", canSplitCell);
             <Fb2ActionIcon
               icon={FileText}
               mode={capabilities?.canRemoveAnnotation ? "remove" : "add"}
+               disabled={!capabilities?.canRemoveAnnotation && !capabilities?.canInsertAnnotation}
             />
           </button>
+
+          <div className="w-px h-4 bg-gray-200 mx-1" />
+
+          <ImageDropdown
+            onSelect={handleImageSelect}
+            canBlockImage={capabilities?.canInsertBlockImage}
+            canInlineImage={capabilities?.canInsertInlineImage}
+            canSectionImage={capabilities?.canInsertSectionImage}
+          />
+
           <TableDropdown
             onSelect={handleTableSelect}
             canAddTable={canInsertTable()}

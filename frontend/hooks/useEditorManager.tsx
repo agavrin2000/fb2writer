@@ -578,7 +578,7 @@ export function useEditorManager(): EditorManager {
       .chain()
       .extendMarkRange("link") // Чтобы не плодить вложенные ссылки
       .setLink({
-        href: "", // Пустое значение, чтобы заполнил пользователь в BubbleMenu
+        href: "#", 
         target: null,
         rel: "noopener noreferrer",
       })

@@ -32,16 +32,26 @@ public static class AssetHandler
         }
     }
 
+    /// <summary>
+    /// Возвращает поток встроенного ресурса по указанному URL-адресу.
+    /// </summary>
+    /// <param name="url">Запрашиваемый URL, включая виртуальный домен (например, http://app.io/static/js/main.js).</param>
+    /// <param name="virtualDomain">Виртуальный домен приложения (например, "http://app.io"), который нужно удалить из пути.</param>
+    /// <param name="contentType">Тип содержимого (MIME type) для запрошенного ресурса. Устанавливается при возврате.</param>
+    /// <returns>
+    /// Поток ресурса, если он найден; иначе — <see langword="null"/>.
+    /// Поток должен быть освобождён вызывающим кодом после использования.
+    /// </returns>
     public static Stream? GetResourceStream(string url, string virtualDomain, out string contentType)
     {
         contentType = GetMimeType(url);
 
-        // 1. Извлекаем чистый путь: "static/js/main.js"
+        // Извлекаем чистый путь: "static/js/main.js"
         string relativePath = url.Replace(virtualDomain, "").TrimStart('/');
         if (string.IsNullOrEmpty(relativePath) || relativePath == "index.html")
             relativePath = "index.html";
 
-        // 2. Преобразуем путь запроса в формат ресурса: 
+        // Преобразуем путь запроса в формат ресурса: 
         // "static/js/main.js" -> "static.js.main.js"
         // Важно: точки в именах файлов (типа .min.js) остаются точками, 
         // а слэши папок становятся точками. Результат идентичен!
@@ -56,7 +66,7 @@ public static class AssetHandler
             return typeof(AssetHandler).Assembly.GetManifestResourceStream(resourceName);
         }
 
-        // 3. Fallback для SPA
+        // Fallback для SPA
         if (!Path.HasExtension(url))
         {
             string indexKey = "FB2Writer.Resources.wwwroot.index.html";

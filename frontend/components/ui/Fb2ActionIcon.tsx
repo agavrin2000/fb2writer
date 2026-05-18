@@ -28,6 +28,12 @@ interface ActionIconProps {
    * @default ""
    */
   className?: string;
+
+  /**
+   * Дополнительные CSS-классы для кастомизации отступов или позиционирования.
+   * @default ""
+   */
+  disabled?: boolean;
 }
 
 /**
@@ -51,11 +57,12 @@ interface ActionIconProps {
  * @example
  * <Fb2ActionIcon icon={List} mode="remove" size={24} className="ml-2" />
  */
-export const Fb2ActionIcon = ({ 
-  icon: Icon, 
-  mode, 
-  size = 20, 
-  className = "" 
+export const Fb2ActionIcon = ({
+  icon: Icon,
+  mode,
+  size = 20,
+  className = "",
+  disabled = false
 }: ActionIconProps) => {
   const isAdd = mode === 'add'
   const badgeSize = Math.round(size / 2) // Динамический размер бейджа
@@ -64,9 +71,10 @@ export const Fb2ActionIcon = ({
     <div className={`relative inline-flex items-center justify-center ${className}`}>
       {/* Основная иконка */}
       <Icon size={size} strokeWidth={2} className="opacity-80" />
-      
+
       {/* Бейдж-индикатор */}
-      <div 
+      {!disabled &&
+      <div
         className={`
           absolute -top-1 -right-1.5
           rounded-full ring-2 ring-white
@@ -75,11 +83,8 @@ export const Fb2ActionIcon = ({
         `}
         style={{ width: badgeSize, height: badgeSize }}
       >
-        {isAdd 
-          ? <Plus size={badgeSize - 2} strokeWidth={4} /> 
-          : <X size={badgeSize - 2} strokeWidth={4} />
-        }
-      </div>
+        {isAdd ? <Plus size={badgeSize - 2} strokeWidth={4} /> : <X size={badgeSize - 2} strokeWidth={4} />}
+      </div>}
     </div>
   )
 }

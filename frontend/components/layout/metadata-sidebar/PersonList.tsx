@@ -73,12 +73,12 @@ export const PersonList = memo(({ title, items = [], onUpdate }: PersonListProps
                     {/* Поля ввода (уже адаптированные ранее) */}
                     <Field label="Имя" defaultValue={person.firstName}
                         required={true}
-                        error={getError("firstName", person.firstName, !person.nickname || !person.lastName)}
+                        error={getError("firstName", person.firstName, !person.nickname)}
                         touched={true}
                         onChange={(val) => updatePerson(idx, { firstName: val })}
                         ref={(el) => {
                             if (el) {
-                                inputRefs.current.set(idx, el);
+                                inputRefs.current.set(idx, el as HTMLInputElement);
                             } else {
                                 inputRefs.current.delete(idx);
                             }
@@ -87,7 +87,7 @@ export const PersonList = memo(({ title, items = [], onUpdate }: PersonListProps
                     <Field label="Отчество" defaultValue={person.middleName} onChange={(val) => updatePerson(idx, { middleName: val })} />
                     <Field label="Фамилия" defaultValue={person.lastName}
                         required={true}
-                        error={getError("lastName", person.lastName, !person.nickname || !person.firstName)}
+                        error={getError("lastName", person.lastName, !person.nickname)}
                         touched={true}
                         onChange={(val) => updatePerson(idx, { lastName: val })} />
                     <Field

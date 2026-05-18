@@ -1,3 +1,4 @@
+import { cn } from "@/utils/cn";
 import React from "react";
 import { Image as ImageIcon, ImageDown, PanelTop, ChevronDown } from "lucide-react";
 
@@ -92,8 +93,9 @@ export const ImageDropdown: React.FC<{
   <div className="relative" ref={dropdownRef}>
     <button
       type="button"
+      disabled={!canInlineImage && !canBlockImage && !canSectionImage}
       onClick={() => setIsOpen(!isOpen)}
-      className="p-1.5 px-2 rounded text-ui-text-muted hover:bg-ui-bg-hover border border-transparent hover:border-ui-border flex items-center gap-1 transition-all"
+      className={cn("toolbar-btn", "toolbar-btn-default")}
       title="Вставить изображение"
     >
       <ImageIcon size={20} />
@@ -104,7 +106,7 @@ export const ImageDropdown: React.FC<{
     </button>
 
     {isOpen && (
-      <div className="absolute top-full left-0 mt-1 w-64 bg-ui-bg border border-ui-border rounded-xl shadow-xl z-30 py-1.5 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+      <div className="absolute top-full left-0 mt-1 w-36 bg-ui-bg border border-ui-border rounded-xl shadow-xl z-30 py-1.5 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
         <button
           key="block"
           type="button"

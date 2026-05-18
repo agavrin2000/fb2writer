@@ -10,7 +10,7 @@ interface LinkBubbleMenuProps {
 }
 
 export const LinkBubbleMenu: React.FC<LinkBubbleMenuProps> = ({ editor }) => {
-  const [url, setUrl] = useState('');
+  const [url, setUrl] = useState('#');
   const urlRef = useRef('');
   const menuRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -18,7 +18,7 @@ export const LinkBubbleMenu: React.FC<LinkBubbleMenuProps> = ({ editor }) => {
   // Синхронизация текста в инпуте с текущей ссылкой в редакторе
   const updateUrlFromEditor = useCallback(() => {
     if (!editor) return;
-    const currentUrl = editor.getAttributes('link').href || '';
+    const currentUrl = editor.getAttributes('link').href || '#';
     setUrl(currentUrl);
     urlRef.current = currentUrl;
   }, [editor]);
@@ -38,18 +38,17 @@ export const LinkBubbleMenu: React.FC<LinkBubbleMenuProps> = ({ editor }) => {
   const saveLink = useCallback((targetUrl: string) => {
     if (!editor) return;
     const trimmed = targetUrl.trim();
-    const oldUrl = editor.getAttributes('link').href || '';
 
-    if (trimmed === oldUrl) return;
-
-    if (trimmed) {
+    if (trimmed && trimmed !=="#") {
       editor.chain().extendMarkRange('link').setLink({ href: trimmed }).run();
-    } else {
+    }
+    else {
       editor.chain().extendMarkRange('link').unsetLink().run();
     }
   }, [editor]);
 
   const isLinkActive = editor?.isActive('link');
+
   // СЛУШАТЕЛЬ ДЛЯ ФОКУСА (вызывается из Toolbar через CustomEvent)
   useEffect(() => {
     const forceFocus = () => {
@@ -77,13 +76,14 @@ export const LinkBubbleMenu: React.FC<LinkBubbleMenuProps> = ({ editor }) => {
     // Добавляем isActive в зависимости, чтобы реагировать на клики
   }, [isLinkActive, editor]);
 
-  // Автосохранение при клике вне меню
+  // Автосохранение при клике вне текущего selection
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
-        saveLink(urlRef.current);
+          saveLink(urlRef.current);
       }
     };
+
     document.addEventListener('mousedown', handleClickOutside, true);
     return () => document.removeEventListener('mousedown', handleClickOutside, true);
   }, [saveLink]);
@@ -109,7 +109,7 @@ export const LinkBubbleMenu: React.FC<LinkBubbleMenuProps> = ({ editor }) => {
       <div
         key={`${from}-${to}`}
         ref={menuRef}
-        className="flex items-center p-1.5 gap-2 bg-white shadow-2xl border border-slate-200 rounded-xl"
+        className="flex items-center p-1.5 gap-2 bg-ui-bg shadow-2xl border border-ui-border rounded-xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="relative flex items-center">
@@ -132,7 +132,7 @@ export const LinkBubbleMenu: React.FC<LinkBubbleMenuProps> = ({ editor }) => {
                 editor.commands.focus();
               }
             }}
-            className="pl-8 pr-2 py-1.5 w-64 bg-slate-50 border border-slate-100 rounded-lg text-xs font-serif outline-none focus:bg-white focus:ring-2 focus:ring-blue-400 transition-all"
+            className="pl-8 pr-2 py-1.5 w-64 border bg-[var(--color-ui-bg)] focus:bg-[var(--color-paper-bg)] rounded-lg text-xs font-serif outline-none focus:ring-1 focus:ring-[var(--color-ui-accent)]/30 transition-all"
           />
         </div>
 
@@ -142,11 +142,11 @@ export const LinkBubbleMenu: React.FC<LinkBubbleMenuProps> = ({ editor }) => {
             type="button"
             disabled={!url || url === '#'}
             onClick={() => {
-              editor.chain().focus().extendMarkRange('link').unsetLink().run();
+              saveLink("");
             }}
             className={`p-2 transition-all rounded-lg ${(!url || url === '#')
-                ? 'text-slate-200 cursor-not-allowed'
-                : 'text-slate-400 hover:text-red-500 hover:bg-red-50'
+              ? 'text-slate-200 cursor-not-allowed'
+              : 'text-slate-400 hover:text-red-500 hover:bg-red-50'
               }`}
           >
             <Trash2 size={16} />

@@ -295,7 +295,7 @@ export const NotePopup = memo(({ note, content, existingIds, onUpdate, onClose, 
 
       {/* 2. Само окно (Popup) */}
       <div
-        className="note-popup-container fixed z-[100] bg-white shadow-2xl border border-blue-100 rounded-2xl w-96 overflow-hidden flex flex-col" // Добавили flex flex-col
+        className="note-popup-container fixed z-[100] bg-ui-bg border-ui-border shadow-2xl border rounded-2xl w-96 overflow-hidden flex flex-col" // Добавили flex flex-col
         style={{
           top: adjustedPosition.top,
           left: adjustedPosition.left,
@@ -307,7 +307,7 @@ export const NotePopup = memo(({ note, content, existingIds, onUpdate, onClose, 
         {/* Шапка с полем ID и кнопками */}
         <div className={`flex flex-none justify-between items-center px-3 py-2 border-b transition-colors duration-200 ${isDuplicate ? 'bg-red-50 border-red-200' :
           isEmpty ? 'bg-amber-50 border-amber-200' :
-            'bg-slate-50 border-slate-100'
+            'bg-ui-bg border-slate-100'
           }`}>
           <div className="flex items-center gap-2 flex-1 mr-4 min-w-0">
             <Hash size={12} className={isDuplicate ? 'text-red-500' : isEmpty ? 'text-amber-500' : 'text-blue-500'} />
@@ -318,7 +318,7 @@ export const NotePopup = memo(({ note, content, existingIds, onUpdate, onClose, 
               value={editableId}
               onChange={(e) => setEditableId(e.target.value)}
               placeholder="Введите ID..."
-              className={`bg-transparent border-none text-[11px] font-bold uppercase tracking-widest focus:ring-0 focus:outline-none w-full px-1 rounded transition-all ${isDuplicate ? 'text-red-600' : isEmpty ? 'text-amber-600' : 'text-slate-600 hover:bg-slate-200/50'
+              className={`bg-ui-bg border-none text-[11px] font-bold uppercase tracking-widest focus:ring-0 focus:outline-none w-full px-1 rounded transition-all ${isDuplicate ? 'text-red-600' : isEmpty ? 'text-[var(--color-ui-text)]' : 'focus:bg-[var(--color-paper-bg)] focus:ring-1 focus:ring-[var(--color-ui-accent)]/30 text-[var(--color-ui-text)] hover:text-[var(--color-ui-accent)]'
                 }`}
             />
           </div>
@@ -329,20 +329,20 @@ export const NotePopup = memo(({ note, content, existingIds, onUpdate, onClose, 
             {!note.isNew && (
               <button type="button"
                 onClick={handleDelete}
-                className="p-1.5 hover:bg-red-50 text-slate-400 hover:text-red-500 rounded-full transition-colors"
+                className="p-1.5 hover:bg-red-50 text-ui-text hover:text-red-500 rounded-full transition-colors"
                 title="Удалить сноску и все ссылки на нее"
               >
                 <Trash2 size={14} />
               </button>
             )}
-            <button type="button" title="Закрыть" onClick={onClose} className="p-1 hover:bg-slate-200 rounded-full text-slate-400 transition-colors">
+            <button type="button" title="Закрыть" onClick={onClose} className="p-1 hover:bg-slate-200 rounded-full text-ui-text transition-colors">
               <X size={14} />
             </button>
           </div>
         </div>
 
         {/* Тулбар */}
-        <div className="flex flex-none items-center gap-1 px-2 py-1 bg-white border-b border-slate-100">
+        <div className="flex flex-none items-center gap-1 px-2 py-1 bg-ui-bg border-ui-border">
           <TableDropdown
             onSelect={handleTableSelect}
             canAddTable={editor.state.selection.$from.parent.type.name == "paragraph" && editor.state.selection.$from.node(editor.state.selection.$from.depth - 1).type.name != "fb2Title" && editor.can().insertTable()}
@@ -394,12 +394,12 @@ export const NotePopup = memo(({ note, content, existingIds, onUpdate, onClose, 
         </div>
 
         {/* Центрируем редактор и ограничиваем его ширину */}
-        <div className="flex-1 overflow-y-auto bg-white custom-scrollbar">
+        <div className="flex-1 overflow-y-auto bg-paper-bg custom-scrollbar">
           <EditorContent editor={editor} />
         </div>
 
         {/* Подвал */}
-        <div className="flex-none px-4 py-2 bg-slate-50 flex justify-end gap-2 border-t border-slate-100">
+        <div className="flex-none px-4 py-2 bg-ui-bg flex justify-end gap-2 border-t border-ui-border">
           <button type="button" title="Отмена" onClick={onClose} className="text-[11px] text-slate-500 px-3 hover:text-slate-700">Отмена</button>
           <button type="button" title="Готово"
             onClick={handleSave}

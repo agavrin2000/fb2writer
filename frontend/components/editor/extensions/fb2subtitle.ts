@@ -11,10 +11,10 @@ export const Fb2Subtitle = Node.create({
   parseHTML: () => [{ tag: "p.subtitle" }, { tag: "subtitle" }],
   renderHTML: ({ HTMLAttributes }) => [
     "p",
-      mergeAttributes(HTMLAttributes, {
-        class: 'fb2-subtitle fb2-labeled-node',
-        'data-label': 'Подзаголовок',
-      }),
+    mergeAttributes(HTMLAttributes, {
+      class: "fb2-subtitle fb2-labeled-node",
+      "data-label": "Подзаголовок",
+    }),
     0,
   ],
   addAttributes() {
@@ -44,18 +44,31 @@ export const Fb2Subtitle = Node.create({
           let parentNode = null;
           let parentPos = -1;
 
-          for (let d = $from.depth; d > 0; d--) {
-            const name = $from.node(d).type.name;
-            if (["fb2Section", "fb2Stanza"].includes(name)) {
-              parentNode = $from.node(d);
-              parentPos = $from.before(d);
-              break;
-            }
-            if (["fb2Title", "fb2Epigraph", "fb2Subtitle"].includes(name))
-              return false;
-          }
+          ({ pos: parentPos, node: parentNode } = findParentNodeByType(
+            selection,
+            [
+              "fb2Title",
+              "fb2Epigraph",
+              "fb2Subtitle",
+              "fb2Textauthor",
+              "fb2Date",
+              "fb2Section",
+              "fb2Stanza",
+              "fb2Cite",
+            ],
+          ));
 
-          if (!parentNode) return false;
+          if (
+            !parentNode ||
+            [
+              "fb2Title",
+              "fb2Epigraph",
+              "fb2Subtitle",
+              "fb2Textauthor",
+              "fb2Date",
+            ].includes(parentNode.type.name)
+          )
+            return false;
 
           let insertPos = $from.pos;
 
@@ -91,14 +104,14 @@ export const Fb2Subtitle = Node.create({
       removeFb2Subtitle:
         () =>
         ({ state, chain, dispatch }: CommandProps) => {
-          // 1. Ищем, находимся ли мы внутри fb2Subtitle
+          // Ищем, находимся ли мы внутри fb2Subtitle
           const { pos: subtitlPos, nodeSize: subtitleNodeSize } =
             findParentNodeByType(state.selection, ["fb2Subtitle"]);
 
-          // Если не нашли — команда недоступна (кнопка в UI будет неактивна)
+          // Если не нашли — команда недоступна
           if (subtitlPos === -1) return false;
 
-          // 3. Удаляем узел и возвращаем фокус
+          // Удаляем узел и возвращаем фокус
           if (dispatch) {
             return chain()
               .deleteRange({
