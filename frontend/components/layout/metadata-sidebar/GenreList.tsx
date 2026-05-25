@@ -9,17 +9,68 @@ import {
     FloatingPortal
 } from '@floating-ui/react';
 
+/**
+ * Интерфейс жанра.
+ */
 interface Genre {
-    id: string;    // Код: "sf_space"
-    label: string; // Текст: "Космическая фантастика"
+    /**
+     * Уникальный код жанра (например, "sf_space").
+     */
+    id: string;
+
+    /**
+     * Отображаемое название жанра (например, "Космическая фантастика").
+     */
+    label: string;
 }
 
+/**
+ * Свойства компонента GenreList.
+ */
 interface GenreListProps {
-    genres: string[]; // Выбранные коды
+    /**
+     * Массив выбранных идентификаторов жанров.
+     */
+    genres: string[];
+
+    /**
+     * Функция обратного вызова, вызываемая при изменении списка жанров.
+     *
+     * @param newGenres - Новый массив кодов жанров.
+     */
     onUpdate: (newGenres: string[]) => void;
-    availableGenres: Genre[]; // Весь справочник
+
+    /**
+     * Полный список доступных жанров для выбора.
+     */
+    availableGenres: Genre[];
 }
 
+/**
+ * Компонент для управления списком жанров в метаданных FB2-книги.
+ *
+ * Предоставляет интерфейс для:
+ * - Отображения выбранных жанров в виде тегов.
+ * - Добавления новых жанров через выпадающий список с поиском по названию или коду.
+ * - Удаления жанров по клику на крестик.
+ * - Навигации по результатам поиска с помощью клавиш со стрелками и Enter.
+ *
+ * Выпадающий список позиционируется динамически с помощью библиотеки `@floating-ui/react`.
+ *
+ * @param genres - Текущий массив кодов выбранных жанров.
+ * @param onUpdate - Функция для обновления родительского состояния.
+ * @param availableGenres - Полный справочник всех возможных жанров.
+ * @returns React-компонент в виде строки с тегами и интерактивным полем добавления.
+ *
+ * @example
+ * ```tsx
+ * <GenreList
+ *   genres={selectedGenres}
+ *   onUpdate={setSelectedGenres}
+ *   availableGenres={allGenres}
+ * />
+ * ```
+ */
 export const GenreList = ({ genres = [], onUpdate, availableGenres = [] }: GenreListProps) => {
     const [isAdding, setIsAdding] = useState(false);
     const [searchFilter, setSearchFilter] = useState('');
@@ -37,9 +88,21 @@ export const GenreList = ({ genres = [], onUpdate, availableGenres = [] }: Genre
             shift()
         ],
     });
+
+    /**
+     * Возвращает отображаемое имя жанра по его коду.
+     *
+     * @param id - Код жанра.
+     * @returns Название жанра или сам код, если не найден.
+     */
     const getLabel = (id: string) => availableGenres.find(g => g.id === id)?.label || id;
 
-    // Расширенная фильтрация (по label и по id)
+    /**
+     * Фильтрует доступные жанры на основе текущего поискового запроса.
+     * Исключает уже выбранные жанры и ограничивает результат первыми 10 совпадениями.
+     *
+     * @returns Отфильтрованный массив жанров.
+     */
     const filteredOptions = useMemo(() => {
         const lowerTerm = searchFilter.toLowerCase();
         return availableGenres.filter(g =>
@@ -48,9 +111,11 @@ export const GenreList = ({ genres = [], onUpdate, availableGenres = [] }: Genre
         ).slice(0, 10);
     }, [genres, searchFilter, availableGenres]);
 
-    // Сбрасываем индекс при изменении поиска
-    //   useEffect(() => setActiveIndex(0), [searchTerm]);
-
+    /**
+     * Добавляет новый жанр в список.
+     *
+     * @param genreId - Код добавляемого жанра.
+     */
     const handleSelect = (genreId: string) => {
         onUpdate([...genres, genreId]);
         setSearchFilter('');
@@ -58,11 +123,22 @@ export const GenreList = ({ genres = [], onUpdate, availableGenres = [] }: Genre
         setActiveIndex(0);
     };
 
+    /**
+     * Обрабатывает изменение текста в поле поиска.
+     *
+     * @param e - Событие изменения поля ввода.
+     */
     const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         setSearchFilter(e.target.value);
-        setActiveIndex(0); // Сбрасываем индекс здесь, без лишних рендеров
+        setActiveIndex(0); // Сбрасываем индекс при каждом изменении
     };
 
+    /**
+     * Обрабатывает нажатие клавиш в поле поиска.
+     * Поддерживает навигацию (стрелки), выбор (Enter) и отмену (Escape).
+     *
+     * @param e - Клавиатурное событие.
+     */
     const handleKeyDown = (e: React.KeyboardEvent) => {
         if (e.key === 'ArrowDown') {
             e.preventDefault();
@@ -111,7 +187,6 @@ export const GenreList = ({ genres = [], onUpdate, availableGenres = [] }: Genre
                             autoFocus
                             type="text"
                             placeholder="Название или код..."
-                            /* Инпут в стиле темы */
                             className="text-[11px] pl-7 pr-2 py-1.5 bg-[var(--color-ui-bg)] border-2 border-[var(--color-ui-accent)] text-[var(--color-ui-text)] rounded-md outline-none w-56 shadow-[var(--shadow-dropdown)] transition-colors placeholder:text-[var(--color-ui-text-muted)]/50"
                             value={searchFilter}
                             onChange={handleSearchChange}
@@ -131,7 +206,6 @@ export const GenreList = ({ genres = [], onUpdate, availableGenres = [] }: Genre
                                     ...floatingStyles,
                                     display: isPositioned ? 'block' : 'none',
                                 }}
-                                /* Выпадающий список в стиле Paper */
                                 className="z-[9999] bg-[var(--color-paper-bg)] border border-[var(--color-ui-border)] rounded-lg shadow-[var(--shadow-dropdown)] overflow-hidden min-w-[224px] animate-in fade-in duration-100"
                             >
                                 <div title="Поиск жанра" ref={listRef} className="max-h-52 overflow-y-auto scrollbar-hide">
@@ -140,10 +214,9 @@ export const GenreList = ({ genres = [], onUpdate, availableGenres = [] }: Genre
                                             key={g.id}
                                             onMouseDown={(e) => { e.preventDefault(); handleSelect(g.id); }}
                                             onMouseEnter={() => setActiveIndex(index)}
-                                            /* Активный элемент подсвечивается акцентом темы */
                                             className={`group flex flex-col px-3 py-2 cursor-pointer border-b border-[var(--color-ui-border)]/30 last:border-0 transition-colors ${index === activeIndex
-                                                    ? 'bg-[var(--color-ui-accent)] text-[var(--color-ui-accent-foreground)]'
-                                                    : 'hover:bg-[var(--color-ui-bg-hover)]'
+                                                ? 'bg-[var(--color-ui-accent)] text-[var(--color-ui-accent-foreground)]'
+                                                : 'hover:bg-[var(--color-ui-bg-hover)]'
                                                 }`}
                                         >
                                             <span className={`text-[11px] font-semibold ${index === activeIndex ? 'text-[var(--color-ui-accent-foreground)]' : 'text-[var(--color-ui-text)]'}`}>
@@ -172,5 +245,4 @@ export const GenreList = ({ genres = [], onUpdate, availableGenres = [] }: Genre
             )}
         </div>
     );
-
 };

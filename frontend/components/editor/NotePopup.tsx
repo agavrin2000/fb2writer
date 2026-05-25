@@ -1,20 +1,20 @@
 'use client';
 
+import { useEffect, useState, useMemo, useCallback, memo } from 'react';
+import { createPortal } from 'react-dom';
+import { Bold, Italic, Quote, Strikethrough, Superscript as SuperscriptIcon, Subscript as SubscriptIcon, Hash, X, Trash2 } from 'lucide-react';
+import { JSONContent } from "@tiptap/core";
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
-import { useEffect, useState, useMemo, memo } from 'react';
-import { Bold, Italic, Quote, Strikethrough, Superscript as SuperscriptIcon, Subscript as SubscriptIcon, Hash, X, Trash2 } from 'lucide-react';
 import Superscript from '@tiptap/extension-superscript';
 import Subscript from '@tiptap/extension-subscript';
 import { Fb2Title } from './extensions/fb2title';
 import { Fb2Cite } from './extensions/fb2cite';
-import { useCallback } from 'react';
-import { useConfirm } from "../../hooks/ConfirmContext";
-import { createPortal } from 'react-dom';
-import { JSONContent } from "@tiptap/core";
-import { EditorToolbarButton } from "@/components/ui/EditorToolbarButton"
-import { Fb2Table, Fb2TableRow, Fb2Td, Fb2Th } from "@/components/editor/extensions/fb2table";
 import { TableDropdown } from "@/components/layout/TableDropdown";
+import { Fb2Table, Fb2TableRow, Fb2Td, Fb2Th } from "@/components/editor/extensions/fb2table";
+import { useConfirm } from "../../hooks/ConfirmContext";
+import { EditorToolbarButton } from "@/components/ui/EditorToolbarButton"
+import { Backdrop } from "@/components/ui/Backdrop"
 
 /**
  * Интерфейс свойств компонента всплывающего окна редактирования сноски.
@@ -285,134 +285,149 @@ export const NotePopup = memo(({ note, content, existingIds, onUpdate, onClose, 
     onClose();
   };
 
-  return createPortal(
-    <>
-      {/* 1. Фоновая подложка (Backdrop) */}
-      <div
-        className="fixed inset-0 z-[90] bg-slate-900/20 backdrop-blur-[2px]"
-        onClick={onClose}
-      />
+return createPortal(
+  <>
+    {/* 1. Фоновая подложка (Backdrop) */}
+    <Backdrop onClick={onClose} />
 
-      {/* 2. Само окно (Popup) */}
-      <div
-        className="note-popup-container fixed z-[100] bg-ui-bg border-ui-border shadow-2xl border rounded-2xl w-96 overflow-hidden flex flex-col" // Добавили flex flex-col
-        style={{
-          top: adjustedPosition.top,
-          left: adjustedPosition.left,
-          height: '400px' // ЗАДАЙТЕ ФИКСИРОВАННУЮ ВЫСОТУ
-        }}
-        onClick={(e) => e.stopPropagation()}
-      >
+    {/* 2. Само окно (Popup) */}
+    <div
+        className="note-popup-container fixed z-[100] bg-ui-bg border-ui-border shadow-dropdown border rounded-2xl w-96 overflow-hidden
+        flex flex-col transition-all duration-200 ease-out starting:opacity-0 starting:scale-95"
+      style={{
+        top: adjustedPosition.top,
+        left: adjustedPosition.left,
+        height: '400px'
+      }}
+      onClick={(e) => e.stopPropagation()}
+    >
 
-        {/* Шапка с полем ID и кнопками */}
-        <div className={`flex flex-none justify-between items-center px-3 py-2 border-b transition-colors duration-200 ${isDuplicate ? 'bg-red-50 border-red-200' :
-          isEmpty ? 'bg-amber-50 border-amber-200' :
-            'bg-ui-bg border-slate-100'
-          }`}>
-          <div className="flex items-center gap-2 flex-1 mr-4 min-w-0">
-            <Hash size={12} className={isDuplicate ? 'text-red-500' : isEmpty ? 'text-amber-500' : 'text-blue-500'} />
-            <input
-              type="text"
-              spellCheck="false"
-              onFocus={(e) => e.target.select()}
-              value={editableId}
-              onChange={(e) => setEditableId(e.target.value)}
-              placeholder="Введите ID..."
-              className={`bg-ui-bg border-none text-[11px] font-bold uppercase tracking-widest focus:ring-0 focus:outline-none w-full px-1 rounded transition-all ${isDuplicate ? 'text-red-600' : isEmpty ? 'text-[var(--color-ui-text)]' : 'focus:bg-[var(--color-paper-bg)] focus:ring-1 focus:ring-[var(--color-ui-accent)]/30 text-[var(--color-ui-text)] hover:text-[var(--color-ui-accent)]'
-                }`}
-            />
-          </div>
+      {/* Шапка с полем ID и кнопками */}
+      <div className={`flex flex-none justify-between items-center px-3 py-2 border-b transition-colors duration-200 ${
+        isDuplicate ? 'bg-red-500/10 border-red-500/20' :
+        isEmpty ? 'bg-amber-500/10 border-amber-500/20' :
+        'bg-ui-bg border-ui-border'
+      }`}>
+        <div className="flex items-center gap-2 flex-1 mr-4 min-w-0">
+          <Hash size={12} className={isDuplicate ? 'text-red-500' : isEmpty ? 'text-amber-500' : 'text-ui-accent'} />
+          <input
+            type="text"
+            spellCheck="false"
+            onFocus={(e) => e.target.select()}
+            value={editableId}
+            onChange={(e) => setEditableId(e.target.value)}
+            placeholder="Введите ID..."
+            className={`bg-transparent border-none text-[11px] font-bold uppercase tracking-widest focus:ring-0 focus:outline-none w-full px-1 rounded transition-all ${
+              isDuplicate ? 'text-red-600' : 
+              isEmpty ? 'text-ui-text' : 
+              'text-ui-text hover:text-ui-accent focus:bg-paper-bg focus:ring-1 focus:ring-ui-accent/30'
+            }`}
+          />
+        </div>
 
-          <div className="flex flex-none items-center gap-2">
-            {isDuplicate && <span className="text-[8px] text-red-500 font-black animate-pulse whitespace-nowrap">ID ЗАНЯТ</span>}
-            {isEmpty && <span className="text-[8px] text-amber-600 font-black whitespace-nowrap">ПУСТО</span>}
-            {!note.isNew && (
-              <button type="button"
-                onClick={handleDelete}
-                className="p-1.5 hover:bg-red-50 text-ui-text hover:text-red-500 rounded-full transition-colors"
-                title="Удалить сноску и все ссылки на нее"
-              >
-                <Trash2 size={14} />
-              </button>
-            )}
-            <button type="button" title="Закрыть" onClick={onClose} className="p-1 hover:bg-slate-200 rounded-full text-ui-text transition-colors">
-              <X size={14} />
+        <div className="flex flex-none items-center gap-2">
+          {isDuplicate && <span className="text-[8px] text-red-500 font-black animate-pulse whitespace-nowrap">ID ЗАНЯТ</span>}
+          {isEmpty && <span className="text-[8px] text-amber-600 font-black whitespace-nowrap">ПУСТО</span>}
+          {!note.isNew && (
+            <button type="button"
+              onClick={handleDelete}
+              className="p-1.5 hover:bg-red-500/10 text-ui-text hover:text-red-500 rounded-full transition-colors"
+              title="Удалить сноску и все ссылки на нее"
+            >
+              <Trash2 size={14} />
             </button>
-          </div>
-        </div>
-
-        {/* Тулбар */}
-        <div className="flex flex-none items-center gap-1 px-2 py-1 bg-ui-bg border-ui-border">
-          <TableDropdown
-            onSelect={handleTableSelect}
-            canAddTable={editor.state.selection.$from.parent.type.name == "paragraph" && editor.state.selection.$from.node(editor.state.selection.$from.depth - 1).type.name != "fb2Title" && editor.can().insertTable()}
-            canRemoveTable={editor.can().deleteTable()}
-            canAddColumn={editor.can().addColumnAfter()}
-            canRemoveColumn={editor.can().deleteColumn()}
-            canAddRow={editor.can().addRowAfter()}
-            canRemoveRow={editor.can().deleteRow()}
-            canMergeCells={editor.can().mergeCells()}
-            canSplitCell={editor.can().splitCell()}
-            canAlign={editor.can().deleteTable()}
-          />
-          <EditorToolbarButton
-            onClick={() => editor.chain().focus().toggleBold().run()}
-            active={editor.isActive('bold')}
-            disabled={!editor.can().chain().toggleBold()} // ПРОВЕРКА
-            icon={<Bold size={14} />}
-          />
-          <EditorToolbarButton
-            onClick={() => editor.chain().focus().toggleItalic().run()}
-            active={editor.isActive('italic')}
-            disabled={!editor.can().chain().toggleItalic()} // ПРОВЕРКА
-            icon={<Italic size={14} />}
-          />
-          <EditorToolbarButton
-            onClick={() => editor.chain().focus().toggleStrike().run()}
-            active={editor.isActive('strike')}
-            disabled={!editor.can().chain().toggleStrike()}
-            icon={<Strikethrough size={14} />}
-          />
-          <EditorToolbarButton
-            onClick={() => editor.chain().focus().toggleSuperscript().run()}
-            active={editor.isActive('superscript')}
-            disabled={!editor.can().chain().toggleSuperscript()}
-            icon={<SuperscriptIcon size={14} />}
-          />
-          <EditorToolbarButton
-            onClick={() => editor.chain().focus().toggleSubscript().run()}
-            active={editor.isActive('subscript')}
-            disabled={!editor.can().chain().toggleSubscript()}
-            icon={<SubscriptIcon size={14} />}
-          />
-          <EditorToolbarButton
-            onClick={() => editor.chain().focus().toggleBlockquote().run()}
-            active={editor.isActive("fb2Cite")}
-            disabled={!editor.can().chain().toggleBlockquote()}
-            icon={<Quote size={14} />}
-          />
-        </div>
-
-        {/* Центрируем редактор и ограничиваем его ширину */}
-        <div className="flex-1 overflow-y-auto bg-paper-bg custom-scrollbar">
-          <EditorContent editor={editor} />
-        </div>
-
-        {/* Подвал */}
-        <div className="flex-none px-4 py-2 bg-ui-bg flex justify-end gap-2 border-t border-ui-border">
-          <button type="button" title="Отмена" onClick={onClose} className="text-[11px] text-slate-500 px-3 hover:text-slate-700">Отмена</button>
-          <button type="button" title="Готово"
-            onClick={handleSave}
-            disabled={hasError}
-            className={`text-[11px] font-bold px-5 py-1.5 rounded-lg transition-all shadow-sm ${hasError ? 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none' : 'bg-blue-600 text-white hover:bg-blue-700 active:scale-95'
-              }`}
-          >
-            Готово
+          )}
+          <button type="button" title="Закрыть" onClick={onClose} className="p-1 hover:bg-ui-bg-hover rounded-full text-ui-text transition-colors">
+            <X size={14} />
           </button>
         </div>
       </div>
-    </>,
-    document.body);
+
+      {/* Тулбар */}
+      <div className="flex flex-none items-center gap-1 px-2 py-1 bg-ui-bg border-ui-border">
+        <TableDropdown
+          onSelect={handleTableSelect}
+          canAddTable={editor.state.selection.$from.parent.type.name == "paragraph" && editor.state.selection.$from.node(editor.state.selection.$from.depth - 1).type.name != "fb2Title" && editor.can().insertTable()}
+          canRemoveTable={editor.can().deleteTable()}
+          canAddColumn={editor.can().addColumnAfter()}
+          canRemoveColumn={editor.can().deleteColumn()}
+          canAddRow={editor.can().addRowAfter()}
+          canRemoveRow={editor.can().deleteRow()}
+          canMergeCells={editor.can().mergeCells()}
+          canSplitCell={editor.can().splitCell()}
+          canAlign={editor.can().deleteTable()}
+        />
+        <EditorToolbarButton
+          onClick={() => editor.chain().focus().toggleBold().run()}
+          active={editor.isActive('bold')}
+          disabled={!editor.can().chain().toggleBold()}
+          icon={<Bold size={14} />}
+        />
+        <EditorToolbarButton
+          onClick={() => editor.chain().focus().toggleItalic().run()}
+          active={editor.isActive('italic')}
+          disabled={!editor.can().chain().toggleItalic()}
+          icon={<Italic size={14} />}
+        />
+        <EditorToolbarButton
+          onClick={() => editor.chain().focus().toggleStrike().run()}
+          active={editor.isActive('strike')}
+          disabled={!editor.can().chain().toggleStrike()}
+          icon={<Strikethrough size={14} />}
+        />
+        <EditorToolbarButton
+          onClick={() => editor.chain().focus().toggleSuperscript().run()}
+          active={editor.isActive('superscript')}
+          disabled={!editor.can().chain().toggleSuperscript()}
+          icon={<SuperscriptIcon size={14} />}
+        />
+        <EditorToolbarButton
+          onClick={() => editor.chain().focus().toggleSubscript().run()}
+          active={editor.isActive('subscript')}
+          disabled={!editor.can().chain().toggleSubscript()}
+          icon={<SubscriptIcon size={14} />}
+        />
+        <EditorToolbarButton
+          onClick={() => editor.chain().focus().toggleBlockquote().run()}
+          active={editor.isActive("fb2Cite")}
+          disabled={!editor.can().chain().toggleBlockquote()}
+          icon={<Quote size={14} />}
+        />
+      </div>
+
+      {/* Рабочая область редактора */}
+      <div className="flex-1 overflow-y-auto bg-paper-bg custom-scrollbar text-paper-text font-book">
+        <EditorContent editor={editor} />
+      </div>
+
+      {/* Подвал */}
+      <div className="flex-none px-4 py-2 bg-ui-bg flex justify-end gap-2 border-t border-ui-border">
+        <button 
+          type="button" 
+          title="Отмена" 
+          onClick={onClose} 
+          className="text-[11px] text-ui-text-muted px-3 hover:text-ui-text transition-colors"
+        >
+          Отмена
+        </button>
+        <button 
+          type="button" 
+          title="Готово"
+          onClick={handleSave}
+          disabled={hasError}
+          className={`text-[11px] font-bold px-5 py-1.5 rounded-lg transition-all shadow-sm ${
+            hasError 
+              ? 'bg-ui-text-muted/20 text-ui-text-muted opacity-50 cursor-not-allowed shadow-none' 
+              : 'bg-ui-accent text-ui-accent-foreground hover:opacity-90 active:scale-95'
+          }`}
+        >
+          Готово
+        </button>
+      </div>
+    </div>
+  </>,
+  document.body
+);
 });
 
 NotePopup.displayName = "NotePopup";

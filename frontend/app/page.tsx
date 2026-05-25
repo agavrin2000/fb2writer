@@ -139,7 +139,7 @@ export default function Page() {
 
       {/* Всплывающие меню для специфических элементов */}
       <ImageBubbleMenu editor={editor} />
-      <LinkBubbleMenu editor={editor} />
+      <LinkBubbleMenu editor={editor} /> 
       <Fb2SectionMenu editor={editor} onSelectImage={actions.selectImage} />
       <Fb2PoemMenu editor={editor} />
 

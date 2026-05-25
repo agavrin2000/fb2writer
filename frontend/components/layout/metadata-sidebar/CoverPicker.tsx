@@ -80,11 +80,11 @@ export const CoverPicker = ({ value, onUpdate }: CoverPickerProps) => {
 
   return (
     <div className="mb-6">
-      <label className="block text-[9px] font-bold text-[var(--color-ui-text-muted)] uppercase mb-2 ml-0.5 tracking-wider">
+      <label className="block text-[9px] font-bold text-ui-text-muted uppercase mb-2 ml-0.5 tracking-wider">
         Обложка книги
       </label>
 
-      <div className="relative group aspect-[3/4] w-40 mx-auto bg-[var(--color-ui-bg)] rounded-lg border-2 border-dashed border-[var(--color-ui-border)] overflow-hidden flex flex-col items-center justify-center transition-all hover:border-[var(--color-ui-accent)] shadow-inner">
+      <div className="relative group aspect-[3/4] w-40 mx-auto bg-ui-bg rounded-lg border-2 border-dashed border-ui-border overflow-hidden flex flex-col items-center justify-center transition-all hover:border-[var(--color-ui-accent)] shadow-inner">
         {imageSrc ? (
           <>
             <Image
@@ -98,7 +98,7 @@ export const CoverPicker = ({ value, onUpdate }: CoverPickerProps) => {
             <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
               <label
                 title="Загрузить новое изображение"
-                className="p-2 bg-[var(--color-paper-bg)] rounded-full text-[var(--color-ui-accent)] hover:bg-[var(--color-ui-bg-hover)] shadow-lg cursor-pointer transition-transform hover:scale-110"
+                className="p-2 bg-paper-bg rounded-full text-ui-accent hover:bg-ui-bg-hover shadow-lg cursor-pointer transition-transform hover:scale-110"
               >
                 <Upload size={16} />
                 <input
@@ -114,7 +114,7 @@ export const CoverPicker = ({ value, onUpdate }: CoverPickerProps) => {
                 type="button"
                 onClick={handleDownload}
                 title="Сохранить файл"
-                className="p-2 bg-[var(--color-paper-bg)] rounded-full text-emerald-500 hover:bg-[var(--color-ui-bg-hover)] shadow-lg transition-transform hover:scale-110"
+                className="p-2 bg-paper-bg rounded-full text-emerald-500 hover:bg-ui-bg-hover shadow-lg transition-transform hover:scale-110"
               >
                 <Download size={16} />
               </button>
@@ -123,14 +123,14 @@ export const CoverPicker = ({ value, onUpdate }: CoverPickerProps) => {
                 type="button"
                 title="Удалить"
                 onClick={() => onUpdate("")}
-                className="p-2 bg-[var(--color-paper-bg)] rounded-full text-red-500 hover:bg-[var(--color-ui-bg-hover)] shadow-lg transition-transform hover:scale-110"
+                className="p-2 bg-paper-bg rounded-full text-red-500 hover:bg-ui-bg-hover shadow-lg transition-transform hover:scale-110"
               >
                 <X size={16} />
               </button>
             </div>
           </>
         ) : (
-          <label className="flex flex-col items-center text-[var(--color-ui-text-muted)] gap-2 cursor-pointer hover:text-[var(--color-ui-accent)] transition-colors">
+          <label className="flex flex-col items-center text-ui-text-muted gap-2 cursor-pointer hover:text-ui-accent transition-colors">
             <ImageIcon size={32} strokeWidth={1} />
             <span className="text-[10px] font-bold uppercase tracking-tighter">
               Загрузить

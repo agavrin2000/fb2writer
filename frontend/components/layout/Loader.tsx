@@ -1,5 +1,6 @@
 "use client";
 import React, { memo } from "react";
+import { Backdrop } from "@/components/ui/Backdrop"
 
 /**
  * Интерфейс свойств компонента загрузчика.
@@ -53,27 +54,31 @@ export const Loader: React.FC<LoaderProps> = memo(
     fileName,
   }) => {
     return (
-      <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-ui-bg/90 backdrop-blur-md transition-colors duration-500">
-        {/* Спиннер: используем акцентный цвет темы */}
-        <div className="w-14 h-14 border-4 border-ui-accent/10 border-t-ui-accent rounded-full animate-spin"></div>
+      <>
+        <Backdrop disableCloseOnClick={true} />
+        <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center pointer-events-none">
 
-        {/* Основной заголовок: привязан к основному тексту и акценту */}
-        <div className="mt-6 text-sm font-black text-ui-text uppercase tracking-widest animate-pulse text-center">
-          {title}
-        </div>
+          {/* Спиннер: используем акцентный цвет темы */}
+          <div className="w-14 h-14 border-4 border-ui-accent/10 border-t-ui-accent rounded-full animate-spin"></div>
 
-        {/* Имя файла: адаптируется под фон темы */}
-        {fileName && (
-          <div className="mt-2 px-6 py-1 bg-ui-bg-hover text-ui-accent text-[10px] font-mono rounded-full border border-ui-border max-w-[80%] truncate shadow-sm">
-            {fileName}
+          {/* Основной заголовок: привязан к основному тексту и акценту */}
+          <div className="mt-6 text-sm font-black text-ui-text uppercase tracking-widest animate-pulse text-center">
+            {title}
           </div>
-        )}
 
-        {/* Подзаголовок: приглушенный текст */}
-        <div className="mt-4 text-[9px] text-ui-text-muted uppercase tracking-[0.3em] text-center px-10">
-          {subtitle}
+          {/* Имя файла: адаптируется под фон темы */}
+          {fileName && (
+            <div className="mt-2 px-6 py-1 bg-ui-bg-hover text-ui-accent text-[10px] font-mono rounded-full border border-ui-border max-w-[80%] truncate shadow-sm">
+              {fileName}
+            </div>
+          )}
+
+          {/* Подзаголовок: приглушенный текст */}
+          <div className="mt-4 text-[9px] text-ui-text-muted uppercase tracking-[0.3em] text-center px-10">
+            {subtitle}
+          </div>
         </div>
-      </div>
+      </>
     );
   },
 );

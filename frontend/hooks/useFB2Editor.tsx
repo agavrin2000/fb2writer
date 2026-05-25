@@ -1,25 +1,46 @@
 "use client";
 
-import {
-  useRef,
-  useMemo,
-  RefObject,
-  useCallback,
-  useLayoutEffect,
-} from "react";
+import { useRef, useMemo, RefObject, useCallback, useLayoutEffect } from "react";
 import { useEditor, Editor } from "@tiptap/react";
 import { Transaction } from "@tiptap/pm/state";
 import { EditorExtensions } from "@/components/editor/EditorExtensions";
-import { collectNodes } from "../utils/utils";
+import { collectNodes } from "@/utils/utils";
 import { useTOC } from "./useTOC";
-import { createEditorProps } from "../components/editor/createEditorProps";
-import {
-  TocItem,
-  ActiveNote,
-  FootnotesMap,
-  createInitialContent,
-} from "../types/types";
+import { createEditorProps } from "@/components/editor/createEditorProps";
+import { TocItem, ActiveNote, FootnotesMap, createInitialContent } from "@/types/types";
 
+/**
+ * Хук для инициализации и управления Tiptap-редактором с расширенными возможностями, специфичными для FB2.
+ *
+ * Объединяет в себе:
+ * - Инициализацию редактора с кастомными расширениями и обработчиками.
+ * - Поддержку динамического оглавления (TOC) с отслеживанием активного заголовка.
+ * - Обработку кликов по сноскам через переданные рефы.
+ * - Плавный скролл к заголовкам по клику из оглавления.
+ *
+ * @param footnotesRef - Реф, указывающий на объект с данными всех сносок (`Record<string, JSONContent>`).
+ *                       Используется для отображения контента сноски при клике.
+ * @param setActiveNoteRef - Реф, указывающий на функцию установки активной сноски.
+ *                           Вызывается с объектом `{ id, x, y }` или `null`.
+ *
+ * @returns Объект, содержащий:
+ * - `editor` — экземпляр Tiptap-редактора.
+ * - Методы управления оглавлением: `debouncedSetToc`, `updateActiveHeading`, `flatNodesRef`, `lastFlatNodes`.
+ * - `scrollToHeading` — функция для плавного скролла к указанному заголовку.
+ *
+ * @example
+ * ```tsx
+ * const footnotesRef = useRef<Record<string, JSONContent>>({});
+ * const setActiveNoteRef = useRef<(note: ActiveNote | null) => void>(() => {});
+ *
+ * const { editor, scrollToHeading } = useFB2Editor(footnotesRef, setActiveNoteRef);
+ * ```
+ *
+ * @remarks
+ * Хук использует `useLayoutEffect` для безопасного обновления мутабельной ссылки `updateActiveHeadingRef`,
+ * чтобы избежать лишних пересозданий колбэков редактора. Это позволяет поддерживать актуальную логику
+ * обновления активного заголовка без необходимости повторной инициализации редактора.
+ */
 export const useFB2Editor = (
   footnotesRef: RefObject<FootnotesMap>,
   setActiveNoteRef: RefObject<(note: ActiveNote | null) => void>,
@@ -32,6 +53,7 @@ export const useFB2Editor = (
   // Используем реф для функции обновления заголовка,
   // чтобы onUpdate/onSelectionUpdate всегда видели свежую версию без пересоздания опций редактора
   const updateActiveHeadingRef = useRef(updateActiveHeading);
+
   // 2. Обновляем его значение внутри эффекта (БЕЗОПАСНО)
   useLayoutEffect(() => {
     updateActiveHeadingRef.current = updateActiveHeading;
@@ -50,6 +72,9 @@ export const useFB2Editor = (
       content: createInitialContent().content,
       immediatelyRender: false,
       editorProps: editorProps,
+      enableInputRules: false,
+      enablePasteRules: false,
+
       // Обработка изменений контента
       onUpdate: ({
         editor,
@@ -58,11 +83,12 @@ export const useFB2Editor = (
         editor: Editor;
         transaction: Transaction;
       }) => {
-        // 2. Если документ изменился — пересобираем структуру (TOC)
+        // Если документ изменился — пересобираем структуру (TOC)
         if (transaction.docChanged) {
           const nodes = collectNodes(editor.state.doc);
           flatNodesRef.current = nodes;
-          // 2. Сравниваем текущую структуру с предыдущей (быстрая проверка)
+
+          // Сравниваем текущую структуру с предыдущей (быстрая проверка)
           const currentCheck = nodes
             .map((n) => `${n.level}:${n.text}`)
             .join("|");
@@ -75,12 +101,15 @@ export const useFB2Editor = (
             debouncedSetToc(nodes);
           }
         }
-      },      
+      },
+
       // Обработка перемещения курсора / выделения
       onSelectionUpdate: ({ editor }: { editor: Editor }) => {
         // Только обновляем подсветку текущей главы в Sidebar
         updateActiveHeadingRef.current(editor);
       },
+
+      // Вызывается при первоначальном создании редактора
       onCreate: ({ editor }: { editor: Editor }) => {
         // При создании редактора сразу обновляем подсветку текущей главы
         const nodes = collectNodes(editor.state.doc);
@@ -91,46 +120,20 @@ export const useFB2Editor = (
     },
     [],
   );
-  /* Старый вариант
-    const scrollToHeading = useCallback(
-      (item: TocItem) => {
-        if (!editor || !item.id) return;
-  
-        const { state, view } = editor;
-        const { doc } = state;
-  
-        // Пытаемся найти ближайшую валидную позицию для курсора
-        // Используем статический метод Selection.near
-        const resolvedPos = doc.resolve(item.pos);
-        const selection = Selection.near(resolvedPos);
-  
-        // Применяем выделение через транзакцию
-        view.dispatch(state.tr.setSelection(selection));
-  
-        // Фокусируем редактор
-        editor.commands.focus();
-  
-        let attempts = 0;
-        const maxAttempts = 15;
-  
-        const stabilize = () => {
-          const element = document.getElementById(item.id);
-          if (element) {
-            element.scrollIntoView({
-              behavior: attempts === 0 ? "smooth" : "auto",
-              block: "start",
-            });
-  
-            if (attempts < maxAttempts) {
-              attempts++;
-              setTimeout(stabilize, 100);
-            }
-          }
-        };
-  
-        requestAnimationFrame(stabilize);
-      }, [editor]);
-  */
+
+  /**
+   * Выполняет плавный скролл к указанному заголовку в редакторе.
+   *
+   * @param item - Объект заголовка из оглавления (тип {@link TocItem}), содержащий `id`, `pos`, `level`, `text`.
+   *               Поле `id` обязательно для навигации.
+   *
+   * @remarks
+   * Функция:
+   * 1. Устанавливает фокус в редактор и перемещает курсор на позицию заголовка.
+   * 2. Находит DOM-элемент по `id` и прокручивает к нему с поведением `smooth`.
+   * 3. Через 300мс выполняет дополнительную прокрутку с поведением `auto` для коррекции позиции,
+   *    если после основной анимации содержимое страницы изменилось (например, подгрузились изображения).
+   */
   const scrollToHeading = useCallback(
     (item: TocItem) => {
       if (!editor || !item.id) return;

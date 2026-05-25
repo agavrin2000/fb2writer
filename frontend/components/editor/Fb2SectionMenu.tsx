@@ -125,9 +125,7 @@ export const Fb2SectionMenu = ({ editor, onSelectImage }: Props) => {
 
       const target = event.target as HTMLElement;
       if (
-        !refs.floating.current.contains(target) &&
-        !target.closest(".section-handle")
-      ) {
+        !refs.floating.current.contains(target) ) {
         setIsOpen(false);
         isTyping.current = false;
       }

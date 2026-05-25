@@ -682,7 +682,7 @@ export const MetadataSidebar = memo(
                             "customInfo",
                             "customItems",
                             newItems,
-                            immediate ?? false
+                            immediate ?? true
                           )
                         }
                       />

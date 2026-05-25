@@ -1,8 +1,8 @@
 import { useCallback, useMemo, useState } from 'react';
-import { X, BookOpen, Command } from 'lucide-react';
+import { X, BookOpen, Command, LucideProps } from 'lucide-react';
 import { AppInfo } from '../../types/types';
 import { usePhotinoEvents } from '../../hooks/usePhotinoEvents';
-import { LucideProps } from 'lucide-react';
+import { Backdrop } from "@/components/ui/Backdrop"
 
 /**
  * SVG-иконка GitHub.
@@ -112,8 +112,14 @@ export const AboutModal = ({ isOpen, onClose }: AboutModalProps) => {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-      {/* Основной контейнер: используем переменные темы для фона и границ */}
+    <>
+        {/* Фоновая подложка (Backdrop) */}
+        <Backdrop disableCloseOnClick={true} />
+    
+      {/* Подложка */}
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center">
+      
+      {/* Основной контейнер модального окна */}
       <div className="bg-ui-bg text-ui-text w-[520px] rounded-2xl shadow-2xl border border-ui-border overflow-hidden animate-in zoom-in-95 duration-200 transition-colors">
         {/* Шапка модального окна */}
         <div className="bg-ui-bg-hover/30 px-6 py-4 border-b border-ui-border flex justify-between items-center">
@@ -200,6 +206,7 @@ export const AboutModal = ({ isOpen, onClose }: AboutModalProps) => {
         </div>
       </div>
     </div>
+    </>
   );
 };
 

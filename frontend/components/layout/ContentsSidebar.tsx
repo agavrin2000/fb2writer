@@ -1,9 +1,9 @@
 "use client";
 import React, { memo } from "react";
-import { ChevronRight, ChevronLeft } from "lucide-react";
-import { TocItem } from "../../types/types";
-import { useActiveHeading } from "../../hooks/useActiveHeading";
 import { Editor } from "@tiptap/react";
+import { ChevronRight, ChevronLeft } from "lucide-react";
+import { TocItem } from "@/types/types";
+import { useActiveHeading } from "@/hooks/useActiveHeading";
 
 export const ContentsSidebar = memo(
   ({

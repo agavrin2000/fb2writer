@@ -232,8 +232,7 @@ export const Toolbar: React.FC<ToolbarProps> = memo(
 
     // Для кастомных кнопок (которые всегда выглядят одинаково)
     const btnCustomClass = cn("toolbar-btn", "toolbar-btn-default");
-console.log("Nerge", canMergeCells);
-console.log("Split", canSplitCell);
+
     return (
       <div className="border-b shadow-sm sticky top-0 z-20 flex flex-col items-center">
         {/* ПЕРВЫЙ РЯД: Базовое форматирование и ссылки */}

@@ -143,7 +143,7 @@ public class MessageHub(PhotinoWindow window, FileService fileService, string? i
 
         if (string.IsNullOrEmpty(localPath))
         {
-            localPath = await ChooseFileAsync("Сохранить книгу", [("Книги FB2", ["fb2", "fb2.zip"]), ("Все файлы", ["*"])], "save");
+            localPath = await ChooseFileAsync("Сохранить книгу", [("Электронные книги FB2", ["fb2"]), ("Сжатые книги FB2 (ZIP)", ["fb2.zip"])], "save");
             if (string.IsNullOrEmpty(localPath))
             {
                 Emit("cancel-loading");
@@ -223,6 +223,7 @@ public class MessageHub(PhotinoWindow window, FileService fileService, string? i
     /// </summary>
     /// <param name="title">Заголовок окна диалога выбора файла.</param>
     /// <param name="filters">Массив кортежей, определяющих фильтры файлов (например, "Изображения", ["jpg", "png"]).</param>
+    /// <param name="dialogType">Тип диалога: "open" или "save"</param>
     /// <returns>Полный путь к выбранному файлу или <see langword="null"/>, если выбор отменён.</returns>
     private async Task<string?> ChooseFileAsync(string title, (string Name, string[] Extensions)[] filters, string dialogType)
     {
@@ -238,29 +239,42 @@ public class MessageHub(PhotinoWindow window, FileService fileService, string? i
 
             if (!string.IsNullOrEmpty(localPath))
             {
-                // Собираем все допустимые расширения из фильтров для проверки
-                // Приводим к виду ".ext"
-                var allAllowed = filters
+                // Подготавливаем список разрешенных расширений (сортируем по длине: .fb2.zip -> .zip)
+                var validExtensions = filters
                     .SelectMany(f => f.Extensions)
-                    .Select(e => "." + e.TrimStart('.'))
+                    .Select(ext => ext.StartsWith('.') ? ext : "." + ext)
+                    .OrderByDescending(ext => ext.Length)
                     .ToList();
 
-                if (allAllowed.Any())
-                {
-                    // Проверяем, ввел ли пользователь одно из допустимых расширений сам
-                    bool alreadyHasValidExt = allAllowed.Any(ext =>
-                        localPath.EndsWith(ext, StringComparison.OrdinalIgnoreCase));
+                // 2. Проверяем, совпадает ли финал пути с каким-то из разрешенных расширений
+                string? matchedExtension = validExtensions
+                    .FirstOrDefault(ext => localPath.EndsWith(ext, StringComparison.OrdinalIgnoreCase));
 
-                    if (!alreadyHasValidExt)
+                // Расширение чужое (не из списка) или отсутствует
+                if (matchedExtension == null)
+                {
+                    // Вместо опасного цикла проверяем, заканчивается ли файл на ЛЮБОЕ расширение (.txt, .mp3 и т.д.)
+                    string currentExt = Path.GetExtension(localPath);
+
+                    // Если расширение есть и оно не пустое (избегаем багов с точкой на конце "file.")
+                    if (!string.IsNullOrWhiteSpace(currentExt) && currentExt.Length > 1)
                     {
-                        // Если нет — добавляем самое первое (основное) из списка
-                        var primaryExt = allAllowed.First();
-                        localPath += primaryExt;
+                        // Отрезаем ровно текущее чужое расширение, сохраняя точки в середине имени файла
+                        localPath = localPath[..^currentExt.Length];
+                    }
+
+                    // Убираем случайную точку на конце, если пользователь ее оставил (например, "book.")
+                    localPath = localPath.TrimEnd('.');
+
+                    // Дописываем дефолтное расширение из фильтра
+                    if (validExtensions.Count > 0)
+                    {
+                        localPath += validExtensions[0];
                     }
                 }
             }
         }
-        else
+        else // Диалог типа "open"
         {
             string[] result = await window.ShowOpenFileAsync(
                 title: title,
@@ -271,34 +285,20 @@ public class MessageHub(PhotinoWindow window, FileService fileService, string? i
             localPath = result?.FirstOrDefault();
         }
 
-        if (string.IsNullOrEmpty(localPath)) return null;
-
-        // Сохраняем путь к директории для следующего вызова
-        try
+        // Сохранение пути для обоих типов диалогов
+        if (!string.IsNullOrEmpty(localPath))
         {
-            _lastUsedPath = Path.GetDirectoryName(localPath);
-        }
-        catch
-        {
-            // На случай специфических путей ОС
+            try
+            {
+                _lastUsedPath = Path.GetDirectoryName(localPath);
+            }
+            catch
+            {
+                // Защита на случай некорректных путей ОС
+            }
         }
 
         return localPath;
-    }
-
-    private async Task<string?> ChooseSaveFileAsync(string title, string defaultFileName, (string Name, string[] Extensions)[] filters)
-    {
-        // Важно: проверяем наличие метода ShowSaveFileAsync в вашей версии SDK
-        string result = await window.ShowSaveFileAsync(
-            title: title,
-            defaultPath: Path.Combine(_lastUsedPath ?? "", defaultFileName),
-            filters: filters
-        );
-
-        if (string.IsNullOrEmpty(result)) return null;
-
-        _lastUsedPath = Path.GetDirectoryName(result);
-        return result;
     }
 
     /// <summary>

@@ -57,6 +57,8 @@ const CustomDocument = Document.extend({
  *
  * const editor = new Editor({ extensions: EditorExtensions });
  */
+
+
 export const EditorExtensions = [
   StarterKit.configure({
     gapcursor: false,
@@ -99,6 +101,9 @@ export const EditorExtensions = [
   }).configure({
     // Добавляем настройки здесь
     openOnClick: false,
+    linkOnPaste: false,
+      // Отключаем автоматическое превращение текста в ссылки при вставке и вводе
+    shouldAutoLink: () => false, 
     HTMLAttributes: {
       rel: "noopener noreferrer",
     },

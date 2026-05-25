@@ -308,7 +308,7 @@ section.fb2-section {
 /* Базовое состояние (невидимое) */
 .fb2-epigraph {
   @extend .fb2-labeled-node;
-  @apply ml-auto mb-6 max-w-[60%] border-l-2 pl-4 py-1 transition-all;
+  @apply ml-auto mb-6 max-w-[60%] border-l-2 border-r-2 pl-4 pr-4 py-1 transition-all;
   border-color: #e0e7ff !important;
   --label-offset: -2rem;
   /* indigo-100 */

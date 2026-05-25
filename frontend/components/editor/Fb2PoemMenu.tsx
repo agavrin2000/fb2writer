@@ -17,12 +17,39 @@ import {
     Signature,
     Anchor
 } from "lucide-react";
-import { Fb2ActionIcon } from '../ui/Fb2ActionIcon'
+import { Fb2ActionIcon } from '../ui/Fb2ActionIcon';
 
+/**
+ * Свойства компонента всплывающего меню для управления элементами поэмы в редакторе.
+ */
 interface Props {
+    /**
+     * Экземпляр редактора Tiptap.
+     * Если `null`, меню не будет отображаться.
+     */
     editor: Editor | null;
 }
 
+/**
+ * Всплывающее меню для управления структурой поэмы (fb2Poem) в текстовом редакторе.
+ *
+ * Меню появляется рядом с выделенной поэтической секцией и предоставляет пользователю интерфейс для:
+ * - Установки или изменения уникального идентификатора (`elementId`) поэмы.
+ * - Добавления и удаления заголовка поэмы.
+ * - Добавления эпиграфа и подписи автора.
+ * - Добавления или удаления даты написания.
+ * - Полного удаления поэмы.
+ *
+ * Позиционирование меню осуществляется с помощью библиотеки `@floating-ui/react` относительно специального маркера `.poem-handle`.
+ *
+ * @param editor - Экземпляр редактора Tiptap.
+ * @returns Компонент всплывающего меню или `null`, если меню скрыто или редактор не передан.
+ *
+ * @example
+ * ```tsx
+ * <Fb2PoemMenu editor={editor} />
+ * ```
+ */
 export const Fb2PoemMenu = ({ editor }: Props) => {
     const [isOpen, setIsOpen] = useState(false);
     const isTyping = useRef(false);
@@ -33,6 +60,7 @@ export const Fb2PoemMenu = ({ editor }: Props) => {
         middleware: [offset({ mainAxis: 10, crossAxis: 0 }), flip(), shift()],
         whileElementsMounted: autoUpdate,
     });
+
     const selection = editor?.state.selection;
     const isSection =
         selection instanceof NodeSelection &&
@@ -43,7 +71,10 @@ export const Fb2PoemMenu = ({ editor }: Props) => {
 
     const [localId, setLocalId] = useState(currentElementId);
 
-    // Синхронизация локального ID с состоянием редактора
+    /**
+     * Синхронизирует локальное состояние `localId` с атрибутом `elementId` текущего узла `fb2Section`.
+     * Обновление происходит только если пользователь в данный момент не редактирует поле.
+     */
     useEffect(() => {
         if (!isTyping.current && localId !== currentElementId) {
             queueMicrotask(() => {
@@ -52,6 +83,13 @@ export const Fb2PoemMenu = ({ editor }: Props) => {
         }
     }, [currentElementId, localId]);
 
+    /**
+     * Обрабатывает события редактора и внешние события для управления видимостью и позицией меню.
+     * - Отслеживает изменение выделения: показывает меню при выборе `fb2Poem`, скрывает — при потере фокуса.
+     * - Привязывает позицию меню к DOM-элементу с классом `.poem-handle`.
+     * - Закрывает меню при клике вне его области.
+     * - Обновляет позицию при прокрутке страницы.
+     */
     useEffect(() => {
         if (!editor) return;
 
@@ -76,7 +114,7 @@ export const Fb2PoemMenu = ({ editor }: Props) => {
         const handleClickOutside = (event: MouseEvent) => {
             if (!isOpen) return;
             const target = event.target as HTMLElement;
-            if (!refs.floating.current?.contains(target) && !target.closest('.poem-handle')) {
+            if (!refs.floating.current?.contains(target)) {
                 editor.commands.focus();
                 setIsOpen(false);
             }
@@ -95,7 +133,7 @@ export const Fb2PoemMenu = ({ editor }: Props) => {
 
     if (!isOpen || !editor) return null;
 
-    // Проверяем наличие элементов внутри выделенной секции
+    // Проверяем возможность удаления вложенных элементов
     const canRemoveTitle = editor.can().removeFb2Title();
     const canRemoveDate = editor.can().removeFb2Date();
 
@@ -141,11 +179,10 @@ export const Fb2PoemMenu = ({ editor }: Props) => {
                             e.stopPropagation();
                         }}
                         onMouseDown={(e) => e.stopPropagation()}
-                        placeholder="ID секции..."
+                        placeholder="ID поэмы..."
                         className="absolute left-full ml-2 top-0 bg-[var(--color-paper-bg)] border border-[var(--color-ui-border)] text-[var(--color-ui-text)] rounded-md shadow-[var(--shadow-dropdown)] p-1 text-[10px] w-24 outline-none focus:border-[var(--color-ui-accent)]"
                     />
                 </div>
-
 
                 {/* Удаление поэмы */}
                 <div className="flex flex-col border-b pb-1 mb-1 gap-1">

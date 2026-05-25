@@ -53,6 +53,7 @@ interface SectionProps {
  *   <input type="text" placeholder="Имя автора" />
  * </Section>
  */
+
 export const Section = ({
   title,
   icon: Icon,
@@ -61,39 +62,41 @@ export const Section = ({
   defaultOpen = true
 }: SectionProps) => {
   const [isOpen, setIsOpen] = React.useState(defaultOpen);
-  // Генерируем уникальный ID для связи кнопки и контента
   const contentId = React.useId();
 
   return (
-    <div className={`border border-[var(--color-ui-border)] rounded-lg bg-[var(--color-paper-bg)] shadow-[var(--shadow-dropdown)] ${className}`}>
+    <div className={`border border-ui-border rounded-lg bg-paper-bg shadow-dropdown overflow-hidden flex flex-col ${className}`}>
       <button
         type="button"
         aria-controls={contentId}
         aria-expanded={isOpen}
         onClick={() => setIsOpen(!isOpen)}
-        /* Шапка секции */
-        className={`w-full flex items-center justify-between p-3 bg-[var(--color-ui-bg)] hover:bg-[var(--color-ui-bg-hover)] transition-colors rounded-t-lg ${!isOpen ? 'rounded-b-lg' : ''}`}
+        /* Шапка секции: убрали rounded-b-lg, добавили focus-visible и cursor-pointer */
+        className="w-full flex items-center justify-between p-3 bg-ui-bg hover:bg-ui-bg-hover cursor-pointer transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ui-accent/50 focus-visible:z-10"
       >
         <div className="flex items-center gap-2">
-          {Icon && <Icon size={14} className="text-[var(--color-ui-accent)]" />}
-          <h3 className="text-[11px] font-bold text-[var(--color-ui-text)] uppercase tracking-wider">
+          {Icon && <Icon size={14} className="text-ui-accent" />}
+          <h3 className="text-[11px] font-bold text-ui-text uppercase tracking-wider font-sans">
             {title}
           </h3>
         </div>
         <ChevronDown
           size={14}
-          className={`text-[var(--color-ui-text-muted)] transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
+          className={`text-ui-text-muted transition-transform duration-200 ease-out ${isOpen ? 'rotate-180' : ''}`}
         />
       </button>
 
+      {/* Контейнер анимации: разделили transition на отдельные свойства для идеальной плавности */}
       <div
         id={contentId}
         role="region"
-        className={`grid transition-all duration-300 ease-in-out ${isOpen ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`
-        }
+        className={`grid transition-[grid-template-rows,opacity] duration-300 ease-in-out ${
+          isOpen ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'
+        }`}
       >
         <div className="overflow-hidden">
-          <div className="p-3 border-t border-[var(--color-ui-border)]/50">
+          {/* Подложка контента с прозрачной рамкой Tailwind v4 */}
+          <div className="p-3 border-t border-ui-border/50 bg-paper-bg text-paper-text">
             {children}
           </div>
         </div>

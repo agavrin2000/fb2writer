@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, RefObject, Dispatch, SetStateAction } from "react";
 import { Editor } from "@tiptap/react";
-import { ActiveNote, FootnotesMap } from "../types/types";
+import { ActiveNote, FootnotesMap } from "@/types/types";
 import { useToast } from "./ToastContext";
 import { JSONContent } from "@tiptap/core";
 

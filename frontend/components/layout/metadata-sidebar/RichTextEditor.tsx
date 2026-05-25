@@ -9,12 +9,48 @@ import { EditorToolbarButton } from "@/components/ui/EditorToolbarButton"
 import { TableDropdown } from "@/components/layout/TableDropdown";
 import { Fb2Table, Fb2TableRow, Fb2Td, Fb2Th } from "@/components/editor/extensions/fb2table";
 import { Fb2ActionIcon } from "@/components/ui/Fb2ActionIcon";
-
+/**
+ * Интерфейс свойств компонента RichTextEditor.
+ */
 interface RichTextProps {
-    content: JSONContent | null; // TipTap JSON
+    /**
+     * Начальное содержимое редактора в формате JSON Tiptap.
+     * Если `null`, редактор инициализируется пустым документом.
+     */
+    content: JSONContent | null;
+
+    /**
+     * Обработчик изменения содержимого.
+     * Вызывается при каждом изменении в редакторе с передачей текущего состояния в формате JSON.
+     *
+     * @param json - Текущее содержимое редактора в формате JSON Tiptap.
+     */
     onChange: (json: JSONContent) => void;
 }
 
+/**
+ * Компонент текстового редактора с поддержкой форматирования для использования во всплывающих окнах метаданных.
+ *
+ * Предоставляет интерфейс для:
+ * - Редактирования текста с базовым форматированием (жирный, курсив, зачеркнутый, верхний/нижний индекс, цитата).
+ * - Вставки и управления таблицами (добавление/удаление строк, столбцов, объединение ячеек и т.д.).
+ * - Добавления специального элемента "подзаголовок" (fb2Subtitle).
+ *
+ * Использует библиотеку Tiptap с расширениями StarterKit, Superscript, Subscript и кастомными расширениями FB2.
+ * Содержимое автоматически синхронизируется через колбэк `onChange`.
+ *
+ * @param content - Начальное содержимое редактора.
+ * @param onChange - Функция обратного вызова для обновления родительского компонента.
+ * @returns React-компонент редактора или `null`, если редактор не инициализирован.
+ *
+ * @example
+ * ```tsx
+ * <RichTextEditor
+ *   content={initialContent}
+ *   onChange={(json) => handleContentChange(json)}
+ * />
+ * ```
+ */
 export const RichTextEditor = ({ content, onChange }: RichTextProps) => {
     const [, setUpdateTick] = useState(0);
     const forceUpdate = useCallback(() => setUpdateTick(tick => tick + 1), []);
@@ -31,18 +67,28 @@ export const RichTextEditor = ({ content, onChange }: RichTextProps) => {
             Fb2Td,
             Fb2Th,
         ],
-        content: content ?? { type: 'doc', content: [] },
+        enableInputRules: false,
+        enablePasteRules: false,
+
+        content: content,
         immediatelyRender: false,
 
         onUpdate: ({ editor }) => onChange(editor.getJSON()),
         editorProps: {
             attributes: {
                 // Добавляем стили для blockquote через Tailwind классы
-                class: 'note-popup-editor prose-sm focus:outline-none min-h-[120px] p-3 text-[13px] bg-white text-gray-700 [&_blockquote]:border-l-4 [&_blockquote]:border-gray-200 [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:my-2',
+                class: 'note-popup-editor prose-sm focus:outline-none min-h-[120px] p-3 text-[13px] bg-ui-bg text-ui-text [&_blockquote]:border-l-4 [&_blockquote]:border-gray-200 [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:my-2',
             },
         },
         onSelectionUpdate: forceUpdate
     });
+
+    /**
+     * Обрабатывает выбор действия в выпадающем меню таблицы.
+     * Выполняет соответствующую команду редактора в зависимости от типа выбранного действия.
+     *
+     * @param type - Тип действия (например, "addTable", "removeColumn", "alignCenter" и т.д.).
+     */
     const handleTableSelect = (type: string) => {
         if (!editor) return;
 
@@ -93,9 +139,13 @@ export const RichTextEditor = ({ content, onChange }: RichTextProps) => {
         }
     };
 
+    /**
+         * Синхронизирует содержимое редактора с внешним пропсом `content` при его изменении.
+         * Используется для принудительного обновления редактора, когда данные приходят извне.
+         */
     useEffect(() => {
         if (editor) {
-            editor.commands.setContent(content ?? { type: 'doc', content: [] });
+            editor.commands.setContent(content);
         }
     }, [content, editor]);
 
@@ -103,7 +153,7 @@ export const RichTextEditor = ({ content, onChange }: RichTextProps) => {
 
     return (
         <div className="mb-4">
-            <div className="border border-[var(--color-ui-border)] rounded-lg bg-[var(--color-ui-bg)] overflow-hidden focus-within:border-[var(--color-ui-accent)] focus-within:ring-1 focus-within:ring-[var(--color-ui-accent)]/20 transition-all">
+            <div className="border border-ui-border rounded-lg bg-ui-bg overflow-hidden focus-within:border-[var(--color-ui-accent)] focus-within:ring-1 focus-within:ring-[var(--color-ui-accent)]/20 transition-all">
                 {/* Панель инструментов */}
                 <div className="flex items-center gap-1 py-1 bg-[var(--color-paper-bg)] border-b border-[var(--color-ui-border)]/50">
                     <EditorToolbarButton
@@ -143,7 +193,7 @@ export const RichTextEditor = ({ content, onChange }: RichTextProps) => {
                         icon={<Quote size={14} />}
                     />
                 </div>
-                <div className="flex items-center gap-1 p-1 bg-[var(--color-paper-bg)] border-b border-[var(--color-ui-border)]/50">
+                <div className="flex items-center gap-1 p-1 bg-paper-bg border-b border-ui-border/50">
                     <TableDropdown
                         onSelect={handleTableSelect}
                         canAddTable={editor.state.selection.$from.parent.type?.name == "paragraph" && editor.can().insertTable()}
@@ -171,7 +221,7 @@ export const RichTextEditor = ({ content, onChange }: RichTextProps) => {
                 </div>
 
                 {/* Область редактирования (Tiptap) */}
-                <div className="text-[var(--color-paper-text)]">
+                <div className="text-paper-text">
                     <EditorContent editor={editor} />
                 </div>
             </div>
