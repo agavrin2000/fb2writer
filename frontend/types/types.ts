@@ -126,6 +126,12 @@ export interface Fb2ImageData {
   display: ImageDisplayType;
 }
 
+export interface DictionaryPayload {
+    lang: string;
+    aff: string;
+    dic: string;
+  }
+
 // Шаблон для новой книги
 export const createInitialContent = () => ({
   metadata: {

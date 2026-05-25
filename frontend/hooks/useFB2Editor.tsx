@@ -1,13 +1,14 @@
 "use client";
 
-import { useRef, useMemo, RefObject, useCallback, useLayoutEffect } from "react";
+import { useRef, useMemo, RefObject, useCallback, useLayoutEffect, useEffect } from "react";
 import { useEditor, Editor } from "@tiptap/react";
 import { Transaction } from "@tiptap/pm/state";
-import { EditorExtensions } from "@/components/editor/EditorExtensions";
+import { getEditorExtensions } from "@/components/editor/EditorExtensions";
 import { collectNodes } from "@/utils/utils";
 import { useTOC } from "./useTOC";
 import { createEditorProps } from "@/components/editor/createEditorProps";
 import { TocItem, ActiveNote, FootnotesMap, createInitialContent } from "@/types/types";
+import type { NSpell } from 'nspell';   // Импортируем тип для useState
 
 /**
  * Хук для инициализации и управления Tiptap-редактором с расширенными возможностями, специфичными для FB2.
@@ -44,6 +45,8 @@ import { TocItem, ActiveNote, FootnotesMap, createInitialContent } from "@/types
 export const useFB2Editor = (
   footnotesRef: RefObject<FootnotesMap>,
   setActiveNoteRef: RefObject<(note: ActiveNote | null) => void>,
+  spellInstance: NSpell | null, 
+  userExceptions: Set<string>
 ) => {
   // 1. Логика оглавления (TOC)
   const { ...tocMethods } = useTOC();
@@ -65,10 +68,18 @@ export const useFB2Editor = (
     [footnotesRef, setActiveNoteRef],
   );
 
+  const extensions = useMemo(() =>
+    getEditorExtensions({
+      spellchecker: spellInstance, // ваш стейт экземпляра nspell
+      exceptions: userExceptions   // ваш стейт Set<string> исключений
+    }),
+    [spellInstance, userExceptions] // пересобираем массив при обновлении словарей
+  );
+
   // 4. Инициализация Tiptap
   const editor = useEditor(
     {
-      extensions: EditorExtensions,
+      extensions: extensions,
       content: createInitialContent().content,
       immediatelyRender: false,
       editorProps: editorProps,
@@ -118,8 +129,24 @@ export const useFB2Editor = (
         updateActiveHeadingRef.current(editor);
       },
     },
-    [],
+    [spellInstance, userExceptions],
   );
+
+useEffect(() => {
+  if (editor && !editor.isDestroyed && spellInstance) {
+    // 🔥 Исправленный синтаксис обновления опций расширения:
+    // Мы явно указываем имя расширения через свойство .name
+    editor.extensionManager.extensions.forEach((extension) => {
+      if (extension.name === 'customSpellcheck') {
+        extension.options.spellchecker = spellInstance;
+        extension.options.exceptions = userExceptions;
+      }
+    });
+    
+    // Заставляем ProseMirror полностью пересчитать декорации (подсветку) в документе
+    editor.view.dispatch(editor.state.tr);
+  }
+}, [spellInstance, userExceptions, editor]);
 
   /**
    * Выполняет плавный скролл к указанному заголовку в редакторе.

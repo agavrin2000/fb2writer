@@ -16,7 +16,9 @@ import {
   FootnotesMap,
   ImageDisplayType,
   ActiveNote,
+  DictionaryPayload,
 } from "../types/types";
+import nspell, { NSpell } from "nspell";
 
 interface EditorActions {
   save: () => Promise<void> | void;
@@ -41,6 +43,8 @@ interface EditorManager {
   tocTree: TocItem[];
   actions: EditorActions;
   scrollToHeading: (item: TocItem) => void;
+  spellInstance: NSpell | null;
+  addException: (word: string) => void;
 }
 
 /**
@@ -49,10 +53,13 @@ interface EditorManager {
  *
  * @returns {Object} Объект с состоянием редактора, метаданными, флагами загрузки и действиями.
  */
+
+
 export function useEditorManager(): EditorManager {
   const confirm = useConfirm();
   const { success: showToastSuccess, error: showToastError } = useToast();
-
+  const [spellInstance, setSpellInstance] = useState<NSpell | null>(null);
+  const [userExceptions, setUserExceptions] = useState<Set<string>>(new Set());
   // --- РЕФЫ И СОСТОЯНИЕ ---
   /**
    * Ссылка на текущий объект сносков.
@@ -97,7 +104,11 @@ export function useEditorManager(): EditorManager {
   } | null>(null);
 
   // 1. Сначала инициализируем Редактор
-  const fb2 = useFB2Editor(footnotesRef, setActiveNoteRef);
+  const fb2 = useFB2Editor(footnotesRef, setActiveNoteRef,
+    spellInstance || null,
+    userExceptions || new Set(),
+  );
+
   /**
    * Проверяет, были ли изменения в содержимом редактора.
    * Основано на возможности отмены действий в Tiptap.
@@ -375,6 +386,36 @@ export function useEditorManager(): EditorManager {
     exitApp();
   }, [exitApp]);
 
+  // Обработка загрузки словаря
+  const onDictionary = useCallback(
+    (payload: object | string | null) => {
+      if (!payload || typeof payload !== "string") return;
+try {
+      let data: DictionaryPayload;
+
+      // Если Photino передал уже распарсенный объект
+      if (typeof payload === "object") {
+        data = payload as unknown as DictionaryPayload;
+      } else {
+        // Если payload пришел в виде сырой JSON-строки
+        data = JSON.parse(payload) as DictionaryPayload;
+      }
+
+      if (data.aff && data.dic) {
+        // Создаем экземпляр nspell из полученных строк
+        const spell = nspell({
+          aff: data.aff,
+          dic: data.dic
+        });
+
+        setSpellInstance(spell);
+        console.log("Hunspell успешно инициализирован через Photino Event!");
+      }
+    } catch (err) {
+      console.error("Ошибка парсинга словарей от бэкенда:", err);
+    }
+  }, []); // Зависимостей нет, так как setSpellInstance стабилен
+  
   /**
    * Объект с обработчиками событий, получаемых от Photino.
    * Каждый ключ соответствует имени события, значение — функция-обработчик.
@@ -389,6 +430,7 @@ export function useEditorManager(): EditorManager {
       "start-exporting": onStartExporting,
       "save-success": onSaveSuccess,
       "show-exit-confirmation": onShowExitConfirmation,
+      "dict": onDictionary,
       error: onError,
     }),
     [
@@ -400,6 +442,7 @@ export function useEditorManager(): EditorManager {
       onSaveSuccess,
       onStartExporting,
       onShowExitConfirmation,
+      onDictionary,
       onError,
     ],
   );
@@ -578,7 +621,7 @@ export function useEditorManager(): EditorManager {
       .chain()
       .extendMarkRange("link") // Чтобы не плодить вложенные ссылки
       .setLink({
-        href: "#", 
+        href: "#",
         target: null,
         rel: "noopener noreferrer",
       })
@@ -598,6 +641,23 @@ export function useEditorManager(): EditorManager {
 
     onFb2Content(createInitialContent());
   }, [onFb2Content, ensureSafeToProceed]);
+
+  // Экшн для добавления слова в исключения (для контекстного меню)
+  const addException = useCallback((word: string) => {
+    const trimmed = word.trim();
+    if (!trimmed) return;
+
+    setUserExceptions((prev) => {
+      const next = new Set(prev);
+      next.add(trimmed);
+      return next;
+    });
+
+    // Отправляем сигнал в C# Photino для записи в файл exceptions.txt
+    photino.send("add-exception", trimmed);
+  }, []);
+
+
 
   // --- ИТОГОВЫЙ ОБЪЕКТ ---
   return {
@@ -621,5 +681,7 @@ export function useEditorManager(): EditorManager {
       redo: () => fb2.editor?.chain().redo().run(),
     },
     scrollToHeading: fb2.scrollToHeading,
+    spellInstance,
+    addException,
   };
 }

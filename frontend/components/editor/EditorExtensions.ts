@@ -30,6 +30,7 @@ import { Fb2Paragraph } from "./extensions/fb2paragraph";
 import { Fb2Table, Fb2TableRow, Fb2Td, Fb2Th } from "./extensions/fb2table";
 import { MetadataExtension } from "./extensions/MetadataExtension";
 import { createInitialContent } from "../../types/types";
+import { CustomSpellcheck, SpellcheckOptions } from './extensions/CustomSpellcheck';
 /**
  * Кастомное расширение документа, переопределяющее корневой узел.
  * Ограничивает содержимое документа одним разрешённым блоком — `fb2BodySection`.
@@ -39,6 +40,13 @@ const CustomDocument = Document.extend({
   // Запрещаем любые блоки, кроме  основной секции
   content: "fb2BodySection",
 });
+
+
+// Описываем интерфейс аргументов для настройки редактора
+interface EditorExtensionsOptions {
+  spellchecker: SpellcheckOptions['spellchecker'];
+  exceptions: SpellcheckOptions['exceptions'];
+}
 
 /**
  * Массив расширений, используемых в редакторе.
@@ -59,7 +67,7 @@ const CustomDocument = Document.extend({
  */
 
 
-export const EditorExtensions = [
+export const getEditorExtensions = ({ spellchecker, exceptions }: EditorExtensionsOptions) => [
   StarterKit.configure({
     gapcursor: false,
     link: false,
@@ -108,6 +116,10 @@ export const EditorExtensions = [
       rel: "noopener noreferrer",
     },
     validate: (href) => /^https?:\/\/|^#/.test(href),
+  }),
+    CustomSpellcheck.configure({
+    spellchecker,
+    exceptions,
   }),
   Fb2Paragraph,
   Fb2InlineImage,

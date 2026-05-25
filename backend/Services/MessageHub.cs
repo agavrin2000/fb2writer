@@ -98,6 +98,25 @@ public class MessageHub(PhotinoWindow window, FileService fileService, string? i
         var appDetails = new AppDetails(AppInfo.FriendlyName, AppInfo.Version);
         Emit("app-info", appDetails);
 
+        // Передаем словари
+            string affPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Dictionaries", "ru", "ru_RU.aff");
+            string dicPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Dictionaries", "ru", "ru_RU.dic");
+
+            if (File.Exists(affPath) && File.Exists(dicPath))
+            {
+                // Читаем текст файлов
+                string affContent = File.ReadAllText(affPath);
+                string dicContent = File.ReadAllText(dicPath);
+                var dictionary = new DictionaryDetails("ru", affContent, dicContent);
+                Emit("dict", dictionary);
+            }
+            else
+            {
+                Console.WriteLine("Критическая ошибка: Файлы словарей не найдены на диске!");
+            }
+
+
+
         // 2. Открытие переданного файла
         if (!string.IsNullOrEmpty(initialFile))
         {

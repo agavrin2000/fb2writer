@@ -12,6 +12,7 @@ export type PhotinoEvent =
   | { type: "error"; payload: string | object }
   | { type: "fb2-content"; payload: string | object }
   | { type: "save-success"; payload: string | object }
+  | { type: "dic"; payload: string | object }
   | { type: "show-exit-confirmation"; payload: string | object };
 
 // Вспомогательный тип для извлечения только имен событий
