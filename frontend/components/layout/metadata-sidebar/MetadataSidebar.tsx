@@ -82,34 +82,18 @@ export const MetadataSidebar = memo(
     const handleMetaUpdate = useCallback((
       section: keyof Fb2Metadata,
       field: string,
-      newValue: JSONContent | string | number | boolean | null | undefined | unknown[],
-      immediate = false
+      newValue: JSONContent | string | number | boolean | null | unknown[],
+      immediate = false // по умолчанию используем дебаунс
     ) => {
       if (!meta) return;
 
-      const currentSection = meta[section];
-
-      // 2. Создаем копию секции, используя Record с типом ключей string и типом значений, 
-      // который включает в себя все возможные варианты из newValue и текущих значений секции
-      const updatedSection: Record<string, typeof newValue> = {
-        ...currentSection
-      } as Record<string, typeof newValue>;
-
-      // 2. Если значение null или undefined — полностью удаляем ключ из структуры
-      if (newValue === null || newValue === undefined) {
-        delete updatedSection[field];
-      } else {
-        updatedSection[field] = newValue;
-      }
-
-      // 3. Формируем финальный объект метаданных
       const next = {
         ...meta,
-        [section]: updatedSection,
+        [section]: { ...meta[section], [field]: newValue },
       } as Fb2Metadata;
 
       if (immediate) {
-        debouncedUpdate.cancel();
+        debouncedUpdate.cancel(); // Отменяем запланированные хвосты, если шлем мгновенно
         editor?.chain().updateMetadata(next).setMeta("metadataUpdated", true).run();
       } else {
         debouncedUpdate(next);

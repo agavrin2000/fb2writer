@@ -15,7 +15,7 @@ import { LinkBubbleMenu } from "@/components/editor/LinkBubbleMenu";
 import { Fb2SectionMenu } from "@/components/editor/Fb2SectionMenu";
 import { Fb2PoemMenu } from "@/components/editor/Fb2PoemMenu";
 import { getFileName } from "@/utils/utils";
-import { SpellcheckContextMenu } from "@/components/editor/SpellcheckContextMenu";
+
 /**
  * Основной компонент страницы редактора FB2.
  * Собирает все части интерфейса: шапку, боковые панели, редактор, статус-бар и всплывающие меню.
@@ -33,19 +33,6 @@ import { SpellcheckContextMenu } from "@/components/editor/SpellcheckContextMenu
  * - Показывает {@link NotePopup} при редактировании сносок.
  */
 export default function Page() {
- // -------------------------------------------------------------
-  // 🟢 ИНФРАСТРУКТУРА ОРФОГРАФИИ ДЛЯ ОЦИФРОВЩИКОВ
-  // -------------------------------------------------------------
-  // Стейт для координат и данных контекстного меню орфографии
-  const [spellMenuState, setSpellMenuState] = useState<{
-    x: number;
-    y: number;
-    word: string;
-    suggestions: string[];
-  } | null>(null);
-
-  // Передаем словари и исключения в ваш кастомный менеджер редактора,
-  // чтобы функция getEditorExtensions() внутри хука могла их использовать
   const {
     editor,
     notes,
@@ -56,70 +43,7 @@ export default function Page() {
     tocTree,
     actions,
     scrollToHeading,
-    spellInstance,
-    addException,
-  } = useEditorManager(); // Передаем конфигурацию в хук
-
-  // 🔥 Перехватчик правого клика на холсте редактора
-  const handleContextMenu = useCallback((e: React.MouseEvent) => {
-    const target = e.target as HTMLElement;
-    const errorSpan = target.closest(".spellcheck-error") as HTMLElement | null;
-
-    // Если клик не по ошибке орфографии, закрываем кастомное меню 
-    // и позволяем браузеру открыть дефолтное меню ОС
-    if (!errorSpan || !spellInstance || !editor) {
-      setSpellMenuState(null);
-      return;
-    }
-
-    // Блокируем нативное системное меню WebView2 для ошибочных слов
-    e.preventDefault();
-
-    const word = errorSpan.getAttribute("data-word") || errorSpan.innerText;
-    const suggestions = spellInstance.suggest(word);
-
-    setSpellMenuState({
-      x: e.clientX,
-      y: e.clientY,
-      word,
-      suggestions,
-    });
-  }, [spellInstance, editor]);
-
-  // Замена слова в ProseMirror-документе по координатам клика
-  const handleReplaceWord = useCallback((replacement: string) => {
-    if (!spellMenuState || !editor) return;
-    const { x, y } = spellMenuState;
-
-    editor.commands.focus();
-    const pos = editor.view.posAtCoords({ left: x, top: y });
-    
-    if (pos) {
-      const $pos = editor.state.doc.resolve(pos.inside >= 0 ? pos.inside : pos.pos);
-      const text = $pos.parent.textContent;
-      const indexInText = $pos.parentOffset;
-      const wordRegex = /\p{L}+/gu;
-      let match;
-      let startPos = -1;
-      let endPos = -1;
-
-      while ((match = wordRegex.exec(text)) !== null) {
-        const start = match.index;
-        const end = start + match.length;
-        if (indexInText >= start && indexInText <= end) {
-          startPos = $pos.start() + start;
-          endPos = $pos.start() + end;
-          break;
-        }
-      }
-
-      if (startPos !== -1 && endPos !== -1) {
-        editor.chain().insertContentAt({ from: startPos, to: endPos }, replacement).run();
-      }
-    }
-    setSpellMenuState(null);
-  }, [spellMenuState, editor]);
-
+  } = useEditorManager();
 
   // Извлекаем имя файла из полного пути
   const displayFileName = useMemo(
@@ -199,7 +123,7 @@ export default function Page() {
             onAddFootnote={notes.addFootnote}
             onAddLink={actions.addLink}
           />
-          <EditorCanvas editor={editor} onContextMenu={handleContextMenu} />
+          <EditorCanvas editor={editor} />
         </main>
 
         {/* Боковая панель метаданных книги */}
@@ -218,21 +142,6 @@ export default function Page() {
       <LinkBubbleMenu editor={editor} /> 
       <Fb2SectionMenu editor={editor} onSelectImage={actions.selectImage} />
       <Fb2PoemMenu editor={editor} />
-      {/* 🔥 Рендерим плавающее контекстное меню спеллчекера */}
-      {spellMenuState && (
-        <SpellcheckContextMenu
-          x={spellMenuState.x}
-          y={spellMenuState.y}
-          word={spellMenuState.word}
-          suggestions={spellMenuState.suggestions}
-          onReplace={handleReplaceWord}
-          onAddException={addException}
-          onClose={() => setSpellMenuState(null)}
-        />
-      )}
-
-
-
 
       {/* Индикатор загрузки */}
       {isLoading && (

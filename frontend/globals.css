@@ -713,8 +713,3 @@ section.fb2-section {
     @apply px-4 py-1.5 text-[10px] font-bold uppercase tracking-wider select-none;
   }
 }
-
-/* Имитируем нативную проверку орфографии */
-.spellcheck-error {
-  text-decoration: underline wavy #ef4444; 
-}

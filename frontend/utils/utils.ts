@@ -1,8 +1,6 @@
 import { Selection } from "@tiptap/pm/state";
 import { FlatNode, TocItem } from "../types/types";
 import { Node as ProsemirrorNode } from "@tiptap/pm/model";
-import { Editor } from "@tiptap/react";
-import { JSONContent } from "@tiptap/core";
 
 /**
  * Строит иерархическое дерево из плоского массива узлов на основе их уровня (`level`).
@@ -62,7 +60,7 @@ import { JSONContent } from "@tiptap/core";
  */
 export function debounce<A extends unknown[], R>(
   fn: (...args: A) => R,
-  ms: number,
+  ms: number
 ) {
   let timeoutId: ReturnType<typeof setTimeout> | undefined;
 
@@ -200,73 +198,3 @@ export const findParentNodeByType = (
   }
   return { node: null, pos: -1, depth: null, nodeSize: 0 };
 };
-
-/**
- * Применяет типографские правила к содержимому документа в редакторе Tiptap.
- *
- * Выполняет автоматическую коррекцию текста по следующим правилам:
- * - Замена множественных пробелов, табуляций и неразрывных пробелов на один обычный пробел.
- * - Замена дефисов и коротких тире на длинное тире (—) при наличии пробелов с обеих сторон.
- * - Автоматическая расстановка «кавычек-ёлочек»: открывающие и закрывающие кавычки.
- *
- * Обработка осуществляется рекурсивно по всем узлам JSON-представления документа,
- * что позволяет корректно работать с текстом внутри таблиц, списков и других структур.
- *
- * @param editor - Экземпляр редактора Tiptap. Если `null` или не передан — возвращается сообщение об ошибке.
- * @example
- * ```ts
- * applyTypographyToBook(editor);
- * ```
- *
- * @remarks
- * Метод изменяет содержимое редактора напрямую через `editor.commands.setContent()`,
- * сохраняя состояние фокуса и истории редактирования (если это поддерживается командой).
- */
-export function applyTypographyToBook(editor: Editor) {
-  if (!editor) console.error("Ошибка: Редактор не найден");
-  // 1. Получаем текущий документ в формате JSON
-  const jsonDoc = editor.getJSON();
-
-  // Регулярные выражения (точно такие же, как для FB2)
-  const doubleSpacesRegex = /[ \u00A0\t]+/g;
-  const dashRegex = /(?<=^|\s)[-—–](?=\s)/g;
-  // Ищет кавычку (", ', ”, „), перед которой стоит пробел, начало строки, скобка ИЛИ длинное тире диалога (—)
-  // И после которой ОБЯЗАТЕЛЬНО идет буква или цифра (\p{L}\p{N} с флагом /u)
-  const openQuoteRegex = /(?<=^|[\s(\[—])["'„“\u201C\u201D](?=\p{L}|\p{N})/gu;
-
-  // 2. Закрывающая кавычка »ёлочка»
-  // Ищет кавычку, перед которой стоит буква, цифра или знак препинания (. ! ? , )
-  // И после которой идет пробел, конец строки, скобка или знак препинания
-  const closeQuoteRegex =
-    /(?<=\p{L}|\p{N}|[.!?,”\])])["'„“\u201C\u201D](?=$|[\s)\].,!?—])/gu;
-
-  // 2. Рекурсивная функция обхода дерева TipTap JSON
-  function transformNode(node: JSONContent) {
-    if (!node) return;
-
-    // Если это текстовый узел — обрабатываем его содержимое
-    if (node.type === "text" && node.text) {
-      let txt = node.text;
-
-      // Шаг А. Убираем двойные пробелы
-      txt = txt.replace(doubleSpacesRegex, " ");
-      // Шаг Б. Ставим длинное тире
-      txt = txt.replace(dashRegex, "—");
-      // Шаг В. Расставляем кавычки-ёлочки
-      txt = txt.replace(openQuoteRegex, "«").replace(closeQuoteRegex, "»");
-
-      node.text = txt;
-    }
-
-    // Если у узла есть дочерние элементы (абзацы, ячейки таблиц, списки), идем глубже
-    if (node.content && Array.isArray(node.content)) {
-      node.content.forEach(transformNode);
-    }
-  }
-
-  // Запускаем трансформацию с корня документа
-  transformNode(jsonDoc);
-
-  // 3. Возвращаем обновленный JSON обратно в TipTap без потери фокуса и истории
-  editor.commands.setContent(jsonDoc);
-}

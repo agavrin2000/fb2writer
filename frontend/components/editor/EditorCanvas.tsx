@@ -11,7 +11,6 @@ import React, { RefObject } from "react";
 interface EditorCanvasProps {
   editor: Editor | null;
   ref?: RefObject<HTMLDivElement | null>; // Добавляем ref в пропсы
-  onContextMenu?: (e: React.MouseEvent) => void;
 }
 
 /**
@@ -31,7 +30,6 @@ interface EditorCanvasProps {
 const EditorCanvasRender = ({
   ref,
   editor,
-  onContextMenu,
 }: EditorCanvasProps) => {
   // Если editor еще не инициализирован, возвращаем заглушку,
   // чтобы не ломать дерево рендеринга
@@ -41,7 +39,6 @@ const EditorCanvasRender = ({
     <div
       ref={ref}
       className="grow overflow-y-auto py-2 custom-scrollbar"
-      onContextMenu={onContextMenu}
     >
       <div className="editor-paper-sheet">
         <div

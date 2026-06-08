@@ -39,19 +39,6 @@ public record AppDetails(
 );
 
 /// <summary>
-/// Содержит основные сведения о словаре проверки орфографии.
-/// Отправляется frontend при запуске приложения.
-/// </summary>
-/// <param name="Lang">Язык словаря проверки орфографии.</param>
-/// <param name="AffContent">Файл описания словаря проверки орфографии.</param>
-/// <param name="DicContent">Словарь проверки орфографии.</param>
-public record DictionaryDetails(
-    [property: JsonPropertyName("lang")] string Lang,
-    [property: JsonPropertyName("aff")] string AffContent,
-    [property: JsonPropertyName("dic")] string DicContent
-);
-
-/// <summary>
 /// Контекст сериализации JSON, основанный на Source Generator (.NET 8+), 
 /// который предварительно генерирует код для эффективной и безопасной сериализации/десериализации типов.
 /// Включает все необходимые типы, используемые при обмене сообщениями между C# и frontend (JavaScript).
@@ -74,7 +61,6 @@ public record DictionaryDetails(
 [JsonSerializable(typeof(List<TipTapNode>))] // Для TipTap Content
 [JsonSerializable(typeof(List<object>))]       // Для вложенного контента
 [JsonSerializable(typeof(Dictionary<string, object>))] // Для атрибутов (attrs)
-[JsonSerializable(typeof(DictionaryDetails))] // Для словаря
 internal partial class EmitContext : JsonSerializerContext
 {
     public static readonly EmitContext Custom = new(CustomOptions);

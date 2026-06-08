@@ -15,11 +15,9 @@ import {
   Redo,
   FilePlus,
   SquareArrowRightExit,
-  RemoveFormatting,
 } from "lucide-react";
 import { AboutModal } from "./AboutModal";
 import ThemeToggle from "@/components/ui/ThemeToggle";
-import {applyTypographyToBook}  from "@/utils/utils";
 
 /**
  * Интерфейс свойств компонента шапки приложения.
@@ -261,17 +259,6 @@ export const Header = memo(
                       <Redo size={14} /> Повторить
                     </span>
                     <span className="text-[10px] opacity-50">Ctrl+Y</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      { if(editor) handleAction(() => applyTypographyToBook(editor))}
-                    }
-                    className="header-item"
-                  >
-                    <span className="flex items-center gap-2">
-                      <RemoveFormatting size={14} /> Типографика
-                    </span>
                   </button>
                 </div>
               )}
