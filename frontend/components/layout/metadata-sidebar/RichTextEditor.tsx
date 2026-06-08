@@ -25,7 +25,7 @@ interface RichTextProps {
      *
      * @param json - Текущее содержимое редактора в формате JSON Tiptap.
      */
-    onChange: (json: JSONContent) => void;
+    onChange: (json: JSONContent | undefined) => void;
 }
 
 /**
@@ -70,10 +70,14 @@ export const RichTextEditor = ({ content, onChange }: RichTextProps) => {
         enableInputRules: false,
         enablePasteRules: false,
 
-        content: content,
+        content: null,
         immediatelyRender: false,
 
-        onUpdate: ({ editor }) => onChange(editor.getJSON()),
+        onUpdate: ({ editor }) => {
+            // Если редактор пустой, отправляем null
+            const outputContent = editor.isEmpty ? undefined : editor.getJSON();
+            onChange(outputContent);
+        },
         editorProps: {
             attributes: {
                 // Добавляем стили для blockquote через Tailwind классы
@@ -231,5 +235,4 @@ export const RichTextEditor = ({ content, onChange }: RichTextProps) => {
 };
 
 RichTextEditor.displayName = "RichTextEditor";
-
 
