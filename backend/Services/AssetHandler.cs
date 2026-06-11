@@ -13,7 +13,7 @@ public static class AssetHandler
     /// Словарь, сопоставляющий виртуальные пути (например, "static/js/app.js") с именами ресурсов в манифесте сборки.
     /// Заполняется при вызове метода <see cref="IndexEmbeddedResources(string)"/>.
     /// </summary>
-    private static readonly Dictionary<string, string> _resourceMap = new();
+    private static readonly Dictionary<string, string> _resourceMap = [];
 
     public static void IndexEmbeddedResources(string assemblyName)
     {
@@ -104,6 +104,8 @@ public static class AssetHandler
             ".woff" => "font/woff",
             ".woff2" => "font/woff2",
             ".ico" => "image/x-icon",
+            ".aff" => "text/plain",
+            ".dic" => "text/plain",
             _ => "application/octet-stream"
         };
     }

@@ -15,6 +15,7 @@ import { LinkBubbleMenu } from "@/components/editor/LinkBubbleMenu";
 import { Fb2SectionMenu } from "@/components/editor/Fb2SectionMenu";
 import { Fb2PoemMenu } from "@/components/editor/Fb2PoemMenu";
 import { getFileName } from "@/utils/utils";
+import { SpellcheckMenu } from "@/components/editor/SpellCheckMenu";
 
 /**
  * Основной компонент страницы редактора FB2.
@@ -138,6 +139,7 @@ export default function Page() {
       </div>
 
       {/* Всплывающие меню для специфических элементов */}
+      <SpellcheckMenu editor={editor} />
       <ImageBubbleMenu editor={editor} />
       <LinkBubbleMenu editor={editor} /> 
       <Fb2SectionMenu editor={editor} onSelectImage={actions.selectImage} />

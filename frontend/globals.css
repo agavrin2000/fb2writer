@@ -713,3 +713,9 @@ section.fb2-section {
     @apply px-4 py-1.5 text-[10px] font-bold uppercase tracking-wider select-none;
   }
 }
+
+.hunspell-error {
+  border-bottom: 2px wavy red; 
+  cursor: pointer;
+}
+                    
