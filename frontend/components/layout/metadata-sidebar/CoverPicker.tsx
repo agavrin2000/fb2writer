@@ -84,18 +84,18 @@ export const CoverPicker = ({ value, onUpdate }: CoverPickerProps) => {
         Обложка книги
       </label>
 
-      <div className="relative group aspect-[3/4] w-40 mx-auto bg-ui-bg rounded-lg border-2 border-dashed border-ui-border overflow-hidden flex flex-col items-center justify-center transition-all hover:border-[var(--color-ui-accent)] shadow-inner">
+      <div className="relative group aspect-[3/4] w-40 mx-auto bg-ui-bg rounded-lg border-2 border-dashed border-ui-border overflow-hidden flex flex-col items-center justify-center transition-all hover:border-ui-accent shadow-inner">
         {imageSrc ? (
           <>
             <Image
               src={imageSrc}
               alt="Обложка"
               fill
-              className="w-full h-full object-cover"
+              className="w-full h-full object-contain"
               unoptimized
             />
             {/* Оверлей с действиями при наведении */}
-            <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+            <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
               <label
                 title="Загрузить новое изображение"
                 className="p-2 bg-paper-bg rounded-full text-ui-accent hover:bg-ui-bg-hover shadow-lg cursor-pointer transition-transform hover:scale-110"

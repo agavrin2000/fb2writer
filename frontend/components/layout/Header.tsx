@@ -15,10 +15,12 @@ import {
   Redo,
   FilePlus,
   SquareArrowRightExit,
+  RemoveFormatting,
 } from "lucide-react";
 import { AboutModal } from "./AboutModal";
 import ThemeToggle from "@/components/ui/ThemeToggle";
-
+import { applyTypographyToBook } from "@/utils/utils";
+import { useToast } from "@/hooks/ToastContext";
 /**
  * Интерфейс свойств компонента шапки приложения.
  */
@@ -101,6 +103,7 @@ export const Header = memo(
   }: HeaderProps) => {
     const [activeMenu, setActiveMenu] = useState<string | null>(null);
     const [isAboutOpen, setIsAboutOpen] = useState(false);
+  const { info: showToastInfo } = useToast();
 
     const menuRef = useRef<HTMLDivElement>(null);
 
@@ -119,7 +122,7 @@ export const Header = memo(
         document.removeEventListener("mousedown", handleClickOutside);
     }, []);
 
-    // Выполнение дейстаия и скрытие меню при выборе пункта меню
+    // Выполнение действия и скрытие меню при выборе пункта меню
     const handleAction = useCallback(
       (action: () => void) => {
         action();
@@ -259,6 +262,17 @@ export const Header = memo(
                       <Redo size={14} /> Повторить
                     </span>
                     <span className="text-[10px] opacity-50">Ctrl+Y</span>
+                  </button>
+                  {/* Применяет типографские правила */}
+                  <button
+                    type="button"
+                    onClick={() => { handleAction(() => {applyTypographyToBook(editor); showToastInfo('Типографские правила применены');}) }
+                    }
+                    className="header-item"
+                  >
+                    <span className="flex items-center gap-2">
+                      <RemoveFormatting size={14} /> Типографика
+                    </span>
                   </button>
                 </div>
               )}

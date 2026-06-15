@@ -132,24 +132,18 @@ export const ImageBubbleMenu: React.FC<ImageBubbleMenuProps> = ({ editor }) => {
     >
       <div className="flex flex-col items-end">
         {/* Контейнер-обертка, который будет иметь ту же ширину, что и выделенная картинка */}
-        <div className="flex bg-white border border-gray-200 rounded-lg shadow-2xl overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-200">
+        <div className="flex bg-ui-bg text-ui-text border border-gray-200 rounded-lg shadow-2xl overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-200">
           {/* Плашка с информацией */}
           {info && (
-            <div className="px-3 py-1.5 bg-slate-50 border-b border-gray-100 flex items-center gap-3 text-[10px] font-bold text-slate-500 whitespace-nowrap">
-              <span className="flex items-center gap-1">
+            <div className="px-3 py-1.5 flex items-center text-[10px] whitespace-nowrap">
                 {/* Информационная панель */}
-                {info.w} × {info.h} px
-              </span>
-              <span className="w-px h-3 bg-slate-200" />
-              <span className="flex items-center gap-1">
-                <span className="text-blue-500">SIZE:</span> {info.size}
-              </span>
+                {info.w}×{info.h} px ({info.size})
             </div>
           )}
           <button
             type="button"
             onClick={handleDownload}
-            className="p-1.5 hover:bg-slate-100 text-slate-600 border-r border-gray-100"
+            className="p-1.5 hover:bg-ui-bg-hover border-l border-gray-200"
             title="Скачать"
           >
             <Download size={15} />
@@ -158,7 +152,7 @@ export const ImageBubbleMenu: React.FC<ImageBubbleMenuProps> = ({ editor }) => {
             type="button"
             title="Удалить изображение"
             onClick={() => editor.chain().focus().deleteSelection().run()}
-            className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 text-[10px] font-black uppercase tracking-wider"
+            className="p-1.5 bg-red-600 hover:bg-red-700 text-white"
           >
             <X size={14} />
           </button>

@@ -1,6 +1,7 @@
 import { Selection } from "@tiptap/pm/state";
 import { FlatNode, TocItem } from "../types/types";
 import { Node as ProsemirrorNode } from "@tiptap/pm/model";
+import { Editor, JSONContent } from "@tiptap/core";
 
 /**
  * Строит иерархическое дерево из плоского массива узлов на основе их уровня (`level`).
@@ -60,7 +61,7 @@ import { Node as ProsemirrorNode } from "@tiptap/pm/model";
  */
 export function debounce<A extends unknown[], R>(
   fn: (...args: A) => R,
-  ms: number
+  ms: number,
 ) {
   let timeoutId: ReturnType<typeof setTimeout> | undefined;
 
@@ -197,4 +198,103 @@ export const findParentNodeByType = (
     }
   }
   return { node: null, pos: -1, depth: null, nodeSize: 0 };
+};
+
+/**
+ * Применяет типографские правила к содержимому документа в редакторе Tiptap.
+ *
+ * Выполняет автоматическую коррекцию текста по следующим правилам:
+ * - Замена множественных пробелов, табуляций и неразрывных пробелов на один обычный пробел.
+ * - Замена дефисов и коротких тире на длинное тире (—) при наличии пробелов с обеих сторон.
+ * - Автоматическая расстановка «кавычек-ёлочек»: открывающие и закрывающие кавычки.
+ * - Добавление неразрывного пробела перед инициалами (например, А.С.Пушкин).
+ * - Добавление пробела после знаков препинания, если они не стоят на конце (кроме цифр).
+ *
+ * Обработка осуществляется рекурсивно по всем узлам JSON-представления документа,
+ * что позволяет корректно работать с текстом внутри таблиц, списков и других структур.
+ *
+ * @param editor - Экземпляр редактора Tiptap. Если `null` или не передан — возвращается сообщение об ошибке.
+ * @example
+ * ```ts
+ * applyTypographyToBook(editor);
+ * ```
+ *
+ * @remarks
+ * Метод изменяет содержимое редактора напрямую через `editor.commands.setContent()`,
+ * сохраняя состояние фокуса и истории редактирования (если это поддерживается командой).
+ */
+export function applyTypographyToBook(editor: Editor | null) {
+  if (!editor) {
+    console.error("Ошибка: Редактор не найден");
+    return;
+  }
+
+  // 1. Глубокое клонирование JSON, чтобы не ломать историю Undo/Redo в TipTap
+  const jsonDoc = JSON.parse(JSON.stringify(editor.getJSON()));
+
+  // --- РЕГУЛЯРНЫЕ ВЫРАЖЕНИЯ ---
+
+  // Шаг А. Инициалы (например: А.С.Пушкин -> А.\u00A0С.\u00A0Пушкин)
+  const initialsRegex = /(\p{Lu})\.\s*(\p{Lu})\.\s*(?=\p{Lu}\p{Ll})/gu;
+  const singleInitialRegex = /(?<=^|[\s\u00A0])(\p{Lu})\.\s*(?=\p{Lu}\p{Ll})/gu;
+
+  // Шаг Б. Стандартные сокращения (т.д., т.п., и др., и пр.)
+  // Превращает "т.д." в "т.\u00A0д.", а "и др." в "и\u00A0др."
+  const etcRegex = /(?<=\s|^)т\.\s*([дп])\./gu; // для т.д. и т.п.
+  const andOthersRegex = /(?<=\s|^)и\s+(др|пр)\./gu; // для и др. и пр.
+
+  // Шаг В. Добавляем обычный пробел после знаков препинания (если дальше идет буква)
+  // Исключаем точки, за которыми идет заглавная буква и точка (инициалы) или строчные "д", "п", "р" (сокращения)
+  const addSpaceAfterPunctuationRegex = /([,!?:;])(?=\p{L})|(\.)(?=\p{L})(?![A-ZА-ЯЁ]\.)(?![дпр]\.)/gu;
+
+  // Шаг Г. Схлопывание дубликатов обычных пробелов
+  const doubleSpacesRegex = /[ \t]+/g;
+
+  // Шаг Д. Замена дефиса на длинное тире
+  const dashRegex = /(?<=^|[\s\u00A0])[-—–](?=[\s\u00A0])/g;
+
+  // Шаг Е. Кавычки-ёлочки
+  const openQuoteRegex = /(?<=^|[\s\u00A0(\[—])["'„“\u201C\u201D](?=\p{L}|\p{N})/gu;
+  const closeQuoteRegex = /(?<=\p{L}|\p{N}|[.!?,”\])])["'„“\u201C\u201D](?=$|[\s\u00A0)\].,!?—])/gu;
+
+  // 2. Рекурсивная функция обхода дерева
+  function transformNode(node: JSONContent) {
+    if (!node) return;
+
+    if (node.type === "text" && node.text) {
+      let txt = node.text;
+
+      // СТРОГИЙ ПОРЯДОК ОБРАБОТКИ:
+      
+      // 1. Привязываем инициалы
+      txt = txt.replace(initialsRegex, "$1.\u00A0$2.\u00A0");
+      txt = txt.replace(singleInitialRegex, "$1.\u00A0");
+
+      // 2. Форматируем сокращения через неразрывный пробел
+      txt = txt.replace(etcRegex, "т.\u00A0$1.");
+      txt = txt.replace(andOthersRegex, "и\u00A0$1.");
+
+      // 3. Добавляем пробелы после остальных знаков препинания
+      txt = txt.replace(addSpaceAfterPunctuationRegex, "$1$2 "); 
+
+      // 4. Убираем лишние обычные пробелы
+      txt = txt.replace(doubleSpacesRegex, " ");
+
+      // 5. Ставим длинное тире и кавычки
+      txt = txt.replace(dashRegex, "—");
+      txt = txt.replace(openQuoteRegex, "«").replace(closeQuoteRegex, "»");
+
+      node.text = txt;
+    }
+
+    if (node.content && Array.isArray(node.content)) {
+      node.content.forEach(transformNode);
+    }
+  }
+
+  // Запускаем трансформацию
+  transformNode(jsonDoc);
+
+  // 3. Безопасно обновляем содержимое редактора
+  editor.commands.setContent(jsonDoc);
 };
