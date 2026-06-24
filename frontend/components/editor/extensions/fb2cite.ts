@@ -14,7 +14,7 @@ export const Fb2Cite = BlockQuote.extend({
           }
           return { id: attributes.id };
         },
-        parseHTML: (element) => element.getAttribute("id"),
+        parseHTML: (element) => element.getAttribute("id") || undefined,
       },
     };
   },

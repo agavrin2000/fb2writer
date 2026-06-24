@@ -24,6 +24,18 @@ export const createEditorProps = (
   footnotesRef: RefObject<Record<string, JSONContent>>,
   setActiveNoteRef: RefObject<(note: ActiveNote) => void>,
 ) => ({
+  // Запрет drag-n-drop
+  handleDrop(view: EditorView, event: MouseEvent) {
+    event.preventDefault();
+    return true;
+  },
+  // Блокируем захват и начало перетаскивания (Drag) ИЗ редактора
+  handleDOMEvents: {
+    dragstart(view: EditorView, event: MouseEvent) {
+      event.preventDefault();
+      return true;
+    },
+  },
   /**
    * Обработчик кликов внутри редактора.
    * Перехватывает события по ссылкам и определяет, является ли ссылка внутренней меткой сноски.
@@ -74,7 +86,7 @@ export const createEditorProps = (
 
     return false; // Для обычных ссылок или текста позволяем стандартное поведение
   },
-    /**
+  /**
    * Преобразует HTML перед вставкой из буфера обмена.
    * Очищает вставляемое содержимое от нежелательных тегов и атрибутов,
    * чтобы избежать загрязнения редактора стилями и разметкой из внешних источников (например, из Word).

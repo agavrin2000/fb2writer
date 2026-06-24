@@ -1,6 +1,6 @@
 import { Node, mergeAttributes, CommandProps } from "@tiptap/core";
 import { NodeSelection } from "@tiptap/pm/state";
-import { findParentNodeByType } from "../../../utils/utils";
+import { findParentNodeByType } from "@/utils/utils";
 
 const TARGET_TYPES = ["fb2Section", "fb2BodySection", "fb2Poem", "fb2Stanza"];
 

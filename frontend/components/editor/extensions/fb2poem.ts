@@ -1,4 +1,4 @@
-import { mergeAttributes, Node } from "@tiptap/core";
+import { Node } from "@tiptap/core";
 import { CommandProps } from "@tiptap/core";
 import { findParentNodeByType } from "../../../utils/utils";
 

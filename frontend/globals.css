@@ -420,11 +420,15 @@ section.fb2-section {
 
 /* Эффект при наведении (только если картинка не выделена в данный момент) */
 .tiptap img:not(.ProseMirror-selectednode):hover {
-  @apply cursor-pointer brightness-85;
+  @apply cursor-pointer brightness-75;
 }
 
 .tiptap img.fb2-block-image {
   @apply block my-6 mx-auto;
+}
+
+.tiptap img.fb2-inline-image {
+  @apply align-bottom mx-1;
 }
 
 /* ПЛЕЙСХОЛДЕР */

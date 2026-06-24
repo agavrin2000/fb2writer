@@ -6,11 +6,13 @@ const INLINE_ACTIVE_NODES = [
   "fb2V",
   "fb2TextAuthor",
   "fb2Subtitle",
+  "tableHeader",
+  "tableCell",
 ];
 
 // Инлайновое изображение (для параграфов)
 export const Fb2InlineImage = Image.extend({
-  name: "fb2InlineImage", // Важно: другое имя!
+  name: "fb2InlineImage",
   inline: true,
   group: "inline",
   selectable: true,
@@ -23,12 +25,10 @@ export const Fb2InlineImage = Image.extend({
         renderHTML: (attributes) => ({ href: attributes.href }),
       },
       src: {
-        // Tiptap Image требует src для отображения в редакторе,
-        // но мы можем сделать его опциональным в JSON
         parseHTML: (element) => element.getAttribute("src"),
         renderHTML: (attributes) => ({ src: attributes.src }),
       },
-      class: { default: "inline-block align-bottom mx-1 max-w-full h-auto" },
+      class: { default: "fb2-inline-image" },
     };
   },
   addCommands() {
@@ -36,15 +36,12 @@ export const Fb2InlineImage = Image.extend({
       insertFb2InlineImage:
         (attributes: { src: string, href?: string }) => // Принимаем данные изображения
           ({ state, dispatch, chain }: CommandProps) => {
-            // 1. Логика проверки (Dry Run)
             const canInsert = INLINE_ACTIVE_NODES.includes(
               state.selection.$from.parent.type.name
             );
 
             if (!canInsert) return false;
 
-            // 2. Логика выполнения (если это не Dry Run, а реальный вызов)
-            // attributes передаются при вызове: editor.commands.insertFb2InlineImage({ src: '...' })
             if (dispatch && attributes) {
               return chain()
                 .insertContent({

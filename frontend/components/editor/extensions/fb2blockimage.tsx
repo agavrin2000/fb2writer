@@ -14,8 +14,6 @@ export const Fb2BlockImage = Image.extend({
   addAttributes() {
     return {
       src: {
-        // Tiptap Image требует src для отображения в редакторе,
-        // но мы можем сделать его опциональным в JSON
         parseHTML: (element) => element.getAttribute("src"),
         renderHTML: (attributes) => ({ src: attributes.src }),
       },
@@ -30,14 +28,12 @@ export const Fb2BlockImage = Image.extend({
       },
       id: {
         default: null,
-        // Отрисовка в HTML: добавляем атрибут id к тегу <p>
-        renderHTML: attributes => {
+        renderHTML: (attributes) => {
           if (!attributes.id) {
             return {}
           }
           return { id: attributes.id }
         },
-        // Парсинг из HTML: ищем атрибут id в теге <p>
         parseHTML: element => element.getAttribute('id'),
       },
       class: { default: "fb2-block-image" },

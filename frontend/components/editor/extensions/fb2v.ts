@@ -11,16 +11,13 @@ export const Fb2V = Node.create({
       id: {
         default: null,
         // Отрисовка в HTML: добавляем атрибут id к тегу <p>
-        renderHTML: attributes => {
-          if (!attributes.id) {
-            return {}
-          }
-          return { id: attributes.id }
+        renderHTML: (attributes) => {
+          return attributes.id ? { id: attributes.id } : {};
         },
         // Парсинг из HTML: ищем атрибут id в теге <p>
-        parseHTML: element => element.getAttribute('id'),
+        parseHTML: (element) => element.getAttribute("id") || undefined,
       },
-    }
+    };
   },
   parseHTML: () => [{ tag: "p.fb2-v" }, { tag: "v" }],
   renderHTML: ({ HTMLAttributes }) => [
@@ -28,11 +25,4 @@ export const Fb2V = Node.create({
     mergeAttributes(HTMLAttributes, { class: "fb2-v" }),
     0,
   ],
-
-  addKeyboardShortcuts() {
-    return {
-      // При нажатии Enter создаем новую строку стиха (fb2V)
-      Enter: () => this.editor.commands.splitBlock(),
-    };
-  },
 });
