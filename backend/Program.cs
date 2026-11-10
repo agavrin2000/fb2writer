@@ -58,7 +58,7 @@ class Program
         _window.RegisterWindowClosingHandler((sender, args) =>
          {
              // Если поднята рука "можно закрывать" — возвращаем false (не отменять закрытие)
-             if (messageHub.canClose) return false;
+             if (messageHub.CanClose) return false;
              // Внимание: В Photino.NET логика инвертирована относительно WPF:
              // возвращаемое значение типа bool указывает, нужно ли ОТМЕНИТЬ закрытие.
              messageHub.Emit("show-exit-confirmation", "");

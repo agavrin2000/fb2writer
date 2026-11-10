@@ -52,6 +52,12 @@ public class Fb2Service
     /// </summary>
     private static readonly XNamespace xlink = "http://www.w3.org/1999/xlink";
 
+    static Fb2Service()
+    {
+        // Обязательно для поддержки русских кодировок (windows-1251) в FB2
+        Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+    }
+
     /// <summary>
     /// Заполняет внутренний кэш изображений на основе XML-документа FB2.
     /// Собирает все элементы &lt;binary&gt; и сохраняет их содержимое в Base64 без лишних символов.
@@ -72,13 +78,8 @@ public class Fb2Service
             var mime = bin.Attribute("content-type")?.Value ?? "image/jpeg";
 
             // 3. Оптимизированная очистка Base64. 
-            // string.Concat + Where — это "убийца" производительности на больших фото.
-            // Replace на конкретные символы переноса работает в разы быстрее.
-            var base64 = bin.Value
-                .Replace("\r", "")
-                .Replace("\n", "")
-                .Replace(" ", "")
-                .Replace("\t", "");
+
+            var base64 = new string([.. bin.Value.Where(c => !char.IsWhiteSpace(c))]);
 
             // 4. TryAdd гарантирует, что мы берем ПЕРВЫЙ встреченный объект с таким ID
             // и не тратим ресурсы на перезапись, если ID дублируются.
@@ -121,9 +122,6 @@ public class Fb2Service
     /// <exception cref="Exception">Выбрасывается при ошибках валидации, отсутствии FB2 внутри архива или других критических ошибках.</exception>
     public Fb2BookExport ConvertXMLToJson(Stream fileStream, string fileName)
     {
-        // Обязательно для поддержки русских кодировок (windows-1251) в FB2
-        Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
-
         // Получаем xml-документ либо из zip-архива, либо напрямую
         XDocument doc = XDocument.Load(fileStream);
 
@@ -296,6 +294,7 @@ public class Fb2Service
         return exportData;
     }
 
+
     /// <summary>
     /// Ленивый кэш набора XSD-схем для валидации FB2-документов.
     /// Схемы загружаются один раз при первом обращении.
@@ -372,8 +371,7 @@ public class Fb2Service
         foreach (var el in container.Elements())
         {
             string name = el.Name.LocalName;
-            Dictionary<string, object?> attrs = el.Attributes()
-     .ToDictionary(a => a.Name.LocalName, a => (object?)a.Value);
+            Dictionary<string, object?> attrs = el.Attributes().ToDictionary(a => a.Name.LocalName, a => (object?)a.Value);
             if (name == "section")
             {
                 if (!el.Elements().Any())
@@ -686,7 +684,7 @@ public class Fb2Service
             // У автора должно быть имя/фамилия ИЛИ никнейм
             foreach (var author in authors)
             {
-                bool hasName = author.Element(ns + "first-name") != null || author.Element(ns + "last-name") != null;
+                bool hasName = author.Element(ns + "first-name") != null && author.Element(ns + "last-name") != null;
                 bool hasNickname = author.Element(ns + "nickname") != null;
                 if (!hasName && !hasNickname)
                     throw new InvalidOperationException($"В <{context}> у автора должен быть указан nickname или имя/фамилия.");
@@ -694,7 +692,7 @@ public class Fb2Service
 
             // Название книги
             if (element.Element(ns + "book-title") == null)
-                throw new InvalidOperationException($"<{context}> должен содержать назввние книги (<book-title>).");
+                throw new InvalidOperationException($"<{context}> должен содержать название книги (<book-title>).");
 
             // Язык
             if (element.Element(ns + "lang") == null)
@@ -735,7 +733,7 @@ public class Fb2Service
         // У автора должно быть имя/фамилия ИЛИ никнейм
         foreach (var author in authors)
         {
-            bool hasName = author.Element(ns + "first-name") != null || author.Element(ns + "last-name") != null;
+            bool hasName = author.Element(ns + "first-name") != null && author.Element(ns + "last-name") != null;
             bool hasNickname = author.Element(ns + "nickname") != null;
             if (!hasName && !hasNickname)
                 throw new InvalidOperationException($"В <document-info> у автора должен быть указан nickname или имя/фамилия.");
@@ -1257,7 +1255,8 @@ public class Fb2Service
         if (token.ValueKind == JsonValueKind.Undefined || token.ValueKind == JsonValueKind.Null) return;
 
         var val = token.ToString()?.Trim();
-        if (!string.IsNullOrWhiteSpace(val)) parent.Add(new XElement(name, val));
+        parent.Add(new XElement(name, val));
+        //if (!string.IsNullOrWhiteSpace(val)) parent.Add(new XElement(name, val));
     }
 
     /// <summary>
@@ -1482,15 +1481,11 @@ public class Fb2Service
             attrs = node;
         }
 
-        attrs.TryGetProperty("src", out var srcProp);
-        attrs.TryGetProperty("href", out var hrefProp);
-        attrs.TryGetProperty("title", out var titleProp);
-        attrs.TryGetProperty("id", out var idProp);
+        string? rawData = attrs.TryGetProperty("src", out var srcProp) ? srcProp.GetString() : null;
+        string? rawHref = attrs.TryGetProperty("href", out var hrefProp) ? hrefProp.GetString() : null;
+        string? title = attrs.TryGetProperty("title", out var titleProp) ? titleProp.GetString() : null;
+        string? id = attrs.TryGetProperty("id", out var idProp) ? idProp.GetString() : null;
 
-        string? rawData = srcProp.GetString();
-        string? rawHref = hrefProp.GetString();
-        string? title = titleProp.GetString();
-        string? id = idProp.GetString();
 
         // 1. Очистка ID
         string lookupId = (rawHref ?? "").Replace("#", "").Trim();
@@ -1529,7 +1524,6 @@ public class Fb2Service
 
         // 4. Формирование XML
         var img = new XElement(ns + "image",
-            new XAttribute(XNamespace.Xmlns + "xlink", xlink.NamespaceName),
             new XAttribute(xlink + "href", "#" + finalId)
         );
 

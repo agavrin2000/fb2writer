@@ -159,20 +159,15 @@ public class FileService
 
         // Создаем временный файл в той же папке для атомарности
         string tempPath = filePath + "." + Guid.NewGuid().ToString("N") + ".tmp";
-        string fileName = Path.GetFileName(filePath);
 
         try
         {
-            await Task.Run(async () =>
+            await Task.Run(() =>
             {
                 // Используем обычный using, так как мы в Task.Run
                 using (var fs = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.None))
                 {        
-                    using var ms = new MemoryStream();
-                    // Используем LeaveOpen: true, чтобы MemoryStream не закрылся раньше времени
-
-                    _epubConverter.ConvertJsonToEpub(ms, jsonContent);
-                    ms.WriteTo(fs);
+                    _epubConverter.ConvertJsonToEpub(fs, jsonContent);
                     fs.Flush(); // Сбрасываем буферы на диск
                 }
 
@@ -186,6 +181,10 @@ public class FileService
             if (File.Exists(tempPath)) File.Delete(tempPath);
             throw;
         }
+        finally
+        {
+            // Очистка временного файла при ошибке
+            if (File.Exists(tempPath)) File.Delete(tempPath);
+        }
     }
-
 }

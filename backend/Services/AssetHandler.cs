@@ -120,14 +120,14 @@ public static class AssetHandler
         string fullResourceName = assembly.GetManifestResourceNames()
             .FirstOrDefault(x => x.EndsWith(resourceName)) ?? resourceName;
 
+        if (fullResourceName == null) return string.Empty;
+
         string tempPath = Path.Combine(Path.GetTempPath(), resourceName);
+        using var stream = assembly.GetManifestResourceStream(fullResourceName);
+        if (stream == null) return string.Empty;
 
-        using Stream? stream = assembly.GetManifestResourceStream(fullResourceName);
-        if (stream == null) return resourceName;
-
-        using FileStream fileStream = new(tempPath, FileMode.Create, FileAccess.Write);
+        using var fileStream = new FileStream(tempPath, FileMode.Create, FileAccess.Write);
         stream.CopyTo(fileStream);
-
         return tempPath;
     }
 }

@@ -18,7 +18,7 @@ public class MessageHub(PhotinoWindow window, FileService fileService, string? i
     /// Флаг, определяющий необходимость подтверждения выхода из приложения
     /// По умолчанию: выход  без подтверждения запрещен
     /// </summary>
-    public bool canClose = false;
+    public bool CanClose { get; set; }
 
     /// <summary>
     /// Хранит путь к последней использованной директории для открытия или сохранения файлов.
@@ -26,6 +26,11 @@ public class MessageHub(PhotinoWindow window, FileService fileService, string? i
     /// Инициализируется папкой "Мои документы".
     /// </summary>
     private string? _lastUsedPath = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+    
+    public void Handle(object? sender, string message)
+    {
+        _ = HandleAsync(sender, message);
+    }
 
     /// <summary>
     /// Основной метод, принимающий и обрабатывающий все входящие сообщения из веб-интерфейса.
@@ -34,7 +39,7 @@ public class MessageHub(PhotinoWindow window, FileService fileService, string? i
     /// </summary>
     /// <param name="sender">Источник события (обычно не используется).</param>
     /// <param name="message">JSON-строка, содержащая команду в формате { "type": "command", "payload": {...} }.</param>
-    public async void Handle(object? sender, string message)
+    public async Task HandleAsync(object? sender, string message)
     {
         try
         {
@@ -68,7 +73,7 @@ public class MessageHub(PhotinoWindow window, FileService fileService, string? i
                     break;
 
                 case "close-app":
-                    canClose = true;
+                    CanClose = true;
                     window.Close();
                     break;
 
@@ -83,7 +88,7 @@ public class MessageHub(PhotinoWindow window, FileService fileService, string? i
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[C# Error in: {ex.Message}");
+            Console.WriteLine($"[C# Error]: {ex.Message}");
             Emit("error", ex.Message);
         }
     }
@@ -143,7 +148,9 @@ public class MessageHub(PhotinoWindow window, FileService fileService, string? i
 
         if (string.IsNullOrEmpty(localPath))
         {
-            localPath = await ChooseFileAsync("Сохранить книгу", [("Электронные книги FB2", ["fb2"]), ("Сжатые книги FB2 (ZIP)", ["fb2.zip"])], "save");
+            //localPath = await ChooseFileAsync("Сохранить книгу", [("Электронные книги FB2", ["fb2"]), ("Сжатые книги FB2 (ZIP)", ["fb2.zip"])], "save");
+            localPath = await ChooseFileAsync("Сохранить книгу", [("Электронные книги FB2",["fb2","fb2.zip"])], "save");
+            
             if (string.IsNullOrEmpty(localPath))
             {
                 Emit("cancel-loading");
@@ -179,7 +186,6 @@ public class MessageHub(PhotinoWindow window, FileService fileService, string? i
         string fileName = Path.GetFileName(localPath);
         Emit("start-exporting", fileName);
         await fileService.ExportEpubAsync(payload, localPath);
-        UpdateWindowTitle(localPath);
         Emit("cancel-loading");
     }
 
@@ -269,7 +275,7 @@ public class MessageHub(PhotinoWindow window, FileService fileService, string? i
                     // Дописываем дефолтное расширение из фильтра
                     if (validExtensions.Count > 0)
                     {
-                        localPath += validExtensions[0];
+                        localPath += validExtensions[^1];
                     }
                 }
             }

@@ -57,9 +57,6 @@ public record AppDetails(
 [JsonSerializable(typeof(string))]
 [JsonSerializable(typeof(List<TipTapNode>))]   // Для массивов узлов
 [JsonSerializable(typeof(Dictionary<string, List<object>>))] // Добавляем поддержку словаря со списками объектов внутри
-[JsonSerializable(typeof(TipTapNode))]
-[JsonSerializable(typeof(List<TipTapNode>))] // Для TipTap Content
-[JsonSerializable(typeof(List<object>))]       // Для вложенного контента
 [JsonSerializable(typeof(Dictionary<string, object>))] // Для атрибутов (attrs)
 internal partial class EmitContext : JsonSerializerContext
 {

@@ -170,7 +170,8 @@ public partial class EpubConverter
 
         // Строим дерево навигации
         _chapterCounter = 1;
-        var chapterTree = MapTipTapToChapters(book.Content.Content?[0].Content ?? []);
+        var firstBody = book.Content.Content?.FirstOrDefault();
+        var chapterTree = MapTipTapToChapters(firstBody?.Content ?? []);
 
         // 2. Плоский список для Манифеста/Spine
         var flatChapters = new List<Chapter>();
